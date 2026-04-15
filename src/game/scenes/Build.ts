@@ -436,7 +436,6 @@ export class Build extends Scene {
     const part = PARTS[partKey];
     for (const slot of robot.slots) {
       if (equipped[slot.id]) continue;
-      if (slot.accepts !== part.category) continue;
       if (!part.allowedSlots.some((s) => s === slot.slotType)) continue;
       return slot.id;
     }

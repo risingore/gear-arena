@@ -23,7 +23,8 @@ const findFreeSlotFor = (
   const part = PARTS[partKey];
   for (const slot of robot.slots) {
     if (equipped[slot.id]) continue;
-    if (slot.accepts !== part.category) continue;
+    // Slot eligibility is driven entirely by the part's allowedSlots list.
+    // slot.accepts is kept for UI labeling only.
     const slotTypeOk = part.allowedSlots.some((s) => s === slot.slotType);
     if (!slotTypeOk) continue;
     return slot.id;

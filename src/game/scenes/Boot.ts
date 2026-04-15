@@ -3,9 +3,10 @@ import { Scene } from 'phaser';
 /**
  * Boot — the very first scene.
  *
- * GEAR ARENA boots straight into the Title scene without any loading
- * screen. Audio assets are streamed in lazily on the title screen so the
- * player can interact with the game from the very first frame.
+ * Configures Phaser and hands off to Preloader. Preloader queues the
+ * optional BGM tracks and immediately transitions to Title, so even with
+ * no audio files present the player reaches the title screen within a
+ * single frame.
  */
 export class Boot extends Scene {
   constructor() {
@@ -17,6 +18,6 @@ export class Boot extends Scene {
   }
 
   create(): void {
-    this.scene.start('Title');
+    this.scene.start('Preloader');
   }
 }

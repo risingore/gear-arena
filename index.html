@@ -14,6 +14,9 @@
         font-family: system-ui, sans-serif;
         overflow: hidden;
         height: 100%;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        text-rendering: optimizeLegibility;
       }
       #game-container {
         position: fixed;
@@ -24,6 +27,11 @@
       }
       #game-container canvas {
         display: block;
+        /* Use the browser's default smooth scaler. NEVER set
+           image-rendering: pixelated / -webkit-optimize-contrast here —
+           those force nearest-neighbor sampling and make Phaser text look
+           jagged when the canvas is fitted to the viewport. */
+        image-rendering: auto;
       }
     </style>
 </head>

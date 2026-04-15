@@ -12,6 +12,7 @@
 import type { Scene } from 'phaser';
 
 import { ECONOMY, type PartKey, type RobotKey } from '@/data';
+import type { GeneratedRound } from './enemyPool';
 
 const REGISTRY_KEY = 'runState';
 
@@ -28,6 +29,10 @@ export interface RunState {
   battleOutcome: BattleOutcome;
   /** Message displayed on the Result scene after the latest battle. */
   lastResultMessage: string;
+  /** Pre-generated enemy lineup for the current run. */
+  generatedRounds: GeneratedRound[];
+  /** The enemy ID of the most recent battle (for collection tracking). */
+  lastDefeatedEnemyId: string;
 }
 
 export const createInitialRunState = (): RunState => ({
@@ -37,7 +42,9 @@ export const createInitialRunState = (): RunState => ({
   equipped: {},
   shopOffer: [],
   battleOutcome: 'pending',
-  lastResultMessage: ''
+  lastResultMessage: '',
+  generatedRounds: [],
+  lastDefeatedEnemyId: ''
 });
 
 export const getRunState = (scene: Scene): RunState => {

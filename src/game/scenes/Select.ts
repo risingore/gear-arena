@@ -6,6 +6,8 @@ import { ROBOTS, ALL_ROBOT_KEYS, type RobotKey } from '@/data';
 import { getRunState, setRunState, resetRunState } from '../systems/runState';
 import { PALETTE, ROBOT_COLORS } from '../systems/palette';
 import { generateShopOffer } from '../systems/shop';
+import { generateRunEnemies } from '../systems/enemyPool';
+import { isRobotUnlocked, isSuperBossUnlocked } from '../systems/savedata';
 import { playSfx } from '../systems/audio';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { t } from '../systems/i18n';
@@ -80,6 +82,15 @@ export class Select extends Scene {
       this.add
         .text(x, cardY + 132, `HP ${robot.baseHp}  |  Slots ${robot.slots.length}`, textStyles.small)
         .setOrigin(0.5);
+
+      // Lock overlay for unearned robots
+      if (!isRobotUnlocked(key)) {
+        this.add.rectangle(x, cardY, CARD_WIDTH, CARD_HEIGHT, 0x000000, 0.7);
+        this.add
+          .text(x, cardY, 'LOCKED', textStyles.body)
+          .setOrigin(0.5)
+          .setColor('#ff4444');
+      }
     });
 
     this.detailText = this.add
@@ -128,12 +139,16 @@ export class Select extends Scene {
   }
 
   private confirm(): void {
-    playSfx('buy');
     const robotKey: RobotKey = this.keys[this.selectedIndex]!;
+    if (!isRobotUnlocked(robotKey)) {
+      playSfx('click');
+      return;
+    }
+    playSfx('buy');
     const fresh = resetRunState(this);
-    const next = { ...fresh, robotKey, shopOffer: generateShopOffer() };
+    const generatedRounds = generateRunEnemies(isSuperBossUnlocked());
+    const next = { ...fresh, robotKey, shopOffer: generateShopOffer(), generatedRounds };
     setRunState(this, next);
-    // Ensure run state is freshly armed.
     getRunState(this);
     fadeToScene(this, 'Build');
   }

@@ -4,9 +4,6 @@ import type { GameObjects } from 'phaser';
 import gameOptions from '../helper/gameOptions';
 import {
   ROBOTS,
-  ROUNDS,
-  ALL_ROUND_KEYS,
-  TOTAL_ROUNDS,
   type PartKey
 } from '@/data';
 import { getRunState, setRunState } from '../systems/runState';
@@ -14,7 +11,6 @@ import { PALETTE, ROBOT_COLORS } from '../systems/palette';
 import { computeLoadoutStats } from '../systems/stats';
 import {
   createPlayerCombatant,
-  createEnemyCombatant,
   tickCombatant,
   type Combatant,
   type AttackEvent
@@ -82,20 +78,47 @@ export class Battle extends Scene {
     const robot = ROBOTS[state.robotKey];
     this.playerRobotArchetypeLabel = robot.archetype.toUpperCase();
     const stats = computeLoadoutStats(robot, state.equipped);
-    const roundKey = ALL_ROUND_KEYS[state.currentRound - 1] ?? ALL_ROUND_KEYS[TOTAL_ROUNDS - 1]!;
-    const round = ROUNDS[roundKey];
+
+    // Pull the pre-generated enemy for this round from the run state.
+    const genRound = state.generatedRounds[state.currentRound - 1];
+    if (!genRound) {
+      this.scene.start('Title');
+      return;
+    }
+    const totalRounds = state.generatedRounds.length;
+    const roundEnemy = genRound.enemy;
 
     this.player = createPlayerCombatant(robot.name, stats);
-    this.enemy = createEnemyCombatant(round);
+    this.enemy = {
+      name: roundEnemy.name,
+      maxHp: roundEnemy.hp,
+      hp: roundEnemy.hp,
+      damageReductionFlat: 0,
+      damageReductionPct: roundEnemy.damageReductionPct,
+      weapons: [
+        {
+          label: 'Enemy Strike',
+          damage: roundEnemy.damage,
+          cooldownSec: roundEnemy.cooldownSec,
+          timer: roundEnemy.cooldownSec
+        }
+      ],
+      overdriveMultiplier: 0,
+      overdriveThresholdHp: 0,
+      overdriveActive: false,
+      repairIntervalSec: 0,
+      repairAmount: 0,
+      repairTimer: 0
+    };
 
     // Header
     this.add
-      .text(gameWidth / 2, 48, `${t('ROUND')} ${state.currentRound} / ${TOTAL_ROUNDS}`, textStyles.title)
+      .text(gameWidth / 2, 48, `${t('ROUND')} ${state.currentRound} / ${totalRounds}`, textStyles.title)
       .setOrigin(0.5);
     this.add
-      .text(gameWidth / 2, 92, round.isBoss ? t('⚠  BOSS BATTLE  ⚠') : t('BATTLE'), textStyles.body)
+      .text(gameWidth / 2, 92, genRound.isBoss ? t('⚠  BOSS BATTLE  ⚠') : t('BATTLE'), textStyles.body)
       .setOrigin(0.5)
-      .setColor(round.isBoss ? '#ff7a00' : '#ffffff');
+      .setColor(genRound.isBoss ? '#ff7a00' : '#ffffff');
 
     // Player side
     const playerX = gameWidth * 0.28;
@@ -115,7 +138,7 @@ export class Battle extends Scene {
       .setStrokeStyle(3, PALETTE.textPrimary);
 
     this.add
-      .text(enemyX, arenaY - SPRITE_H / 2 - 28, t(round.enemy.name), textStyles.body)
+      .text(enemyX, arenaY - SPRITE_H / 2 - 28, t(roundEnemy.name), textStyles.body)
       .setOrigin(0.5);
 
     // HP bars
@@ -378,15 +401,22 @@ export class Battle extends Scene {
     this.finished = true;
     this.finishDelay = 0.9;
     const state = getRunState(this);
-    const isFinalRound = state.currentRound >= TOTAL_ROUNDS;
+    const totalRounds = state.generatedRounds.length;
+    const isFinalRound = state.currentRound >= totalRounds;
     const finalOutcome = outcome === 'win' && isFinalRound ? 'victory' : outcome;
+    const genRound = state.generatedRounds[state.currentRound - 1];
     const message =
       outcome === 'win'
         ? isFinalRound
           ? t('VICTORY!  All rounds cleared.')
           : `${t('Round')} ${state.currentRound} ${t('cleared.')}`
         : `${t(this.player.name)} ${t('was destroyed.')}`;
-    setRunState(this, { ...state, battleOutcome: finalOutcome, lastResultMessage: message });
+    setRunState(this, {
+      ...state,
+      battleOutcome: finalOutcome,
+      lastResultMessage: message,
+      lastDefeatedEnemyId: outcome === 'win' && genRound ? genRound.enemyId : ''
+    });
     this.pushLog(message);
     playSfx(finalOutcome === 'victory' ? 'victory' : outcome === 'win' ? 'win' : 'lose');
     this.refreshHp();

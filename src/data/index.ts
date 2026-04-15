@@ -22,6 +22,16 @@ export { ECONOMY } from './economy';
 export { SYNERGIES, ALL_SYNERGY_KEYS } from './synergies';
 export type { SynergyKey } from './synergies';
 
+export {
+  NORMAL_ENEMIES,
+  MID_BOSSES,
+  BIG_BOSSES,
+  SUPER_BOSS,
+  ALL_ENEMY_IDS,
+  TOTAL_COLLECTIBLE_ENEMIES
+} from './enemies';
+export type { EnemyDef } from './enemies';
+
 export type {
   PartId,
   RobotId,

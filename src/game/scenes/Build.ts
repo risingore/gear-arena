@@ -6,7 +6,6 @@ import {
   PARTS,
   ROBOTS,
   ECONOMY,
-  TOTAL_ROUNDS,
   type PartKey,
   type RobotKey,
   type SlotDef
@@ -368,7 +367,8 @@ export class Build extends Scene {
 
   private refreshHud(): void {
     const state = getRunState(this);
-    this.roundText.setText(`${t('ROUND')} ${state.currentRound} / ${TOTAL_ROUNDS}`);
+    const totalRounds = state.generatedRounds?.length || 10;
+    this.roundText.setText(`${t('ROUND')} ${state.currentRound} / ${totalRounds}`);
 
     // Gold display + overflow warning (large reserve is suspicious)
     this.goldText.setText(`${state.gold}g`);

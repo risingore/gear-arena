@@ -1,14 +1,14 @@
 import { Scene } from 'phaser';
 
 import gameOptions from '../helper/gameOptions';
-import { PARTS, ROBOTS, TOTAL_ROUNDS, type PartCategory } from '@/data';
+import { PARTS, ROBOTS, type PartCategory, type PartKey } from '@/data';
 import { getRunState, setRunState } from '../systems/runState';
 import { PALETTE } from '../systems/palette';
 import { awardRoundReward } from '../systems/loadout';
 import { generateShopOffer } from '../systems/shop';
 import { playSfx } from '../systems/audio';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
-import { recordVictory } from '../systems/savedata';
+import { recordVictory, recordDefeatedEnemy, recordUsedPart } from '../systems/savedata';
 import { t } from '../systems/i18n';
 import { playMusic, MUSIC_KEYS } from '../systems/music';
 import { applyHiDpiToScene } from '../helper/hiDpiText';
@@ -26,6 +26,16 @@ export class Result extends Scene {
     const state = getRunState(this);
     const outcome = state.battleOutcome;
     if (outcome === 'victory') playMusic(this, MUSIC_KEYS.victory);
+
+    // Track defeated enemies and used parts in the collection.
+    if ((outcome === 'win' || outcome === 'victory') && state.lastDefeatedEnemyId) {
+      recordDefeatedEnemy(state.lastDefeatedEnemyId);
+    }
+    if (outcome === 'win' || outcome === 'victory') {
+      for (const partKey of Object.values(state.equipped)) {
+        if (partKey) recordUsedPart(partKey as PartKey);
+      }
+    }
 
     const titleMap: Record<typeof outcome, string> = {
       pending: '...',
@@ -85,11 +95,12 @@ export class Result extends Scene {
       instruction = t('Press SPACE to return to title');
       this.input.keyboard?.once('keydown-SPACE', () => fadeToScene(this, 'Title'));
       this.input.keyboard?.once('keydown-R', () => fadeToScene(this, 'Title'));
+      const totalRounds = state.generatedRounds.length;
       this.add
         .text(
           gameWidth / 2,
           gameHeight * 0.55,
-          `${t('All')} ${TOTAL_ROUNDS} ${t('rounds cleared. Final gold:')} ${state.gold}g`,
+          `${t('All')} ${totalRounds} ${t('rounds cleared. Final gold:')} ${state.gold}g`,
           textStyles.body
         )
         .setOrigin(0.5)

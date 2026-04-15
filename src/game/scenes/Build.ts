@@ -21,14 +21,14 @@ import { t } from '../systems/i18n';
 import { playMusic, MUSIC_KEYS } from '../systems/music';
 import { applyHiDpiToScene } from '../helper/hiDpiText';
 
-const BLUEPRINT_BOX_W = 440;
-const BLUEPRINT_BOX_H = 560;
-const SLOT_RADIUS = 20;
-const SHOP_CARD_W = 130;
-const SHOP_CARD_H = 100;
+const BLUEPRINT_BOX_W = 420;
+const BLUEPRINT_BOX_H = 580;
+const SLOT_RADIUS = 18;
+const SHOP_CARD_W = 120;
+const SHOP_CARD_H = 90;
 const SHOP_CARD_GAP = 10;
 const SHOP_COLS = 2;
-const SHOP_AREA_X = 490;
+const SHOP_AREA_X = 470;
 
 interface SlotVisual {
   readonly slot: SlotDef;
@@ -54,7 +54,7 @@ export class Build extends Scene {
   }
 
   create(): void {
-    const { gameWidth, textStyles } = gameOptions;
+    const { textStyles } = gameOptions;
     const state = getRunState(this);
     if (!state.robotKey) {
       this.scene.start('Select');
@@ -69,37 +69,37 @@ export class Build extends Scene {
     fadeInCurrent(this);
     playMusic(this, MUSIC_KEYS.build);
 
-    // Header
+    // Header (compact — body size, not title, to save vertical space)
     this.roundText = this.add
-      .text(gameWidth / 2, 32, '', textStyles.title)
-      .setOrigin(0.5);
+      .text(20, 16, '', textStyles.body)
+      .setOrigin(0, 0);
 
     this.add
-      .text(gameWidth / 2, 70, t('BUILD your machine — click shop or press 1-5 to buy, click slots to sell'), textStyles.small)
-      .setOrigin(0.5)
-      .setAlpha(0.7);
+      .text(20, 44, t('BUILD your machine — click shop or press 1-5 to buy, click slots to sell'), textStyles.small)
+      .setOrigin(0, 0)
+      .setAlpha(0.5);
 
     // Blueprint panel (left, large)
     this.drawBlueprintPanel(state.robotKey);
 
-    // Gold + stats (right column)
-    const rightX = 760;
+    // Gold + stats (far right column, x=750)
+    const rightX = 750;
     this.goldText = this.add
-      .text(rightX, 100, '', textStyles.body)
-      .setOrigin(0, 0.5)
+      .text(rightX, 72, '', textStyles.body)
+      .setOrigin(0, 0)
       .setColor('#ffd94a');
 
     this.statsText = this.add
-      .text(rightX, 140, '', textStyles.small)
+      .text(rightX, 110, '', textStyles.small)
       .setOrigin(0, 0);
 
     this.previewText = this.add
-      .text(rightX, 320, '', textStyles.small)
+      .text(rightX, 310, '', textStyles.small)
       .setOrigin(0, 0)
       .setColor('#3ab0ff');
 
-    // Reroll + Ready buttons (right column below stats)
-    this.drawButton(rightX + 80, 500, 160, 46, `${t('REROLL')} (${ECONOMY.rerollCost}g)`, () => {
+    // Reroll + Ready buttons (far right, bottom)
+    this.drawButton(rightX + 100, 540, 180, 44, `${t('REROLL')} (${ECONOMY.rerollCost}g)`, () => {
       const s = getRunState(this);
       const rerolled = attemptReroll(s, generateShopOffer());
       if (rerolled) {
@@ -112,7 +112,7 @@ export class Build extends Scene {
       }
     });
 
-    this.drawButton(rightX + 80, 570, 160, 54, t('READY  ▶'), () => {
+    this.drawButton(rightX + 100, 610, 180, 50, t('READY  ▶'), () => {
       playSfx('click');
       fadeToScene(this, 'Battle');
     });
@@ -146,7 +146,7 @@ export class Build extends Scene {
     const { textStyles } = gameOptions;
     const robot = ROBOTS[robotKey];
     const panelX = 20;
-    const panelY = 80;
+    const panelY = 66;
 
     this.add
       .rectangle(panelX, panelY, BLUEPRINT_BOX_W, BLUEPRINT_BOX_H, PALETTE.blueprintBg, 1)

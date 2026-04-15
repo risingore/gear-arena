@@ -1,0 +1,66 @@
+# --- Secrets ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+secrets/
+
+# --- Wavedash CLI local credentials (defensive — usually in ~/.wavedash/) ---
+.wavedash/
+
+# --- AI-generated raw assets (pre-processing source files, do not publish) ---
+# Heika stores Grok / Suno raw exports here before they are processed by
+# Piskel / audio trimming. Only the post-processed versions under
+# public/assets/ should ship.
+assets-raw/
+
+# --- Kima governance layer (never ship to GitHub) ---
+# Any game derived from this template must keep the governance layer out of
+# the public repo.
+.claude/
+CLAUDE.md
+.cursorrules
+tasks/
+
+# --- Internal working docs (Japanese-authored, not for public consumption) ---
+# docs/ contains designer + engineer working documents authored in Japanese.
+# The public-facing material (README.md at the repo root) is separate.
+docs/
+
+# --- Internal tests (kept private by explicit Heika decision) ---
+# The unit tests stay local only. They are not shipped in the public repo.
+tests/
+
+# --- Node / Bun ---
+node_modules/
+.cache/
+
+# --- Vite / build output ---
+dist/
+.vite/
+*.tsbuildinfo
+
+# --- Cloudflare Wrangler ---
+.wrangler/
+.dev.vars
+
+# --- Jam distribution bundles ---
+*-itch.zip
+
+# --- Editors / OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+nul
+
+# --- Temp files ---
+tmp/
+*.bak
+*.backup
+*.swp
+*.tmp
+*~
+*.log

@@ -1,0 +1,23 @@
+{
+  "name": "machines",
+  "description": "GEAR ARENA — Gamedev.js Jam 2026 entry (theme: Machines). Slot-based auto-battler roguelike built with Phaser 4.",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "package-itch": "bash scripts/package-itch.sh",
+    "deploy": "bun run build && node node_modules/wrangler/bin/wrangler.js pages deploy dist --commit-dirty=true"
+  },
+  "dependencies": {
+    "phaser": "4.0.0"
+  },
+  "devDependencies": {
+    "typescript": "5.7.2",
+    "vite": "6.3.1",
+    "terser": "5.39.0",
+    "wrangler": "4.70.0"
+  }
+}

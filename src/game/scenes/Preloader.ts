@@ -40,13 +40,17 @@ export class Preloader extends Scene {
   }
 
   preload(): void {
-    // BGM tracks are loaded optionally: if Heika hasn't generated a file yet,
-    // Phaser logs a 404 and the key stays unregistered. systems/music.ts
-    // silently skips missing keys so gameplay continues without BGM.
-    this.load.audio('bgm_title',   'assets/audio/bgm_title.ogg');
-    this.load.audio('bgm_build',   'assets/audio/bgm_build.ogg');
-    this.load.audio('bgm_battle',  'assets/audio/bgm_battle.ogg');
-    this.load.audio('bgm_victory', 'assets/audio/bgm_victory.ogg');
+    // BGM tracks are loaded optionally. If the file is not present yet, Phaser
+    // logs a 404 and the key stays unregistered; systems/music.ts silently
+    // skips missing keys so gameplay continues without BGM.
+    //
+    // Each key is given a [mp3, ogg] fallback list so the same code path
+    // works with either format. MP3 is preferred because generative music
+    // tools export MP3 directly and no transcoding step is needed.
+    this.load.audio('bgm_title',   ['assets/audio/bgm_title.mp3',   'assets/audio/bgm_title.ogg']);
+    this.load.audio('bgm_build',   ['assets/audio/bgm_build.mp3',   'assets/audio/bgm_build.ogg']);
+    this.load.audio('bgm_battle',  ['assets/audio/bgm_battle.mp3',  'assets/audio/bgm_battle.ogg']);
+    this.load.audio('bgm_victory', ['assets/audio/bgm_victory.mp3', 'assets/audio/bgm_victory.ogg']);
 
     // Swallow load errors so missing BGM files do not block scene transitions.
     this.load.on('loaderror', () => {

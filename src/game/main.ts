@@ -25,6 +25,15 @@ const config: Types.Core.GameConfig = {
     mode: Scale.FIT,
     autoCenter: Scale.CENTER_BOTH
   },
+  // Explicitly enable the input plugins. Phaser usually does this by
+  // default, but pinning it down avoids any chance of the keyboard
+  // listener silently disappearing on us.
+  input: {
+    keyboard: true,
+    mouse: true,
+    touch: true,
+    gamepad: false
+  },
   render: {
     antialias: true,
     pixelArt: false,

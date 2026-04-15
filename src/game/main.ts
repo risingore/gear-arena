@@ -17,9 +17,17 @@ const config: Types.Core.GameConfig = {
   height: gameOptions.gameHeight,
   parent: 'game-container',
   backgroundColor: gameOptions.backgroundColor,
+  // Crisp text on Retina / 4K displays is handled per-Text via the
+  // `resolution` field of every TextStyle in helper/gameOptions.ts.
+  // Phaser 4 dropped the top-level GameConfig.resolution property.
   scale: {
     mode: Scale.FIT,
     autoCenter: Scale.CENTER_BOTH
+  },
+  render: {
+    antialias: true,
+    pixelArt: false,
+    roundPixels: false
   },
   physics: {
     default: 'arcade',

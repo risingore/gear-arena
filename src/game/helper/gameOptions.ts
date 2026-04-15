@@ -24,6 +24,16 @@ type GameOptions = {
   };
 };
 
+/**
+ * Match the canvas text rendering to the device pixel ratio. Without this
+ * Phaser rasterizes text at the logical 1x size and then scales the canvas
+ * up, which produces fuzzy / muddy glyphs on Retina and 4K displays.
+ *
+ * Capped at 3 to keep the glyph cache reasonable on extreme DPI screens.
+ */
+const TEXT_RESOLUTION =
+  typeof window !== 'undefined' ? Math.min(window.devicePixelRatio || 1, 3) : 1;
+
 const gameOptions: GameOptions = {
   gameTitle: 'GEAR ARENA',
   gameWidth: 1280,
@@ -34,17 +44,20 @@ const gameOptions: GameOptions = {
       fontFamily: 'system-ui, sans-serif',
       fontSize: '64px',
       color: '#ffffff',
-      fontStyle: 'bold'
+      fontStyle: 'bold',
+      resolution: TEXT_RESOLUTION
     },
     body: {
       fontFamily: 'system-ui, sans-serif',
       fontSize: '24px',
-      color: '#ffffff'
+      color: '#ffffff',
+      resolution: TEXT_RESOLUTION
     },
     small: {
       fontFamily: 'system-ui, sans-serif',
       fontSize: '16px',
-      color: '#888899'
+      color: '#888899',
+      resolution: TEXT_RESOLUTION
     }
   },
   colors: {

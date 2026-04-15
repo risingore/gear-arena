@@ -3,12 +3,9 @@ import { Scene } from 'phaser';
 /**
  * Boot — the very first scene.
  *
- * Responsibilities:
- * - Configure Phaser (scale mode quirks, input defaults, etc).
- * - Load only the handful of assets needed by the Preloader scene itself
- *   (so the loading screen can render the moment the game starts).
- *
- * Do NOT load the bulk of the game assets here. Those go in Preloader.
+ * GEAR ARENA boots straight into the Title scene without any loading
+ * screen. Audio assets are streamed in lazily on the title screen so the
+ * player can interact with the game from the very first frame.
  */
 export class Boot extends Scene {
   constructor() {
@@ -16,11 +13,10 @@ export class Boot extends Scene {
   }
 
   preload(): void {
-    // Intentionally minimal. Add Preloader-required assets (logo, bar bg)
-    // here if you introduce them.
+    // Intentionally empty. No assets are loaded here.
   }
 
   create(): void {
-    this.scene.start('Preloader');
+    this.scene.start('Title');
   }
 }

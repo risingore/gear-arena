@@ -2,7 +2,6 @@ import { AUTO, Game, Scale } from 'phaser';
 import type { Types } from 'phaser';
 
 import { Boot } from './scenes/Boot';
-import { Preloader } from './scenes/Preloader';
 import { Title } from './scenes/Title';
 import { Select } from './scenes/Select';
 import { Build } from './scenes/Build';
@@ -29,7 +28,7 @@ const config: Types.Core.GameConfig = {
       debug: false
     }
   },
-  scene: [Boot, Preloader, Title, Select, Build, Battle, Result, GameOver]
+  scene: [Boot, Title, Select, Build, Battle, Result, GameOver]
 };
 
 export const startGame = (parent: string): Game => {

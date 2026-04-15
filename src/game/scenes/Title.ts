@@ -76,6 +76,36 @@ export class Title extends Scene {
     };
     this.input.keyboard?.once('keydown-SPACE', start);
     this.input.once('pointerdown', start);
+
+    // Stream every BGM track in the background. The title screen is rendered
+    // immediately; audio just fades in once the file arrives. By the time the
+    // player reaches Build / Battle / Result the audio cache is already warm
+    // so transitions feel instant.
+    this.lazyLoadMusic();
+  }
+
+  private lazyLoadMusic(): void {
+    if (
+      this.cache.audio.has(MUSIC_KEYS.title) &&
+      this.cache.audio.has(MUSIC_KEYS.build) &&
+      this.cache.audio.has(MUSIC_KEYS.battle) &&
+      this.cache.audio.has(MUSIC_KEYS.victory)
+    ) {
+      // Already loaded on a previous visit to the title scene.
+      playMusic(this, MUSIC_KEYS.title);
+      return;
+    }
+    this.load.audio(MUSIC_KEYS.title,   ['assets/audio/bgm_title.mp3',   'assets/audio/bgm_title.ogg']);
+    this.load.audio(MUSIC_KEYS.build,   ['assets/audio/bgm_build.mp3',   'assets/audio/bgm_build.ogg']);
+    this.load.audio(MUSIC_KEYS.battle,  ['assets/audio/bgm_battle.mp3',  'assets/audio/bgm_battle.ogg']);
+    this.load.audio(MUSIC_KEYS.victory, ['assets/audio/bgm_victory.mp3', 'assets/audio/bgm_victory.ogg']);
+    this.load.once('complete', () => {
+      playMusic(this, MUSIC_KEYS.title);
+    });
+    this.load.on('loaderror', () => {
+      // Missing files are silently skipped by systems/music.ts.
+    });
+    this.load.start();
   }
 
   private drawBackgroundGear(

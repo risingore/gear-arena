@@ -5,6 +5,7 @@ import { PARTS, ROBOTS, TOTAL_ROUNDS, type PartCategory } from '@/data';
 import { getRunState, setRunState } from '../systems/runState';
 import { PALETTE } from '../systems/palette';
 import { awardRoundReward } from '../systems/loadout';
+import { generateShopOffer } from '../systems/shop';
 import { playSfx } from '../systems/audio';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { recordVictory } from '../systems/savedata';
@@ -50,10 +51,14 @@ export class Result extends Scene {
     let instruction = '';
     if (outcome === 'win') {
       const rewarded = awardRoundReward(state);
+      // Auto-reroll the shop on every round transition so the player always
+      // greets the next Build phase with a fresh selection — no need to spend
+      // a manual reroll just to clear leftover inventory.
       const advanced = {
         ...rewarded,
         currentRound: state.currentRound + 1,
-        battleOutcome: 'pending' as const
+        battleOutcome: 'pending' as const,
+        shopOffer: generateShopOffer()
       };
       setRunState(this, advanced);
       instruction = t('Press SPACE to continue to next round   ·   R to quit');

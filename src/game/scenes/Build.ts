@@ -6,6 +6,7 @@ import {
   PARTS,
   ROBOTS,
   ECONOMY,
+  TOTAL_ROUNDS,
   type PartKey,
   type RobotKey,
   type SlotDef
@@ -22,7 +23,11 @@ import { playMusic, MUSIC_KEYS } from '../systems/music';
 
 const BLUEPRINT_BOX_W = 260;
 const BLUEPRINT_BOX_H = 320;
-const SLOT_RADIUS = 22;
+/**
+ * Tightened so the densest 12-slot layout (GOLIATH-02) does not have
+ * its slot circles visibly overlap inside the 192x220 virtual space.
+ */
+const SLOT_RADIUS = 16;
 const SHOP_CARD_W = 140;
 const SHOP_CARD_H = 160;
 const SHOP_CARD_GAP = 16;
@@ -360,7 +365,7 @@ export class Build extends Scene {
 
   private refreshHud(): void {
     const state = getRunState(this);
-    this.roundText.setText(`${t('ROUND')} ${state.currentRound} / 5`);
+    this.roundText.setText(`${t('ROUND')} ${state.currentRound} / ${TOTAL_ROUNDS}`);
 
     // Gold display + overflow warning (large reserve is suspicious)
     this.goldText.setText(`${state.gold}g`);

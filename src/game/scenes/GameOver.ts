@@ -1,6 +1,7 @@
 import { Scene } from 'phaser';
 
 import gameOptions from '../helper/gameOptions';
+import { TOTAL_ROUNDS } from '@/data';
 import { getRunState } from '../systems/runState';
 import { PALETTE } from '../systems/palette';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
@@ -28,7 +29,7 @@ export class GameOver extends Scene {
       .text(
         gameWidth / 2,
         gameHeight * 0.45,
-        `${t('Reached round')} ${state.currentRound} / 5`,
+        `${t('Reached round')} ${state.currentRound} / ${TOTAL_ROUNDS}`,
         textStyles.body
       )
       .setOrigin(0.5);

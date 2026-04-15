@@ -1,7 +1,7 @@
 # --- Secrets ---
+# GEAR ARENA uses no environment variables. No .env template is shipped.
 .env
 .env.*
-!.env.example
 *.pem
 *.key
 *.p12

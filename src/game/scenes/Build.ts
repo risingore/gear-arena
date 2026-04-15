@@ -21,16 +21,14 @@ import { t } from '../systems/i18n';
 import { playMusic, MUSIC_KEYS } from '../systems/music';
 import { applyHiDpiToScene } from '../helper/hiDpiText';
 
-const BLUEPRINT_BOX_W = 260;
-const BLUEPRINT_BOX_H = 320;
-/**
- * Tightened so the densest 12-slot layout (GOLIATH-02) does not have
- * its slot circles visibly overlap inside the 192x220 virtual space.
- */
-const SLOT_RADIUS = 16;
-const SHOP_CARD_W = 140;
-const SHOP_CARD_H = 160;
-const SHOP_CARD_GAP = 16;
+const BLUEPRINT_BOX_W = 440;
+const BLUEPRINT_BOX_H = 560;
+const SLOT_RADIUS = 20;
+const SHOP_CARD_W = 130;
+const SHOP_CARD_H = 100;
+const SHOP_CARD_GAP = 10;
+const SHOP_COLS = 2;
+const SHOP_AREA_X = 490;
 
 interface SlotVisual {
   readonly slot: SlotDef;
@@ -81,27 +79,27 @@ export class Build extends Scene {
       .setOrigin(0.5)
       .setAlpha(0.7);
 
-    // Blueprint panel (left)
+    // Blueprint panel (left, large)
     this.drawBlueprintPanel(state.robotKey);
 
-    // Gold + stats (right top)
-    const rightX = gameWidth - 260;
+    // Gold + stats (right column)
+    const rightX = 760;
     this.goldText = this.add
-      .text(rightX, 120, '', textStyles.body)
+      .text(rightX, 100, '', textStyles.body)
       .setOrigin(0, 0.5)
       .setColor('#ffd94a');
 
     this.statsText = this.add
-      .text(rightX, 160, '', textStyles.small)
+      .text(rightX, 140, '', textStyles.small)
       .setOrigin(0, 0);
 
     this.previewText = this.add
-      .text(rightX, 310, '', textStyles.small)
+      .text(rightX, 320, '', textStyles.small)
       .setOrigin(0, 0)
       .setColor('#3ab0ff');
 
-    // Reroll + Ready buttons (right middle)
-    this.drawButton(rightX + 80, 360, 160, 46, `${t('REROLL')} (${ECONOMY.rerollCost}g)`, () => {
+    // Reroll + Ready buttons (right column below stats)
+    this.drawButton(rightX + 80, 500, 160, 46, `${t('REROLL')} (${ECONOMY.rerollCost}g)`, () => {
       const s = getRunState(this);
       const rerolled = attemptReroll(s, generateShopOffer());
       if (rerolled) {
@@ -114,7 +112,7 @@ export class Build extends Scene {
       }
     });
 
-    this.drawButton(rightX + 80, 420, 160, 54, t('READY  ▶'), () => {
+    this.drawButton(rightX + 80, 570, 160, 54, t('READY  ▶'), () => {
       playSfx('click');
       fadeToScene(this, 'Battle');
     });
@@ -147,8 +145,8 @@ export class Build extends Scene {
   private drawBlueprintPanel(robotKey: RobotKey): void {
     const { textStyles } = gameOptions;
     const robot = ROBOTS[robotKey];
-    const panelX = 80;
-    const panelY = 110;
+    const panelX = 20;
+    const panelY = 80;
 
     this.add
       .rectangle(panelX, panelY, BLUEPRINT_BOX_W, BLUEPRINT_BOX_H, PALETTE.blueprintBg, 1)
@@ -245,20 +243,23 @@ export class Build extends Scene {
   // --------------------------------------------------------------------------
 
   private drawShopArea(): void {
-    const { gameWidth, gameHeight, textStyles } = gameOptions;
-    const shopY = gameHeight - SHOP_CARD_H - 48;
-    const total = ECONOMY.shopSlotCount * SHOP_CARD_W + (ECONOMY.shopSlotCount - 1) * SHOP_CARD_GAP;
-    const startX = gameWidth / 2 - total / 2 + SHOP_CARD_W / 2;
+    const { textStyles } = gameOptions;
+    // 2-column grid to the right of the blueprint panel.
+    const gridLeft = SHOP_AREA_X;
+    const gridTop = 108;
 
     this.add
-      .text(gameWidth / 2, shopY - 24, t('SHOP'), textStyles.body)
+      .text(gridLeft + (SHOP_COLS * (SHOP_CARD_W + SHOP_CARD_GAP)) / 2 - SHOP_CARD_GAP / 2, gridTop - 24, t('SHOP'), textStyles.body)
       .setOrigin(0.5)
       .setAlpha(0.8);
 
     this.shopContainers = [];
     for (let i = 0; i < ECONOMY.shopSlotCount; i += 1) {
-      const x = startX + i * (SHOP_CARD_W + SHOP_CARD_GAP);
-      const container = this.add.container(x, shopY);
+      const col = i % SHOP_COLS;
+      const row = Math.floor(i / SHOP_COLS);
+      const x = gridLeft + col * (SHOP_CARD_W + SHOP_CARD_GAP) + SHOP_CARD_W / 2;
+      const y = gridTop + row * (SHOP_CARD_H + SHOP_CARD_GAP) + SHOP_CARD_H / 2;
+      const container = this.add.container(x, y);
       const bg = this.add
         .rectangle(0, 0, SHOP_CARD_W, SHOP_CARD_H, PALETTE.cardBg, 1)
         .setStrokeStyle(2, PALETTE.cardStroke);

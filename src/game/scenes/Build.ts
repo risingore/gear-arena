@@ -20,6 +20,7 @@ import { playSfx } from '../systems/audio';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { t } from '../systems/i18n';
 import { playMusic, MUSIC_KEYS } from '../systems/music';
+import { applyHiDpiToScene } from '../helper/hiDpiText';
 
 const BLUEPRINT_BOX_W = 260;
 const BLUEPRINT_BOX_H = 320;
@@ -136,6 +137,8 @@ export class Build extends Scene {
     });
 
     this.refreshAll();
+
+    applyHiDpiToScene(this);
   }
 
   // --------------------------------------------------------------------------

@@ -11,6 +11,7 @@ import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { recordVictory } from '../systems/savedata';
 import { t } from '../systems/i18n';
 import { playMusic, MUSIC_KEYS } from '../systems/music';
+import { applyHiDpiToScene } from '../helper/hiDpiText';
 
 export class Result extends Scene {
   constructor() {
@@ -116,6 +117,8 @@ export class Result extends Scene {
       .text(gameWidth / 2, gameHeight * 0.75, instruction, textStyles.small)
       .setOrigin(0.5)
       .setAlpha(0.8);
+
+    applyHiDpiToScene(this);
   }
 
   /**

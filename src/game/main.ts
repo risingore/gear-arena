@@ -1,6 +1,9 @@
 import { AUTO, Game, Scale } from 'phaser';
 import type { Types } from 'phaser';
 
+// High-DPI text resolution is applied per-scene via helper/hiDpiText.ts.
+// Each scene calls applyHiDpiToScene(this) at the end of create().
+
 import { Boot } from './scenes/Boot';
 import { Preloader } from './scenes/Preloader';
 import { Title } from './scenes/Title';

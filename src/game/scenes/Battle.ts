@@ -24,6 +24,7 @@ import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { recordRoundReached } from '../systems/savedata';
 import { t } from '../systems/i18n';
 import { playMusic, MUSIC_KEYS } from '../systems/music';
+import { applyHiDpiToScene, TEXT_DPR } from '../helper/hiDpiText';
 
 const HP_BAR_W = 320;
 const HP_BAR_H = 22;
@@ -48,8 +49,14 @@ export class Battle extends Scene {
   private finished = false;
   private finishDelay = 0;
   private overdriveLabel: GameObjects.Text | null = null;
-  private timeScale = 1;
+  private timeScale = 2;
   private speedLabel!: GameObjects.Text;
+  private elapsedBattleSec = 0;
+  private debugTimerText!: GameObjects.Text;
+  /** Real seconds elapsed before auto fast-forward kicks in. */
+  private static readonly AUTO_FF_SEC = 15;
+  /** Speed multiplier applied after AUTO_FF_SEC elapses. */
+  private static readonly AUTO_FF_SPEED = 6;
 
   constructor() {
     super('Battle');
@@ -69,7 +76,8 @@ export class Battle extends Scene {
     this.finished = false;
     this.finishDelay = 0;
     this.logLines = [];
-    this.timeScale = 1;
+    this.timeScale = 2;
+    this.elapsedBattleSec = 0;
 
     const robot = ROBOTS[state.robotKey];
     this.playerRobotArchetypeLabel = robot.archetype.toUpperCase();
@@ -172,9 +180,15 @@ export class Battle extends Scene {
       .setAlpha(0.9);
 
     this.speedLabel = this.add
-      .text(gameWidth - 24, 24, `${t('SPEED')} x1`, textStyles.body)
+      .text(gameWidth - 24, 24, `${t('SPEED')} x${this.timeScale}`, textStyles.body)
       .setOrigin(1, 0)
       .setAlpha(0.8);
+
+    // Debug: elapsed real-time counter (visible during development).
+    this.debugTimerText = this.add
+      .text(gameWidth - 24, 56, '0.0s', textStyles.small)
+      .setOrigin(1, 0)
+      .setAlpha(0.6);
 
     this.pushLog(t('Combat begins…  (SPACE: speed toggle x1 / x2 / x4)'));
 
@@ -185,10 +199,12 @@ export class Battle extends Scene {
     recordRoundReached(state.currentRound);
 
     this.refreshHp();
+
+    applyHiDpiToScene(this);
   }
 
   private cycleSpeed(): void {
-    const sequence = [1, 2, 4];
+    const sequence = [1, 2, 4, 6];
     const idx = sequence.indexOf(this.timeScale);
     this.timeScale = sequence[(idx + 1) % sequence.length]!;
     this.speedLabel.setText(`${t('SPEED')} x${this.timeScale}`);
@@ -198,6 +214,20 @@ export class Battle extends Scene {
   update(_time: number, delta: number): void {
     if (!this.player || !this.enemy) return;
     const realDtSec = delta / 1000;
+
+    // Track real elapsed time for auto fast-forward and debug display.
+    this.elapsedBattleSec += realDtSec;
+    this.debugTimerText.setText(`${this.elapsedBattleSec.toFixed(1)}s`);
+
+    // Auto fast-forward after AUTO_FF_SEC of real time.
+    if (
+      this.elapsedBattleSec >= Battle.AUTO_FF_SEC &&
+      this.timeScale < Battle.AUTO_FF_SPEED
+    ) {
+      this.timeScale = Battle.AUTO_FF_SPEED;
+      this.speedLabel.setText(`${t('SPEED')} x${this.timeScale}`);
+    }
+
     const dtSec = realDtSec * this.timeScale;
 
     if (this.finished) {
@@ -275,7 +305,8 @@ export class Battle extends Scene {
         color: fromPlayer ? '#ffd94a' : '#ff6a6a',
         fontStyle: 'bold'
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setResolution(TEXT_DPR);
     this.tweens.add({
       targets: text,
       y: y - POPUP_RISE_PX,
@@ -294,7 +325,8 @@ export class Battle extends Scene {
         color: '#3aff7a',
         fontStyle: 'bold'
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setResolution(TEXT_DPR);
     this.tweens.add({
       targets: text,
       y: y - 20 - POPUP_RISE_PX,
@@ -314,7 +346,8 @@ export class Battle extends Scene {
         color: '#ff7a00',
         fontStyle: 'bold'
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setResolution(TEXT_DPR);
     this.tweens.add({
       targets: this.overdriveLabel,
       alpha: { from: 0, to: 1 },

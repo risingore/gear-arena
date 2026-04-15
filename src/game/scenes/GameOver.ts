@@ -7,6 +7,7 @@ import { PALETTE } from '../systems/palette';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { playSfx } from '../systems/audio';
 import { t } from '../systems/i18n';
+import { applyHiDpiToScene } from '../helper/hiDpiText';
 
 export class GameOver extends Scene {
   constructor() {
@@ -46,5 +47,7 @@ export class GameOver extends Scene {
     this.input.keyboard?.once('keydown-SPACE', restart);
     this.input.keyboard?.once('keydown-R', restart);
     this.input.once('pointerdown', restart);
+
+    applyHiDpiToScene(this);
   }
 }

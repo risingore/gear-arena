@@ -8,6 +8,7 @@ import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { loadSaveData } from '../systems/savedata';
 import { t } from '../systems/i18n';
 import { playMusic, MUSIC_KEYS } from '../systems/music';
+import { applyHiDpiToScene } from '../helper/hiDpiText';
 
 export class Title extends Scene {
   constructor() {
@@ -76,6 +77,8 @@ export class Title extends Scene {
     };
     this.input.keyboard?.once('keydown-SPACE', start);
     this.input.once('pointerdown', start);
+
+    applyHiDpiToScene(this);
   }
 
   private drawBackgroundGear(

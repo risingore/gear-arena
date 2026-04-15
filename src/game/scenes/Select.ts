@@ -9,6 +9,7 @@ import { generateShopOffer } from '../systems/shop';
 import { playSfx } from '../systems/audio';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { t } from '../systems/i18n';
+import { applyHiDpiToScene } from '../helper/hiDpiText';
 
 const CARD_WIDTH = 200;
 const CARD_HEIGHT = 360;
@@ -110,6 +111,8 @@ export class Select extends Scene {
         }
       });
     });
+
+    applyHiDpiToScene(this);
   }
 
   private refresh(): void {

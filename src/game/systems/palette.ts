@@ -1,0 +1,60 @@
+/**
+ * Placeholder color constants.
+ *
+ * These drive the provisional visuals used until real art ships (Day 7).
+ * Once art is in, HP bar / button / text colors stay; silhouette fills are
+ * replaced by sprite textures.
+ */
+
+import type { PartCategory, RobotArchetype } from '@/data';
+
+export const PALETTE = {
+  bg: 0x0a0a10,
+  blueprintBg: 0x10204a,
+  blueprintLine: 0xaeeaff,
+  slotEmpty: 0x203a6a,
+  slotEmptyStroke: 0x88bbee,
+  slotFilled: 0x3a6aaa,
+  slotFilledStroke: 0xffffff,
+  cardBg: 0x1a1a28,
+  cardBgHover: 0x2a2a40,
+  cardStroke: 0x555577,
+  cardStrokeSelected: 0xff7a00,
+  textPrimary: 0xffffff,
+  textMuted: 0x888899,
+  hpBarBg: 0x331515,
+  hpBarFill: 0xff3a3a,
+  hpBarFillEnemy: 0xaa3333,
+  goldText: 0xffd94a,
+  buttonBg: 0x3a3a55,
+  buttonBgHover: 0x555577,
+  buttonDisabled: 0x222233,
+  accentOrange: 0xff7a00,
+  accentBlue: 0x3ab0ff,
+  accentGreen: 0x3aff7a,
+  accentRed: 0xff3a3a,
+  danger: 0xff4444
+} as const;
+
+export const ROBOT_COLORS: Record<RobotArchetype, number> = {
+  balanced: 0x9bbdff,
+  heavy:    0xff9b5b,
+  speed:    0x3aff7a,
+  tech:     0xc49bff
+};
+
+export const CATEGORY_COLORS: Record<PartCategory, number> = {
+  weapon:  0xff5a5a,
+  armor:   0x5aaaff,
+  engine:  0xffaa3a,
+  gear:    0xc0c0c0,
+  special: 0xc49bff
+};
+
+export const CATEGORY_LABEL: Record<PartCategory, string> = {
+  weapon:  'WPN',
+  armor:   'ARM',
+  engine:  'ENG',
+  gear:    'GER',
+  special: 'SPC'
+};

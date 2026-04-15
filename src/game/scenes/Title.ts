@@ -9,6 +9,7 @@ import { loadSaveData } from '../systems/savedata';
 import { t } from '../systems/i18n';
 import { playMusic, MUSIC_KEYS } from '../systems/music';
 import { applyHiDpiToScene } from '../helper/hiDpiText';
+import { isDebugEnabled, toggleDebug } from '../systems/debug';
 
 export class Title extends Scene {
   constructor() {
@@ -77,6 +78,19 @@ export class Title extends Scene {
     };
     this.input.keyboard?.once('keydown-SPACE', start);
     this.input.once('pointerdown', start);
+
+    // Debug toggle button (bottom-left)
+    const debugLabel = this.add
+      .text(16, gameHeight - 24, `DEBUG: ${isDebugEnabled() ? 'ON' : 'OFF'}`, textStyles.small)
+      .setOrigin(0, 1)
+      .setAlpha(0.5)
+      .setInteractive({ useHandCursor: true });
+    debugLabel.on('pointerdown', (p: { stopPropagation: () => void }) => {
+      p.stopPropagation();
+      const on = toggleDebug();
+      debugLabel.setText(`DEBUG: ${on ? 'ON' : 'OFF'}`);
+      debugLabel.setAlpha(on ? 0.9 : 0.5);
+    });
 
     applyHiDpiToScene(this);
   }

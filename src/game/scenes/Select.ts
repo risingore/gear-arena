@@ -12,6 +12,8 @@ import { playSfx } from '../systems/audio';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { t } from '../systems/i18n';
 import { applyHiDpiToScene } from '../helper/hiDpiText';
+import { isDebugEnabled } from '../systems/debug';
+import { CATEGORY_COLORS } from '../systems/palette';
 
 const CARD_WIDTH = 200;
 const CARD_HEIGHT = 360;
@@ -64,11 +66,37 @@ export class Select extends Scene {
       });
       this.cards.push(card);
 
-      // Archetype-colored silhouette placeholder for this robot.
-      const silhouetteColor = ROBOT_COLORS[robot.archetype];
-      this.add
-        .rectangle(x, cardY - 40, CARD_WIDTH * 0.45, CARD_HEIGHT * 0.45, silhouetteColor, 1)
-        .setStrokeStyle(2, PALETTE.textPrimary);
+      // Robot preview: blueprint slot layout (shows slot positions in miniature)
+      // or archetype-colored silhouette as fallback.
+      const previewCx = x;
+      const previewCy = cardY - 40;
+      const previewW = CARD_WIDTH * 0.45;
+      const previewH = CARD_HEIGHT * 0.45;
+
+      if (isDebugEnabled() || true) {
+        // Mini blueprint: dark bg + slot circles scaled to fit the preview area
+        this.add
+          .rectangle(previewCx, previewCy, previewW, previewH, PALETTE.blueprintBg, 1)
+          .setStrokeStyle(2, PALETTE.blueprintLine);
+        const virtualW = 192;
+        const virtualH = 220;
+        const scale = Math.min(previewW * 0.85 / virtualW, previewH * 0.85 / virtualH);
+        const ox = previewCx - (virtualW * scale) / 2;
+        const oy = previewCy - (virtualH * scale) / 2;
+        const miniRadius = Math.max(4, Math.round(8 * scale));
+        for (const slot of robot.slots) {
+          const sx = ox + slot.x * scale;
+          const sy = oy + slot.y * scale;
+          this.add
+            .circle(sx, sy, miniRadius, CATEGORY_COLORS[slot.accepts], 1)
+            .setStrokeStyle(1, PALETTE.blueprintLine);
+        }
+      } else {
+        const silhouetteColor = ROBOT_COLORS[robot.archetype];
+        this.add
+          .rectangle(previewCx, previewCy, previewW, previewH, silhouetteColor, 1)
+          .setStrokeStyle(2, PALETTE.textPrimary);
+      }
 
       this.add
         .text(x, cardY + 80, t(robot.name), textStyles.body)

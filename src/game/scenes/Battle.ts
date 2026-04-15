@@ -21,6 +21,7 @@ import { recordRoundReached } from '../systems/savedata';
 import { t } from '../systems/i18n';
 import { playMusic, MUSIC_KEYS } from '../systems/music';
 import { applyHiDpiToScene, TEXT_DPR } from '../helper/hiDpiText';
+import { isDebugEnabled } from '../systems/debug';
 
 const HP_BAR_W = 320;
 const HP_BAR_H = 22;
@@ -207,11 +208,12 @@ export class Battle extends Scene {
       .setOrigin(1, 0)
       .setAlpha(0.8);
 
-    // Debug: elapsed real-time counter (visible during development).
+    // Debug: elapsed real-time counter (only visible when debug mode is ON).
     this.debugTimerText = this.add
       .text(gameWidth - 24, 56, '0.0s', textStyles.small)
       .setOrigin(1, 0)
-      .setAlpha(0.6);
+      .setAlpha(0.6)
+      .setVisible(isDebugEnabled());
 
     this.pushLog(t('Combat begins…  (SPACE: speed toggle x1 / x2 / x4)'));
 

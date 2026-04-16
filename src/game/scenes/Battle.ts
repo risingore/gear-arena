@@ -46,6 +46,10 @@ export class Battle extends Scene {
   private finished = false;
   private finishDelay = 0;
   private overdriveLabel: GameObjects.Text | null = null;
+  private playerImg: GameObjects.Image | null = null;
+  private enemyImg: GameObjects.Image | null = null;
+  private playerBaseX = 0;
+  private enemyBaseX = 0;
   private timeScale = 2;
   private speedLabel!: GameObjects.Text;
   private elapsedBattleSec = 0;
@@ -126,28 +130,42 @@ export class Battle extends Scene {
     const enemyX = gameWidth * 0.75;
     const arenaY = gameHeight * 0.44;
 
-    // Use the real battle sprite if the image asset has been loaded,
-    // otherwise fall back to the archetype-colored rectangle placeholder.
+    // Player visual — real sprite or placeholder rectangle.
+    this.playerBaseX = playerX;
+    this.playerImg = null;
     const battleKey = robot.battleAssetKey;
     if (this.textures.exists(battleKey)) {
-      const img = this.add.image(playerX, arenaY, battleKey);
-      const scale = Math.min(SPRITE_W / img.width, SPRITE_H / img.height);
-      img.setScale(scale);
-      this.playerSprite = this.add
-        .rectangle(playerX, arenaY, SPRITE_W, SPRITE_H, 0x000000, 0);
-    } else {
-      this.playerSprite = this.add
-        .rectangle(playerX, arenaY, SPRITE_W, SPRITE_H, ROBOT_COLORS[robot.archetype], 1)
-        .setStrokeStyle(3, PALETTE.textPrimary);
+      this.playerImg = this.add.image(playerX, arenaY, battleKey);
+      const scale = Math.min(SPRITE_W / this.playerImg.width, SPRITE_H / this.playerImg.height);
+      this.playerImg.setScale(scale);
     }
+    this.playerSprite = this.add
+      .rectangle(playerX, arenaY, SPRITE_W, SPRITE_H, this.playerImg ? 0x000000 : ROBOT_COLORS[robot.archetype], this.playerImg ? 0 : 1);
+    if (!this.playerImg) this.playerSprite.setStrokeStyle(3, PALETTE.textPrimary);
 
     this.add
       .text(playerX, arenaY - SPRITE_H / 2 - 28, t(robot.name), textStyles.body)
       .setOrigin(0.5);
 
+    // Enemy visual — placeholder rectangle (real sprites come later).
+    this.enemyBaseX = enemyX;
+    this.enemyImg = null;
     this.enemySprite = this.add
       .rectangle(enemyX, arenaY, SPRITE_W, SPRITE_H, PALETTE.accentRed, 1)
       .setStrokeStyle(3, PALETTE.textPrimary);
+
+    // --- Idle breathing animation (Slay the Spire style) ---
+    const idleTargets = [this.playerImg ?? this.playerSprite, this.enemyImg ?? this.enemySprite];
+    for (const target of idleTargets) {
+      this.tweens.add({
+        targets: target,
+        y: (target as { y: number }).y - 5,
+        duration: 1400 + Math.random() * 400,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      });
+    }
 
     this.add
       .text(enemyX, arenaY - SPRITE_H / 2 - 28, t(roundEnemy.name), textStyles.body)
@@ -313,23 +331,52 @@ export class Battle extends Scene {
     const isRanged = weaponKey.includes('laser') || weaponKey.includes('cannon') || weaponKey.includes('strike');
     playSfx(fromPlayer ? (isRanged ? 'attack_ranged' : 'attack_melee') : 'hit');
 
+    // --- Attacker slide forward (Slay the Spire style) ---
+    const attackerVisual = fromPlayer
+      ? (this.playerImg ?? this.playerSprite)
+      : (this.enemyImg ?? this.enemySprite);
+    const slideDir = fromPlayer ? 1 : -1;
+    const attackerBaseX = fromPlayer ? this.playerBaseX : this.enemyBaseX;
     this.tweens.add({
-      targets: targetSprite,
-      alpha: { from: 0.25, to: 1 },
-      duration: 140,
+      targets: attackerVisual,
+      x: attackerBaseX + 50 * slideDir,
+      duration: 80,
+      yoyo: true,
       ease: 'Cubic.easeOut'
     });
-    this.cameras.main.shake(80, fromPlayer ? 0.002 : 0.004);
+
+    // --- Defender knockback + flash ---
+    const defenderVisual = fromPlayer
+      ? (this.enemyImg ?? this.enemySprite)
+      : (this.playerImg ?? this.playerSprite);
+    this.tweens.add({
+      targets: defenderVisual,
+      alpha: { from: 0.3, to: 1 },
+      duration: 160,
+      ease: 'Cubic.easeOut'
+    });
+    const defenderBaseX = fromPlayer ? this.enemyBaseX : this.playerBaseX;
+    this.tweens.add({
+      targets: defenderVisual,
+      x: defenderBaseX + 25 * -slideDir,
+      duration: 100,
+      yoyo: true,
+      ease: 'Back.easeOut'
+    });
+
+    this.cameras.main.shake(60, fromPlayer ? 0.002 : 0.005);
 
     this.spawnDamagePopup(targetSprite.x, targetSprite.y - 20, event.finalDamage, fromPlayer);
 
     if (event.killed) {
       this.tweens.add({
-        targets: targetSprite,
-        scaleX: 0.6,
-        scaleY: 0.6,
-        alpha: 0.3,
-        duration: 400
+        targets: defenderVisual,
+        scaleX: 0.5,
+        scaleY: 0.5,
+        alpha: 0,
+        y: (defenderVisual as { y: number }).y + 30,
+        duration: 500,
+        ease: 'Cubic.easeIn'
       });
     }
   }

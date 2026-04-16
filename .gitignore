@@ -33,6 +33,9 @@ docs/
 # The unit tests stay local only. They are not shipped in the public repo.
 tests/
 
+# --- Python venv (rembg background removal tool) ---
+.venv/
+
 # --- Node / Bun ---
 node_modules/
 .cache/

@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "package-itch": "bash scripts/package-itch.sh",
     "remove-bg": "bash scripts/remove-bg.sh",
+    "clean-bg": ".venv/bin/python3 scripts/clean-dark-bg.py public/assets/images/*.png",
     "deploy": "bun run build && node node_modules/wrangler/bin/wrangler.js pages deploy dist --commit-dirty=true"
   },
   "dependencies": {

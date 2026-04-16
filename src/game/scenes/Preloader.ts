@@ -15,10 +15,8 @@ export class Preloader extends Scene {
   }
 
   preload(): void {
-    // --- Robot battle sprites + bone parts ---
+    // --- Robot battle sprites ---
     this.load.image('battle_knight',  'assets/images/battle_knight.png');
-    this.load.image('knight_head',    'assets/images/knight_head.png');
-    this.load.image('knight_arm_r',   'assets/images/knight_arm_r.png');
     // this.load.image('battle_goliath', 'assets/images/battle_goliath.png');
     // this.load.image('battle_striker', 'assets/images/battle_striker.png');
     // this.load.image('battle_oracle',  'assets/images/battle_oracle.png');

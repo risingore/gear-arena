@@ -320,12 +320,48 @@ export class Build extends Scene {
   private flashSlot(slotId: string): void {
     const sv = this.slotVisuals.find((s) => s.slot.id === slotId);
     if (!sv) return;
+
+    // Scale pop
     this.tweens.add({
       targets: sv.circle,
-      scale: { from: 1.3, to: 1 },
-      duration: 220,
-      ease: 'Cubic.easeOut'
+      scale: { from: 1.5, to: 1 },
+      duration: 300,
+      ease: 'Back.easeOut'
     });
+
+    // Screen micro-shake
+    this.cameras.main.shake(80, 0.003);
+
+    // Glow flash ring
+    const glow = this.add
+      .circle(sv.circle.x, sv.circle.y, SLOT_RADIUS * 2, 0xffd94a, 0.5)
+      .setDepth(100);
+    this.tweens.add({
+      targets: glow,
+      scale: { from: 0.5, to: 2 },
+      alpha: { from: 0.5, to: 0 },
+      duration: 400,
+      ease: 'Cubic.easeOut',
+      onComplete: () => glow.destroy()
+    });
+
+    // Spark particles
+    for (let i = 0; i < 6; i += 1) {
+      const angle = (i / 6) * Math.PI * 2 + Math.random() * 0.5;
+      const spark = this.add
+        .rectangle(sv.circle.x, sv.circle.y, 4, 4, 0xffd94a, 1)
+        .setDepth(101);
+      this.tweens.add({
+        targets: spark,
+        x: sv.circle.x + Math.cos(angle) * 40,
+        y: sv.circle.y + Math.sin(angle) * 40,
+        alpha: 0,
+        scale: 0,
+        duration: 350,
+        ease: 'Cubic.easeOut',
+        onComplete: () => spark.destroy()
+      });
+    }
   }
 
   private refreshSlots(): void {

@@ -60,6 +60,8 @@ export interface Combatant {
   tempSpeedMult: number;
   /** Remaining weapon-disable time from system-hack (seconds). */
   weaponDisableTimer: number;
+  /** If true, ultimate fires automatically when gauge is full (enemies). Player = false. */
+  autoFireUltimate: boolean;
   /** Active status effects on this combatant. */
   statusEffects: StatusEffect[];
   /** Evasion chance (0-0.3). */
@@ -118,7 +120,8 @@ export const createPlayerCombatant = (
   weaponDisableTimer: 0,
   statusEffects: [],
   evasionChance: stats.evasionChance,
-  comboCount: 0
+  comboCount: 0,
+  autoFireUltimate: false
 });
 
 export const createEnemyCombatant = (
@@ -154,7 +157,8 @@ export const createEnemyCombatant = (
   weaponDisableTimer: 0,
   statusEffects: [],
   evasionChance: 0,
-  comboCount: 0
+  comboCount: 0,
+  autoFireUltimate: true
 });
 
 /** Maximum combo damage bonus (20%). */
@@ -221,7 +225,7 @@ const dealDamage = (
 };
 
 /** Fire the attacker's ultimate ability against the defender. */
-const fireUltimate = (
+export const fireUltimate = (
   attacker: Combatant,
   defender: Combatant,
   attacks: AttackEvent[]
@@ -312,8 +316,8 @@ export const tickCombatant = (
     }
   }
 
-  // Check ultimate gauge — fire automatically when full.
-  if (attacker.ultimate && !attacker.ultimateUsed && attacker.ultimateGauge >= attacker.ultimate.gaugeFillRatio) {
+  // Check ultimate gauge — enemies auto-fire; player requires manual trigger via Battle scene.
+  if (attacker.autoFireUltimate && attacker.ultimate && !attacker.ultimateUsed && attacker.ultimateGauge >= attacker.ultimate.gaugeFillRatio) {
     ultimateFired = attacker.ultimate.name;
     fireUltimate(attacker, defender, attacks);
     if (defender.hp <= 0) return { attacks, healed, overdriveTriggered, ultimateFired };

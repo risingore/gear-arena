@@ -6,7 +6,7 @@ import { ROBOTS, ALL_ROBOT_KEYS, ROBOT_ULTIMATES, type RobotKey } from '@/data';
 import { getRunState, setRunState, resetRunState } from '../systems/runState';
 import { PALETTE, ROBOT_COLORS } from '../systems/palette';
 import { generateShopOffer } from '../systems/shop';
-import { generateRunEnemies, getDailySeed } from '../systems/enemyPool';
+import { generateRunEnemies } from '../systems/enemyPool';
 import { isRobotUnlocked, isSuperBossUnlocked } from '../systems/savedata';
 import { playSfx } from '../systems/audio';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
@@ -160,16 +160,6 @@ export class Select extends Scene {
     this.input.keyboard?.on('keydown-SPACE', () => this.confirm());
     this.input.keyboard?.on('keydown-R', () => fadeToScene(this, 'Title'));
 
-    // DAILY RUN button
-    const dailyBtn = this.add
-      .text(gameWidth / 2, gameHeight - 28, t('DAILY RUN'), textStyles.body)
-      .setOrigin(0.5)
-      .setAlpha(0.7)
-      .setInteractive({ useHandCursor: true });
-    dailyBtn.on('pointerover', () => { dailyBtn.setAlpha(1); dailyBtn.setScale(1.05); });
-    dailyBtn.on('pointerout', () => { dailyBtn.setAlpha(0.7); dailyBtn.setScale(1); });
-    dailyBtn.on('pointerdown', () => this.confirmWithSeed(getDailySeed()));
-
     // BACK button
     const backText = this.add
       .text(80, gameHeight - 28, t('← BACK'), textStyles.body)
@@ -198,10 +188,6 @@ export class Select extends Scene {
 
   private confirm(): void {
     this.startRun();
-  }
-
-  private confirmWithSeed(seed: number): void {
-    this.startRun(seed);
   }
 
   private startRun(seed?: number): void {

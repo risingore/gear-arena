@@ -16,6 +16,7 @@ import { computeLoadoutStats } from '../systems/stats';
 import {
   createPlayerCombatant,
   tickCombatant,
+  fireUltimate,
   type Combatant,
   type AttackEvent
 } from '../systems/combat';
@@ -31,7 +32,7 @@ const HP_BAR_W = 280;
 const HP_BAR_H = 20;
 const SPRITE_W = 280;
 const SPRITE_H = 360;
-const LOG_LINE_COUNT = 5;
+const LOG_LINE_COUNT = 3;
 const POPUP_RISE_PX = 48;
 const POPUP_DURATION_MS = 600;
 
@@ -177,7 +178,8 @@ export class Battle extends Scene {
       weaponDisableTimer: 0,
       statusEffects: [],
       evasionChance: 0,
-      comboCount: 0
+      comboCount: 0,
+      autoFireUltimate: true
     };
 
     // Header
@@ -336,10 +338,13 @@ export class Battle extends Scene {
       .setAlpha(0.6)
       .setVisible(isDebugEnabled());
 
-    this.pushLog(t('Combat begins…  (SPACE: speed toggle x1 / x2 / x4)'));
+    this.pushLog(t('SPACE / Click = ULTIMATE  |  S = speed toggle'));
 
     this.input.keyboard?.on('keydown-R', () => fadeToScene(this, 'Title'));
-    this.input.keyboard?.on('keydown-SPACE', () => this.cycleSpeed());
+    this.input.keyboard?.on('keydown-SPACE', () => this.triggerPlayerUltimate());
+    this.input.keyboard?.on('keydown-S', () => this.cycleSpeed());
+    // Click to trigger ultimate too
+    this.input.on('pointerdown', () => this.triggerPlayerUltimate());
 
     // Record best round reached (even if this battle is lost).
     recordRoundReached(state.currentRound);
@@ -650,6 +655,15 @@ export class Battle extends Scene {
     const eUltRatio = this.enemy.ultimateUsed ? 0 : Math.min(1, this.enemy.ultimateGauge / eUltMax);
     this.enemyUltFill.width = HP_BAR_W * eUltRatio;
 
+    // Ultimate ready indicator
+    const ultReady = this.player.ultimate && !this.player.ultimateUsed &&
+      this.player.ultimateGauge >= this.player.ultimate.gaugeFillRatio;
+    if (ultReady) {
+      this.playerUltFill.setFillStyle(0xffffff, 1);
+    } else {
+      this.playerUltFill.setFillStyle(0xffd94a, 1);
+    }
+
     // BGM tempo: speed up when player HP is critical
     const desiredRate = pRatio < 0.3 ? 1.15 : 1.0;
     if (desiredRate !== this.lastBgmRate) {
@@ -862,6 +876,22 @@ export class Battle extends Scene {
         onComplete: () => particle.destroy()
       });
     }
+  }
+
+  private triggerPlayerUltimate(): void {
+    if (this.finished || this.introActive) return;
+    if (!this.player.ultimate || this.player.ultimateUsed) return;
+    if (this.player.ultimateGauge < this.player.ultimate.gaugeFillRatio) return;
+
+    const attacks: AttackEvent[] = [];
+    fireUltimate(this.player, this.enemy, attacks);
+    attacks.forEach((e) => this.onAttack(e, this.enemySprite, true));
+    this.spawnUltimateFlash(this.playerSprite.x, this.playerSprite.y, this.player.ultimate.name, true);
+
+    if (this.enemy.hp <= 0) {
+      this.finishBattle('win');
+    }
+    this.refreshHp();
   }
 
   private goToResult(): void {

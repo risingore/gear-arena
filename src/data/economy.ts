@@ -7,7 +7,7 @@
 import type { EconomyData } from './schema';
 
 export const ECONOMY: EconomyData = {
-  startingGold: 10,
+  startingGold: 15,
   rerollCost: 1,
   sellRefundRatio: 0.5,
   shopSlotCount: 5,

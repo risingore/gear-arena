@@ -316,27 +316,23 @@ export class Build extends Scene {
       }
       bg.setFillStyle(PALETTE.cardBg, 1);
       const part = PARTS[key];
+      // Compact card layout for 120x90 cards: category bar + label + name + price.
+      // Description is omitted (visible via hover preview on the right).
       const categoryBar = this.add
-        .rectangle(0, -SHOP_CARD_H / 2 + 12, SHOP_CARD_W - 16, 6, CATEGORY_COLORS[part.category], 1);
+        .rectangle(0, -SHOP_CARD_H / 2 + 6, SHOP_CARD_W - 8, 4, CATEGORY_COLORS[part.category], 1);
       container.add(categoryBar);
       container.add(
         this.add
-          .text(0, -SHOP_CARD_H / 2 + 28, CATEGORY_LABEL[part.category], textStyles.small)
+          .text(0, -SHOP_CARD_H / 2 + 18, CATEGORY_LABEL[part.category], textStyles.small)
           .setOrigin(0.5)
           .setColor('#aaaabb')
       );
       container.add(
-        this.add.text(0, -10, t(part.name), textStyles.body).setOrigin(0.5)
+        this.add.text(0, 2, t(part.name), textStyles.body).setOrigin(0.5)
       );
       container.add(
         this.add
-          .text(0, 28, t(part.description), { ...textStyles.small, wordWrap: { width: SHOP_CARD_W - 20 } })
-          .setOrigin(0.5, 0)
-          .setAlpha(0.75)
-      );
-      container.add(
-        this.add
-          .text(0, SHOP_CARD_H / 2 - 22, `${part.price}g`, textStyles.body)
+          .text(0, SHOP_CARD_H / 2 - 16, `${part.price}g`, textStyles.body)
           .setOrigin(0.5)
           .setColor('#ffd94a')
       );

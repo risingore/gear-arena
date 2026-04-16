@@ -77,19 +77,26 @@ export class Title extends Scene {
       fadeToScene(this, 'Select');
     };
     this.input.keyboard?.once('keydown-SPACE', start);
-    this.input.once('pointerdown', start);
+
+    // Clickable start text (instead of whole-scene pointerdown, so the
+    // debug button in the corner doesn't accidentally trigger start).
+    const startText = this.add
+      .text(gameWidth / 2, gameHeight * 0.62, t('Press SPACE or click to start'), textStyles.body)
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+    startText.once('pointerdown', start);
 
     // Debug toggle button (bottom-left)
     const debugLabel = this.add
       .text(16, gameHeight - 24, `DEBUG: ${isDebugEnabled() ? 'ON' : 'OFF'}`, textStyles.small)
       .setOrigin(0, 1)
-      .setAlpha(0.5)
+      .setAlpha(isDebugEnabled() ? 0.9 : 0.5)
       .setInteractive({ useHandCursor: true });
-    debugLabel.on('pointerdown', (p: { stopPropagation: () => void }) => {
-      p.stopPropagation();
+    debugLabel.on('pointerdown', () => {
       const on = toggleDebug();
       debugLabel.setText(`DEBUG: ${on ? 'ON' : 'OFF'}`);
       debugLabel.setAlpha(on ? 0.9 : 0.5);
+      playSfx('click');
     });
 
     applyHiDpiToScene(this);

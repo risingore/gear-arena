@@ -15,8 +15,13 @@ export class Preloader extends Scene {
   }
 
   preload(): void {
-    // Each key has an [mp3, ogg] fallback list so generative tools that
-    // export only MP3 work without any transcoding step.
+    // --- Robot battle sprites (uncomment as images are generated) ---
+    this.load.image('battle_knight',  'assets/images/battle_knight.jpg');
+    // this.load.image('battle_goliath', 'assets/images/battle_goliath.jpg');
+    // this.load.image('battle_striker', 'assets/images/battle_striker.jpg');
+    // this.load.image('battle_oracle',  'assets/images/battle_oracle.jpg');
+
+    // --- BGM tracks (mp3 with ogg fallback) ---
     this.load.audio('bgm_title',   ['assets/audio/bgm_title.mp3',   'assets/audio/bgm_title.ogg']);
     this.load.audio('bgm_build',   ['assets/audio/bgm_build.mp3',   'assets/audio/bgm_build.ogg']);
     this.load.audio('bgm_battle',  ['assets/audio/bgm_battle.mp3',  'assets/audio/bgm_battle.ogg']);

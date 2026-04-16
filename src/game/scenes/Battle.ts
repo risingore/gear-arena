@@ -126,9 +126,20 @@ export class Battle extends Scene {
     const enemyX = gameWidth * 0.72;
     const arenaY = gameHeight * 0.52;
 
-    this.playerSprite = this.add
-      .rectangle(playerX, arenaY, SPRITE_W, SPRITE_H, ROBOT_COLORS[robot.archetype], 1)
-      .setStrokeStyle(3, PALETTE.textPrimary);
+    // Use the real battle sprite if the image asset has been loaded,
+    // otherwise fall back to the archetype-colored rectangle placeholder.
+    const battleKey = robot.battleAssetKey;
+    if (this.textures.exists(battleKey)) {
+      const img = this.add.image(playerX, arenaY, battleKey);
+      const scale = Math.min(SPRITE_W / img.width, SPRITE_H / img.height);
+      img.setScale(scale);
+      this.playerSprite = this.add
+        .rectangle(playerX, arenaY, SPRITE_W, SPRITE_H, 0x000000, 0);
+    } else {
+      this.playerSprite = this.add
+        .rectangle(playerX, arenaY, SPRITE_W, SPRITE_H, ROBOT_COLORS[robot.archetype], 1)
+        .setStrokeStyle(3, PALETTE.textPrimary);
+    }
 
     this.add
       .text(playerX, arenaY - SPRITE_H / 2 - 28, t(robot.name), textStyles.body)

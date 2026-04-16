@@ -15,7 +15,8 @@ import { PALETTE, ROBOT_COLORS, CATEGORY_COLORS, CATEGORY_LABEL } from '../syste
 import { playSfx } from '../systems/audio';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { t } from '../systems/i18n';
-import { applyHiDpiToScene } from '../helper/hiDpiText';
+import { applyHiDpiToScene, showDebugBadge } from '../helper/hiDpiText';
+import { isDebugEnabled } from '../systems/debug';
 
 type TabName = 'machines' | 'parts' | 'enemies';
 
@@ -91,6 +92,7 @@ export class Collection extends Scene {
     this.refreshTabs();
     this.drawContent();
     applyHiDpiToScene(this);
+    showDebugBadge(this, isDebugEnabled());
   }
 
   private refreshTabs(): void {

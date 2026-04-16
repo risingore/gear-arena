@@ -8,7 +8,7 @@ import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { loadSaveData } from '../systems/savedata';
 import { t } from '../systems/i18n';
 import { playMusic, MUSIC_KEYS } from '../systems/music';
-import { applyHiDpiToScene } from '../helper/hiDpiText';
+import { applyHiDpiToScene, showDebugBadge } from '../helper/hiDpiText';
 import { isDebugEnabled, toggleDebug } from '../systems/debug';
 
 export class Title extends Scene {
@@ -111,6 +111,7 @@ export class Title extends Scene {
     });
 
     applyHiDpiToScene(this);
+    showDebugBadge(this, isDebugEnabled());
   }
 
   private drawBackgroundGear(

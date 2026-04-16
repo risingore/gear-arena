@@ -6,7 +6,8 @@ import { PALETTE } from '../systems/palette';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { playSfx } from '../systems/audio';
 import { t } from '../systems/i18n';
-import { applyHiDpiToScene } from '../helper/hiDpiText';
+import { applyHiDpiToScene, showDebugBadge } from '../helper/hiDpiText';
+import { isDebugEnabled } from '../systems/debug';
 
 export class GameOver extends Scene {
   constructor() {
@@ -48,5 +49,6 @@ export class GameOver extends Scene {
     this.input.once('pointerdown', restart);
 
     applyHiDpiToScene(this);
+    showDebugBadge(this, isDebugEnabled());
   }
 }

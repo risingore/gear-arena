@@ -28,3 +28,22 @@ export function applyHiDpiToScene(scene: {
     }
   }
 }
+
+/**
+ * Show a red "DEBUG" label in the top-left corner when debug mode is on.
+ * Call this at the end of every scene's create() — it no-ops when debug
+ * is off, so there is no cost in production.
+ */
+export function showDebugBadge(scene: Phaser.Scene, debugEnabled: boolean): void {
+  if (!debugEnabled) return;
+  scene.add
+    .text(8, 8, 'DEBUG', {
+      fontFamily: 'system-ui, sans-serif',
+      fontSize: '18px',
+      color: '#ff3333',
+      fontStyle: 'bold'
+    })
+    .setOrigin(0, 0)
+    .setAlpha(0.9)
+    .setDepth(9999);
+}

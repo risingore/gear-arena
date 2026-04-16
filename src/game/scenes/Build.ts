@@ -19,7 +19,8 @@ import { playSfx } from '../systems/audio';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { t } from '../systems/i18n';
 import { playMusic, MUSIC_KEYS } from '../systems/music';
-import { applyHiDpiToScene } from '../helper/hiDpiText';
+import { applyHiDpiToScene, showDebugBadge } from '../helper/hiDpiText';
+import { isDebugEnabled } from '../systems/debug';
 
 const BLUEPRINT_BOX_W = 420;
 const BLUEPRINT_BOX_H = 580;
@@ -136,6 +137,7 @@ export class Build extends Scene {
     this.refreshAll();
 
     applyHiDpiToScene(this);
+    showDebugBadge(this, isDebugEnabled());
   }
 
   // --------------------------------------------------------------------------

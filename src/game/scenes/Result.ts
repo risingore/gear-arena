@@ -11,7 +11,8 @@ import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { recordVictory, recordDefeatedEnemy, recordUsedPart } from '../systems/savedata';
 import { t } from '../systems/i18n';
 import { playMusic, MUSIC_KEYS } from '../systems/music';
-import { applyHiDpiToScene } from '../helper/hiDpiText';
+import { applyHiDpiToScene, showDebugBadge } from '../helper/hiDpiText';
+import { isDebugEnabled } from '../systems/debug';
 
 export class Result extends Scene {
   constructor() {
@@ -130,6 +131,7 @@ export class Result extends Scene {
       .setAlpha(0.8);
 
     applyHiDpiToScene(this);
+    showDebugBadge(this, isDebugEnabled());
   }
 
   /**

@@ -20,7 +20,7 @@ import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { recordRoundReached } from '../systems/savedata';
 import { t } from '../systems/i18n';
 import { playMusic, MUSIC_KEYS } from '../systems/music';
-import { applyHiDpiToScene, TEXT_DPR } from '../helper/hiDpiText';
+import { applyHiDpiToScene, TEXT_DPR, showDebugBadge } from '../helper/hiDpiText';
 import { isDebugEnabled } from '../systems/debug';
 
 const HP_BAR_W = 280;
@@ -254,6 +254,7 @@ export class Battle extends Scene {
     this.refreshHp();
 
     applyHiDpiToScene(this);
+    showDebugBadge(this, isDebugEnabled());
   }
 
   private cycleSpeed(): void {

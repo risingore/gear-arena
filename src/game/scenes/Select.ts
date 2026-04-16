@@ -11,7 +11,7 @@ import { isRobotUnlocked, isSuperBossUnlocked } from '../systems/savedata';
 import { playSfx } from '../systems/audio';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { t } from '../systems/i18n';
-import { applyHiDpiToScene } from '../helper/hiDpiText';
+import { applyHiDpiToScene, showDebugBadge } from '../helper/hiDpiText';
 import { isDebugEnabled } from '../systems/debug';
 import { CATEGORY_COLORS } from '../systems/palette';
 
@@ -152,6 +152,7 @@ export class Select extends Scene {
     });
 
     applyHiDpiToScene(this);
+    showDebugBadge(this, isDebugEnabled());
   }
 
   private refresh(): void {

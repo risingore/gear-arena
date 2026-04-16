@@ -149,6 +149,19 @@ export const isRobotUnlocked = (robotKey: RobotKey): boolean => {
  *   1. All 4 robots have at least 1 clear each.
  *   2. Every non-super enemy has been defeated at least once.
  */
+/**
+ * Wipe ALL progress — unlocks, collections, clears, everything.
+ * Called from the Settings screen's "RESET ALL DATA" button.
+ */
+export const resetAllData = (): void => {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    localStorage.removeItem(STORAGE_KEY);
+    // Also remove the legacy v1 key if present.
+    localStorage.removeItem('gear-arena-save-v1');
+  } catch { /* silent */ }
+};
+
 export const isSuperBossUnlocked = (): boolean => {
   const data = loadSaveData();
   // All robots cleared?

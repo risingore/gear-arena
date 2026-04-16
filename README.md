@@ -1,87 +1,49 @@
 # GEAR ARENA
 
-Slot-based retro-mecha auto-battler roguelite built for **Gamedev.js Jam 2026** (theme: *Machines*).
+Slot-based retro-mecha auto-battler roguelite — assemble a robot on a blueprint grid, then watch it fight.
 
-- **Play**: [machines.risingore.com](https://machines.risingore.com)
-- **Engine**: Phaser 4.0 / Vite 6 / TypeScript / Bun
-- **Jam**: Gamedev.js Jam 2026 (deadline 2026-04-26 15:00 JST)
+Built with **Phaser 4 + TypeScript + Vite + Bun**.
 
-## What it is
+## Play Now
 
-Pick one of 4 mechas, fill its blueprint with weapons / armor / engines / gears / specials, then watch it auto-battle through 5 rounds (boss on round 5). Each blueprint has a unique slot layout — the robot you pick is the strategy you play. One run is 3–5 minutes. Press R at any time to restart.
+[machines.risingore.com](https://machines.risingore.com)
 
-## Core gimmick: data-as-code
+## Features
 
-All parameters (parts, robots, rounds, shop economy, synergies) live in `src/data/*.ts` as `const satisfies` objects with template literal typed IDs and discriminated unions. Game code imports from `@/data` and never contains magic numbers. Balance can be tuned by editing the data files directly — Vite HMR reflects changes in seconds, TypeScript catches mistakes at save time, and there is zero runtime validation overhead.
+- **4 unique robots** — KNIGHT, GOLIATH, STRIKER, ORACLE — each with a distinct blueprint and slot layout
+- **25 parts** across 5 categories (weapons, armor, engines, gears, specials)
+- **5 consumable items** — heal mid-run or buff your next battle
+- **10 skills** — earned from boss rewards, permanent for the run
+- **4 ultimate abilities** — one per robot, charged by taking damage
+- **10 rounds** with escalating difficulty, mid-bosses, and a final boss
+- **Achievements and collection** — track unlocked robots, discovered parts, defeated enemies, earned titles, and acquired skills
+- **HP carry-over** between rounds for added tension
+- **Zero-byte audio** — all SFX synthesized at runtime via Web Audio API
+- **Japanese localization** — auto-detected from browser language
+- **PWA support** — installable as a standalone app
 
-Why not spreadsheets or JSON? Because the editor (game designer) and the engineer (me + Claude Code) use the same VS Code project on the same commits, and `as const satisfies` gives full type completion, `goto definition`, and inline errors without pulling in Zod or a CSV pipeline.
+## Built for Gamedev.js Jam 2026 — Theme: Machines
+
+Every mechanic ties back to "assembling a machine from parts." All game parameters live in `src/data/*.ts` as typed constants — balance is tuned by editing data files directly.
 
 ## Commands
 
 ```bash
-bun install        # install dependencies
-bun dev            # dev server on localhost:8080
-bun run build      # production build (dist/)
-bun test           # run unit tests (stats + combat)
-bun run package-itch  # create machines-itch.zip
-bunx wrangler deploy  # deploy to Cloudflare Workers
-```
-
-## Architecture
-
-```
-src/
-├── main.ts                     Entry (DOM-ready, then boots Phaser.Game)
-├── data/                       Single source of truth for numbers + names
-│   ├── schema.ts               Type definitions (template literal IDs, discriminated unions)
-│   ├── parts.ts                15 parts (weapons / armor / engines / gears / specials)
-│   ├── robots.ts               4 blueprints with slot layouts
-│   ├── rounds.ts               5 rounds of enemies including boss
-│   ├── economy.ts              Shop, gold, rewards
-│   ├── synergies.ts            Cross-part combos
-│   └── index.ts                Public re-exports
-├── game/
-│   ├── main.ts                 Phaser.Game scene registration
-│   ├── helper/gameOptions.ts   Screen size, colors, text styles
-│   ├── systems/                Pure logic, zero Phaser dependency where possible
-│   │   ├── palette.ts          Placeholder colors
-│   │   ├── runState.ts         Shared state via Phaser Registry
-│   │   ├── stats.ts            Loadout aggregation
-│   │   ├── combat.ts           Battle simulation
-│   │   ├── shop.ts             Shop rolls
-│   │   ├── loadout.ts          Buy / sell / reroll
-│   │   ├── audio.ts            Web Audio API SFX synthesis (zero asset files)
-│   │   ├── savedata.ts         localStorage best-run tracking
-│   │   └── transition.ts       Scene fade helper
-│   └── scenes/                 Boot → Preloader → Title → Select → Build → Battle → Result → GameOver
-└── vite-env.d.ts
-
-tests/
-├── stats.test.ts               bun test
-└── combat.test.ts              bun test
+bun install           # install dependencies
+bun dev               # dev server on localhost:8080
+bun run build         # production build (dist/)
+bun test              # run unit tests
+bun run package-itch  # create machines-itch.zip for itch.io
 ```
 
 ## Controls
 
-- **Arrow keys / click**: navigate menus, select robot
 - **Click shop cards or press 1-5**: buy parts
 - **Click equipped slots**: sell parts (50% refund)
-- **Space**: confirm / ready / toggle battle speed (×1 / ×2 / ×4)
-- **Enter**: confirm robot selection
+- **Drag parts** from shop to specific slots
+- **Space**: confirm / ready / toggle battle speed
 - **R**: restart from any scene
-
-## Jam submission
-
-- itch.io HTML5: upload `machines-itch.zip`, set entry to `index.html`, resolution 1280×720
-- Mirror: [machines.risingore.com](https://machines.risingore.com) (Cloudflare Workers Static Assets)
-
-## Made with
-
-- **Cursor + Claude Code** — primary development environment
-- **Phaser 4** — 2026-04-10 stable release
-- **Bun** as the runtime and test runner
 
 ## License
 
-Source code: MIT.
-Generated placeholder art and sound: see `docs/asset-provenance.md` for per-asset provenance.
+MIT

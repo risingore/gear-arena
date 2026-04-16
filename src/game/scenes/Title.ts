@@ -48,35 +48,26 @@ export class Title extends Scene {
       .setAlpha(0.7);
 
     this.add
-      .text(
-        gameWidth / 2,
-        gameHeight * 0.76,
-        t('R = restart anytime'),
-        textStyles.small
-      )
+      .text(gameWidth / 2, gameHeight - 24, t('Gamedev.js Jam 2026 / theme: Machines'), textStyles.small)
       .setOrigin(0.5)
       .setAlpha(0.4);
-
-    this.add
-      .text(gameWidth / 2, gameHeight - 40, t('Gamedev.js Jam 2026 / theme: Machines'), textStyles.small)
-      .setOrigin(0.5);
 
     // Best-run stats + title (if any)
     const save = loadSaveData();
     if (save.bestRound > 0 || save.totalClears > 0) {
-      const statLine = `Best Round: ${save.bestRound}   ·   Victories: ${save.totalClears}`;
+      const statLine = `Best Round: ${save.bestRound}   ·   Victories: ${save.totalClears}   ·   Scrap: ${save.scrap}`;
       this.add
-        .text(gameWidth / 2, gameHeight * 0.82, statLine, textStyles.small)
+        .text(gameWidth / 2, gameHeight * 0.80, statLine, textStyles.small)
         .setOrigin(0.5)
-        .setAlpha(0.8);
+        .setAlpha(0.6);
     }
     const title = getPlayerTitle(save);
     if (title) {
       this.add
-        .text(gameWidth / 2, gameHeight * 0.88, `— ${title} —`, textStyles.body)
+        .text(gameWidth / 2, gameHeight * 0.86, `— ${title} —`, textStyles.small)
         .setOrigin(0.5)
         .setColor('#ffd94a')
-        .setAlpha(0.9);
+        .setAlpha(0.8);
     }
 
     const start = (): void => {

@@ -168,5 +168,133 @@ export const ja: LocaleDict = {
   'No passive — straightforward power.': 'No passive — straightforward power.',
   'Damage taken -10% / attack speed -20%.': 'Damage taken -10% / attack speed -20%.',
   'Attack speed +30% / damage taken +10%.': 'Attack speed +30% / damage taken +10%.',
-  'Special effects +50% / weapon cooldown +15%.': 'Special effects +50% / weapon cooldown +15%.'
+  'Special effects +50% / weapon cooldown +15%.': 'Special effects +50% / weapon cooldown +15%.',
+
+  // ---------------------------------------------------------------------------
+  // Item names and descriptions
+  // ---------------------------------------------------------------------------
+  'Repair Spray': 'リペアスプレー',
+  'Emergency Patch': '応急パッチ',
+  'Adrenaline Shot': 'アドレナリン・ショット',
+  'Hardened Coating': '硬化コーティング',
+  'Recon Scan': '偵察スキャン',
+  'Restore 20 HP immediately.': '即座にHPを20回復。',
+  'Restore 40 HP immediately.': '即座にHPを40回復。',
+  'Next battle: +30% attack speed.': '次の戦闘: 攻撃速度+30%。',
+  'Next battle: +10% damage reduction.': '次の戦闘: ダメージ軽減+10%。',
+  'Next battle: enemy takes +20% damage.': '次の戦闘: 敵の被ダメージ+20%。',
+
+  // ---------------------------------------------------------------------------
+  // Skill names and descriptions
+  // ---------------------------------------------------------------------------
+  'Iron Will': '鉄の意志',
+  '+15 max HP.': '最大HP+15。',
+  'Quick Draw': 'クイックドロー',
+  '-10% weapon cooldown.': '武器クールダウン-10%。',
+  'Hard Shell': '硬殻',
+  '+5% damage reduction.': 'ダメージ軽減+5%。',
+  'Power Surge': 'パワーサージ',
+  '+3 weapon damage.': '武器ダメージ+3。',
+  'Nano Repair': 'ナノリペア',
+  'Heal 2 HP every 5 seconds.': '5秒ごとにHP2回復。',
+  'Reflex Boost': 'リフレクスブースト',
+  '-15% weapon cooldown.': '武器クールダウン-15%。',
+  'Vital Core': 'バイタルコア',
+  '+30 max HP.': '最大HP+30。',
+  'Piercing Eye': 'ピアシングアイ',
+  '+6 weapon damage.': '武器ダメージ+6。',
+  'Titan Frame': 'タイタンフレーム',
+  '+8% damage reduction.': 'ダメージ軽減+8%。',
+  'Overdrive Protocol': 'オーバードライブ・プロトコル',
+  '+25% attack speed below 30% HP.': 'HP30%以下で攻撃速度+25%。',
+
+  // ---------------------------------------------------------------------------
+  // Achievement names, descriptions, and titles
+  // ---------------------------------------------------------------------------
+  'First Victory': '初勝利',
+  'Clear any run.': '任意のランをクリア。',
+  'Rookie Pilot': 'ルーキーパイロット',
+  Seasoned: '歴戦',
+  'Win 5 total runs.': '合計5回クリア。',
+  'Veteran Pilot': 'ベテランパイロット',
+  'War Machine': 'ウォーマシン',
+  'Win 10 total runs.': '合計10回クリア。',
+  'Machine Master': 'マシンマスター',
+  'Clear with all 4 robots.': '全4機体でクリア。',
+  'Full Arsenal': '完全武装',
+  'Use all 25 parts at least once.': '全25パーツを使用。',
+  'Chief Engineer': 'チーフエンジニア',
+  Weaponsmith: 'ウェポンスミス',
+  'Use all 5 weapon types.': '全5種の武器を使用。',
+  Hunter: 'ハンター',
+  'Defeat every enemy type.': '全敵タイプを撃破。',
+  'Apex Hunter': 'エイペックスハンター',
+  'Apex Predator': 'エイペックスプレデター',
+  'Defeat the APEX MACHINE.': 'APEX MACHINEを撃破。',
+  'Halfway There': '折り返し地点',
+  'Reach round 5.': 'ラウンド5に到達。',
+  Cadet: 'カデット',
+  Collector: 'コレクター',
+  'Defeat 10 different enemy types.': '10種類の敵を撃破。',
+
+  // ---------------------------------------------------------------------------
+  // UI strings
+  // ---------------------------------------------------------------------------
+  SKILLS: 'スキル',
+  SKILL: 'スキル',
+  BUFF: 'バフ',
+  USE: '使用',
+  ITEM: 'アイテム',
+  'CHOOSE A SKILL': 'スキルを選択',
+  CONFIRM: '確定',
+  '← BACK': '← 戻る',
+  TITLES: '称号',
+  'SKILLS DISCOVERED': '発見したスキル',
+  skills: 'スキル',
+  earned: '獲得',
+  BUFFS: 'バフ',
+  HP: 'HP',
+  Scrap: 'スクラップ',
+  'DAILY RUN': 'デイリーラン',
+  UNDO: '戻す',
+  'NEXT ENEMY': '次の敵',
+  '▶  NEXT ROUND': '▶  次のラウンド',
+  'QUIT TO TITLE': 'タイトルに戻る',
+  '▶  RETURN TO TITLE': '▶  タイトルに戻る',
+  '▶  CONTINUE': '▶  続ける',
+  'Click shop to buy · Click slots to sell · Drag parts to specific slots':
+    'ショップをクリックで購入 · スロットをクリックで売却 · ドラッグで配置',
+
+  // ---------------------------------------------------------------------------
+  // Status effects
+  // ---------------------------------------------------------------------------
+  BURN: '燃焼',
+  FREEZE: '凍結',
+  POISON: '毒',
+  DODGE: '回避',
+
+  // ---------------------------------------------------------------------------
+  // New part names and descriptions (v0.3 additions)
+  // ---------------------------------------------------------------------------
+  Railgun: 'レールガン',
+  'Extreme damage, very slow. One-shot potential.': '極大ダメージ、非常に遅い。一撃必殺。',
+  Flamethrower: 'フレイムスロワー',
+  'Rapid close-range burn. Low per-hit but fast.': '近距離連射。低威力だが高速。',
+  'Reactive Plating': 'リアクティブ装甲',
+  'Flat -4 damage taken but -10 max HP.': 'ダメージ-4だが最大HP-10。',
+  'Fortress Frame': 'フォートレスフレーム',
+  '+30 max HP and 10% DR. Heavy but durable.': '最大HP+30、DR10%。重いが頑丈。',
+  'Striker Core': 'ストライカーコア',
+  '+5 damage to all weapons. No HP bonus.': '全武器ダメージ+5。HP増加なし。',
+  'Regen Cell': 'リジェンセル',
+  '+15 max HP and 3% damage reduction.': '最大HP+15、ダメージ軽減3%。',
+  'Micro Gear': 'マイクロギア',
+  '-5% cooldown. Cheap filler.': 'クールダウン-5%。安価。',
+  'Overclock Gear': 'オーバークロックギア',
+  '-25% cooldown, -10 max HP. Glass cannon.': 'クールダウン-25%、最大HP-10。',
+  'Last Stand Module': 'ラストスタンド・モジュール',
+  'Survive one lethal hit with 1 HP (once per battle).': '致死ダメージを1回HP1で耐える。',
+  'Vampiric Core': 'ヴァンパイリック・コア',
+  'Heal 2 HP on every weapon hit.': '武器命中ごとにHP2回復。',
+  'Blocks the first hit completely, then +5% DR.': '最初の被弾を完全防御、以降DR+5%。'
 };

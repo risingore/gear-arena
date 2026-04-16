@@ -6,6 +6,8 @@ import {
   ROBOTS,
   ITEMS,
   findEnemyDef,
+  ROBOT_ULTIMATES,
+  ENEMY_ULTIMATES,
   type PartKey
 } from '@/data';
 import { getRunState, setRunState } from '../systems/runState';
@@ -21,7 +23,7 @@ import { playSfx } from '../systems/audio';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { recordRoundReached } from '../systems/savedata';
 import { t } from '../systems/i18n';
-import { playMusic, MUSIC_KEYS } from '../systems/music';
+import { playMusic, MUSIC_KEYS, setMusicPlaybackRate } from '../systems/music';
 import { applyHiDpiToScene, TEXT_DPR, showDebugBadge } from '../helper/hiDpiText';
 import { isDebugEnabled } from '../systems/debug';
 
@@ -43,6 +45,8 @@ export class Battle extends Scene {
   private enemyHpFill!: GameObjects.Rectangle;
   private playerHpText!: GameObjects.Text;
   private enemyHpText!: GameObjects.Text;
+  private playerUltFill!: GameObjects.Rectangle;
+  private enemyUltFill!: GameObjects.Rectangle;
   private logText!: GameObjects.Text;
   private logLines: string[] = [];
   private finished = false;
@@ -56,6 +60,12 @@ export class Battle extends Scene {
   private speedLabel!: GameObjects.Text;
   private elapsedBattleSec = 0;
   private debugTimerText!: GameObjects.Text;
+  private playerHpTrail!: GameObjects.Rectangle;
+  private enemyHpTrail!: GameObjects.Rectangle;
+  /** Flag to pause combat during round-start intro animation. */
+  private introActive = false;
+  /** Tracks the last BGM rate so we only change it when crossing the threshold. */
+  private lastBgmRate = 1;
   /** Real seconds elapsed before auto fast-forward kicks in. */
   private static readonly AUTO_FF_SEC = 15;
   /** Speed multiplier applied after AUTO_FF_SEC elapses. */
@@ -84,7 +94,7 @@ export class Battle extends Scene {
 
     const robot = ROBOTS[state.robotKey];
     this.playerRobotArchetypeLabel = robot.archetype.toUpperCase();
-    const stats = computeLoadoutStats(robot, state.equipped);
+    const stats = computeLoadoutStats(robot, state.equipped, state.acquiredSkills);
 
     // Pull the pre-generated enemy for this round from the run state.
     const genRound = state.generatedRounds[state.currentRound - 1];
@@ -95,7 +105,8 @@ export class Battle extends Scene {
     const totalRounds = state.generatedRounds.length;
     const roundEnemy = genRound.enemy;
 
-    this.player = createPlayerCombatant(robot.name, stats);
+    const playerUlt = state.robotKey ? (ROBOT_ULTIMATES[state.robotKey] ?? null) : null;
+    this.player = createPlayerCombatant(robot.name, stats, playerUlt);
     // HP carry-over: previous battle's remaining HP carries into the next round.
     // Round 1 starts at full HP (carryHp = 0 from initial state).
     if (state.carryHp > 0) {
@@ -156,7 +167,17 @@ export class Battle extends Scene {
       repairIntervalSec: originalDef?.repairIntervalSec ?? 0,
       repairAmount: originalDef?.repairAmount ?? 0,
       repairTimer: originalDef?.repairIntervalSec ?? 0,
-      shieldCharges: originalDef?.shieldCharges ?? 0
+      shieldCharges: originalDef?.shieldCharges ?? 0,
+      ultimate: originalDef ? (ENEMY_ULTIMATES[originalDef.category] ?? null) : null,
+      ultimateGauge: 0,
+      ultimateUsed: false,
+      ultimateEffectTimer: 0,
+      tempDrBoost: 0,
+      tempSpeedMult: 1,
+      weaponDisableTimer: 0,
+      statusEffects: [],
+      evasionChance: 0,
+      comboCount: 0
     };
 
     // Header
@@ -213,26 +234,55 @@ export class Battle extends Scene {
       .text(enemyX, arenaY - SPRITE_H / 2 - 28, t(roundEnemy.name), textStyles.body)
       .setOrigin(0.5);
 
-    // HP bars
+    // HP bars (trail bar drawn first so it renders behind the main fill)
+    const hpBarY = arenaY + SPRITE_H / 2 + 32;
     this.add
-      .rectangle(playerX, arenaY + SPRITE_H / 2 + 32, HP_BAR_W, HP_BAR_H, PALETTE.hpBarBg, 1)
+      .rectangle(playerX, hpBarY, HP_BAR_W, HP_BAR_H, PALETTE.hpBarBg, 1)
       .setOrigin(0.5);
+    this.playerHpTrail = this.add
+      .rectangle(playerX - HP_BAR_W / 2, hpBarY, HP_BAR_W, HP_BAR_H, 0x882222, 1)
+      .setOrigin(0, 0.5);
     this.playerHpFill = this.add
-      .rectangle(playerX - HP_BAR_W / 2, arenaY + SPRITE_H / 2 + 32, HP_BAR_W, HP_BAR_H, PALETTE.hpBarFill, 1)
+      .rectangle(playerX - HP_BAR_W / 2, hpBarY, HP_BAR_W, HP_BAR_H, PALETTE.hpBarFill, 1)
       .setOrigin(0, 0.5);
     this.playerHpText = this.add
-      .text(playerX, arenaY + SPRITE_H / 2 + 32, '', textStyles.small)
+      .text(playerX, hpBarY, '', textStyles.small)
       .setOrigin(0.5);
 
     this.add
-      .rectangle(enemyX, arenaY + SPRITE_H / 2 + 32, HP_BAR_W, HP_BAR_H, PALETTE.hpBarBg, 1)
+      .rectangle(enemyX, hpBarY, HP_BAR_W, HP_BAR_H, PALETTE.hpBarBg, 1)
       .setOrigin(0.5);
+    this.enemyHpTrail = this.add
+      .rectangle(enemyX - HP_BAR_W / 2, hpBarY, HP_BAR_W, HP_BAR_H, 0x662222, 1)
+      .setOrigin(0, 0.5);
     this.enemyHpFill = this.add
-      .rectangle(enemyX - HP_BAR_W / 2, arenaY + SPRITE_H / 2 + 32, HP_BAR_W, HP_BAR_H, PALETTE.hpBarFillEnemy, 1)
+      .rectangle(enemyX - HP_BAR_W / 2, hpBarY, HP_BAR_W, HP_BAR_H, PALETTE.hpBarFillEnemy, 1)
       .setOrigin(0, 0.5);
     this.enemyHpText = this.add
-      .text(enemyX, arenaY + SPRITE_H / 2 + 32, '', textStyles.small)
+      .text(enemyX, hpBarY, '', textStyles.small)
       .setOrigin(0.5);
+
+    // Ultimate gauge bars (thin bar below HP)
+    const ultBarY = arenaY + SPRITE_H / 2 + 48;
+    const ultBarH = 6;
+    this.add.rectangle(playerX, ultBarY, HP_BAR_W, ultBarH, 0x222233, 1).setOrigin(0.5);
+    this.playerUltFill = this.add
+      .rectangle(playerX - HP_BAR_W / 2, ultBarY, 0, ultBarH, 0xffd94a, 1)
+      .setOrigin(0, 0.5);
+    this.add.rectangle(enemyX, ultBarY, HP_BAR_W, ultBarH, 0x222233, 1).setOrigin(0.5);
+    this.enemyUltFill = this.add
+      .rectangle(enemyX - HP_BAR_W / 2, ultBarY, 0, ultBarH, 0xff6a6a, 1)
+      .setOrigin(0, 0.5);
+
+    // Ultimate name labels
+    if (playerUlt) {
+      this.add.text(playerX, ultBarY + 10, playerUlt.name, textStyles.small)
+        .setOrigin(0.5).setAlpha(0.5);
+    }
+    if (this.enemy.ultimate) {
+      this.add.text(enemyX, ultBarY + 10, this.enemy.ultimate.name, textStyles.small)
+        .setOrigin(0.5).setAlpha(0.5);
+    }
 
     // Equipped parts summary under player HP bar
     const weaponSummary =
@@ -296,6 +346,44 @@ export class Battle extends Scene {
 
     this.refreshHp();
 
+    // --- Round start animation ---
+    this.introActive = true;
+    this.lastBgmRate = 1;
+    const isBossRound = genRound.isBoss;
+    const introLabel = isBossRound
+      ? `ROUND ${state.currentRound} — BOSS`
+      : `ROUND ${state.currentRound}`;
+    const introText = this.add
+      .text(gameWidth / 2, gameHeight / 2, introLabel, {
+        ...textStyles.title,
+        color: isBossRound ? '#ff7a00' : '#ffffff',
+        fontStyle: 'bold'
+      })
+      .setOrigin(0.5)
+      .setScale(2)
+      .setDepth(300)
+      .setResolution(TEXT_DPR);
+    this.tweens.add({
+      targets: introText,
+      scale: 1,
+      duration: 300,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        this.time.delayedCall(500, () => {
+          this.tweens.add({
+            targets: introText,
+            alpha: 0,
+            duration: 300,
+            ease: 'Linear',
+            onComplete: () => {
+              introText.destroy();
+              this.introActive = false;
+            }
+          });
+        });
+      }
+    });
+
     applyHiDpiToScene(this);
     showDebugBadge(this, isDebugEnabled());
   }
@@ -333,10 +421,21 @@ export class Battle extends Scene {
       return;
     }
 
+    // Pause combat during round-start intro animation.
+    if (this.introActive) return;
+
     const playerTick = tickCombatant(this.player, this.enemy, dtSec);
     playerTick.attacks.forEach((e) => this.onAttack(e, this.enemySprite, true));
     if (playerTick.healed > 0) this.spawnHealPopup(this.playerSprite.x, this.playerSprite.y, playerTick.healed);
     if (playerTick.overdriveTriggered) this.triggerOverdriveIndicator();
+    if (playerTick.ultimateFired) this.spawnUltimateFlash(this.playerSprite.x, this.playerSprite.y, playerTick.ultimateFired, true);
+
+    // Accumulate run stats from player tick.
+    {
+      const rs = getRunState(this).runStats;
+      for (const a of playerTick.attacks) rs.totalDamageDealt += a.finalDamage;
+      if (playerTick.healed > 0) rs.totalHealed += playerTick.healed;
+    }
 
     if (this.enemy.hp <= 0) {
       this.finishBattle('win');
@@ -346,6 +445,13 @@ export class Battle extends Scene {
     const enemyTick = tickCombatant(this.enemy, this.player, dtSec);
     enemyTick.attacks.forEach((e) => this.onAttack(e, this.playerSprite, false));
     if (enemyTick.healed > 0) this.spawnHealPopup(this.enemySprite.x, this.enemySprite.y, enemyTick.healed);
+    if (enemyTick.ultimateFired) this.spawnUltimateFlash(this.enemySprite.x, this.enemySprite.y, enemyTick.ultimateFired, false);
+
+    // Accumulate run stats from enemy tick.
+    {
+      const rs = getRunState(this).runStats;
+      for (const a of enemyTick.attacks) rs.totalDamageTaken += a.finalDamage;
+    }
 
     if (this.player.hp <= 0) {
       this.finishBattle('lose');
@@ -436,6 +542,7 @@ export class Battle extends Scene {
         duration: 500,
         ease: 'Cubic.easeIn'
       });
+      this.spawnKillExplosion(targetSprite.x, targetSprite.y, fromPlayer);
     }
   }
 
@@ -513,6 +620,42 @@ export class Battle extends Scene {
     this.enemyHpFill.width = HP_BAR_W * eRatio;
     this.playerHpText.setText(`${Math.max(0, this.player.hp)} / ${this.player.maxHp}`);
     this.enemyHpText.setText(`${Math.max(0, this.enemy.hp)} / ${this.enemy.maxHp}`);
+
+    // Trailing HP bar: tween the trail down to match main fill over 400ms
+    const pTrailTarget = HP_BAR_W * pRatio;
+    if (this.playerHpTrail.width > pTrailTarget) {
+      this.tweens.add({
+        targets: this.playerHpTrail,
+        width: pTrailTarget,
+        duration: 400,
+        ease: 'Cubic.easeOut'
+      });
+    }
+    const eTrailTarget = HP_BAR_W * eRatio;
+    if (this.enemyHpTrail.width > eTrailTarget) {
+      this.tweens.add({
+        targets: this.enemyHpTrail,
+        width: eTrailTarget,
+        duration: 400,
+        ease: 'Cubic.easeOut'
+      });
+    }
+
+    // Ultimate gauge
+    const pUltMax = this.player.ultimate?.gaugeFillRatio ?? 1;
+    const pUltRatio = this.player.ultimateUsed ? 0 : Math.min(1, this.player.ultimateGauge / pUltMax);
+    this.playerUltFill.width = HP_BAR_W * pUltRatio;
+
+    const eUltMax = this.enemy.ultimate?.gaugeFillRatio ?? 1;
+    const eUltRatio = this.enemy.ultimateUsed ? 0 : Math.min(1, this.enemy.ultimateGauge / eUltMax);
+    this.enemyUltFill.width = HP_BAR_W * eUltRatio;
+
+    // BGM tempo: speed up when player HP is critical
+    const desiredRate = pRatio < 0.3 ? 1.15 : 1.0;
+    if (desiredRate !== this.lastBgmRate) {
+      this.lastBgmRate = desiredRate;
+      setMusicPlaybackRate(desiredRate);
+    }
   }
 
   private finishBattle(outcome: 'win' | 'lose'): void {
@@ -529,12 +672,21 @@ export class Battle extends Scene {
           ? t('VICTORY!  All rounds cleared.')
           : `${t('Round')} ${state.currentRound} ${t('cleared.')}`
         : `${t(this.player.name)} ${t('was destroyed.')}`;
+    // Update run stats for round outcome.
+    const updatedStats = { ...state.runStats };
+    if (outcome === 'win') {
+      updatedStats.roundsCleared += 1;
+      updatedStats.enemiesDefeated += 1;
+    }
+    updatedStats.partsUsed = Object.keys(state.equipped).length;
+
     setRunState(this, {
       ...state,
       battleOutcome: finalOutcome,
       lastResultMessage: message,
       lastDefeatedEnemyId: outcome === 'win' && genRound ? genRound.enemyId : '',
-      carryHp: outcome === 'win' ? Math.max(1, this.player.hp) : 0
+      carryHp: outcome === 'win' ? Math.max(1, this.player.hp) : 0,
+      runStats: updatedStats
     });
     this.pushLog(message);
     playSfx(finalOutcome === 'victory' ? 'victory' : outcome === 'win' ? 'win' : 'lose');
@@ -569,6 +721,147 @@ export class Battle extends Scene {
       ease: 'Cubic.easeOut',
       onComplete: () => flash.destroy()
     });
+  }
+
+  private spawnUltimateFlash(x: number, y: number, name: string, fromPlayer: boolean): void {
+    const { gameWidth, gameHeight, textStyles } = gameOptions;
+    playSfx(fromPlayer ? 'victory' : 'lose');
+    this.cameras.main.shake(200, fromPlayer ? 0.01 : 0.015);
+
+    if (fromPlayer) {
+      // --- Cut-in: large robot portrait slides in from the left ---
+      const cutinDuration = 800;
+      const holdDuration = 500;
+
+      // Darken background
+      const overlay = this.add
+        .rectangle(gameWidth / 2, gameHeight / 2, gameWidth, gameHeight, 0x000000, 0.6)
+        .setDepth(200);
+
+      // Diagonal slash lines
+      const slash1 = this.add
+        .rectangle(gameWidth / 2, gameHeight / 2, gameWidth * 2, 80, 0xffd94a, 0.15)
+        .setAngle(-15).setDepth(201);
+      const slash2 = this.add
+        .rectangle(gameWidth / 2, gameHeight / 2 + 60, gameWidth * 2, 40, 0xffd94a, 0.1)
+        .setAngle(-15).setDepth(201);
+
+      // Robot portrait (large image or placeholder)
+      const state = getRunState(this);
+      const robot = state.robotKey ? ROBOTS[state.robotKey] : null;
+      const battleKey = robot?.battleAssetKey ?? '';
+      let cutinVisual: GameObjects.Image | GameObjects.Rectangle;
+
+      if (this.textures.exists(battleKey)) {
+        cutinVisual = this.add.image(-400, gameHeight / 2, battleKey)
+          .setScale(0.8).setDepth(210);
+      } else {
+        cutinVisual = this.add
+          .rectangle(-400, gameHeight / 2, 400, 500,
+            robot ? ROBOT_COLORS[robot.archetype] : 0x9bbdff, 1)
+          .setStrokeStyle(4, 0xffffff).setDepth(210);
+      }
+
+      // Slide in from left
+      this.tweens.add({
+        targets: cutinVisual,
+        x: gameWidth * 0.35,
+        duration: cutinDuration * 0.4,
+        ease: 'Back.easeOut'
+      });
+
+      // Ultimate name text (right side)
+      const ultText = this.add
+        .text(gameWidth + 200, gameHeight / 2 - 40, `★ ${name} ★`, {
+          ...textStyles.title,
+          color: '#ffd94a',
+          fontStyle: 'bold'
+        })
+        .setOrigin(0.5).setDepth(211).setResolution(TEXT_DPR);
+
+      const robotNameText = this.add
+        .text(gameWidth + 200, gameHeight / 2 + 30, robot ? t(robot.name) : '', textStyles.body)
+        .setOrigin(0.5).setDepth(211).setAlpha(0.8).setResolution(TEXT_DPR);
+
+      // Slide text in from right
+      this.tweens.add({
+        targets: [ultText, robotNameText],
+        x: gameWidth * 0.7,
+        duration: cutinDuration * 0.4,
+        ease: 'Cubic.easeOut'
+      });
+
+      // Hold, then dismiss everything
+      this.time.delayedCall(cutinDuration + holdDuration, () => {
+        this.tweens.add({
+          targets: [cutinVisual, ultText, robotNameText],
+          alpha: 0,
+          duration: 300,
+          onComplete: () => {
+            cutinVisual.destroy();
+            ultText.destroy();
+            robotNameText.destroy();
+          }
+        });
+        this.tweens.add({
+          targets: [overlay, slash1, slash2],
+          alpha: 0,
+          duration: 300,
+          onComplete: () => { overlay.destroy(); slash1.destroy(); slash2.destroy(); }
+        });
+      });
+    } else {
+      // Enemy ultimate: simpler flash
+      const flash = this.add
+        .rectangle(gameWidth / 2, gameHeight / 2, gameWidth, gameHeight, 0xff4444, 0.3)
+        .setDepth(140);
+      this.tweens.add({
+        targets: flash, alpha: 0, duration: 400,
+        onComplete: () => flash.destroy()
+      });
+
+      const label = this.add
+        .text(x, y - 60, `★ ${name} ★`, {
+          ...textStyles.body, color: '#ff6a6a', fontStyle: 'bold'
+        })
+        .setOrigin(0.5).setDepth(150).setResolution(TEXT_DPR);
+      this.tweens.add({
+        targets: label,
+        scale: { from: 0.5, to: 1.5 }, alpha: { from: 1, to: 0 }, y: y - 120,
+        duration: 1200, ease: 'Cubic.easeOut',
+        onComplete: () => label.destroy()
+      });
+    }
+
+    this.pushLog(`★ ${name} ★`);
+  }
+
+  private spawnKillExplosion(x: number, y: number, fromPlayer: boolean): void {
+    const tint = fromPlayer ? PALETTE.hpBarFillEnemy : PALETTE.hpBarFill;
+    const colors = [tint, 0xffffff, 0xffd94a, 0xff6a6a];
+    const particleCount = 8 + Math.floor(Math.random() * 5);
+    for (let i = 0; i < particleCount; i += 1) {
+      const size = 4 + Math.random() * 4;
+      const color = colors[Math.floor(Math.random() * colors.length)]!;
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 100 + Math.random() * 200;
+      const dx = Math.cos(angle) * speed * 0.5;
+      const dy = Math.sin(angle) * speed * 0.5;
+      const particle = this.add
+        .rectangle(x, y, size, size, color, 1)
+        .setDepth(150);
+      this.tweens.add({
+        targets: particle,
+        x: x + dx,
+        y: y + dy,
+        alpha: 0,
+        scaleX: 0,
+        scaleY: 0,
+        duration: 500,
+        ease: 'Cubic.easeOut',
+        onComplete: () => particle.destroy()
+      });
+    }
   }
 
   private goToResult(): void {

@@ -23,6 +23,34 @@ export const SYNERGIES = {
     description: 'Equip Turbo Engine + Pulse Laser for -15% weapon cooldown.',
     trigger: { kind: 'category_pair', a: 'engine', b: 'weapon' },
     effect: { kind: 'cooldown_mult', multiplier: 0.85 }
+  },
+  syn_dual_wield: {
+    id: 'syn_dual_wield',
+    name: 'Dual Wield',
+    description: 'Equip 2+ weapons for +10% damage to all weapons.',
+    trigger: { kind: 'weapon_count', threshold: 2 },
+    effect: { kind: 'damage_pct', multiplier: 0.10 }
+  },
+  syn_heavy_armor: {
+    id: 'syn_heavy_armor',
+    name: 'Heavy Armor',
+    description: 'Equip 2+ armor pieces for +20 max HP.',
+    trigger: { kind: 'armor_count', threshold: 2 },
+    effect: { kind: 'hp_bonus', amount: 20 }
+  },
+  syn_special_amp: {
+    id: 'syn_special_amp',
+    name: 'Special Amp',
+    description: 'Equip 2+ specials for +50% special magnitude.',
+    trigger: { kind: 'special_count', threshold: 2 },
+    effect: { kind: 'magnitude_mult', multiplier: 1.5 }
+  },
+  syn_full_kit: {
+    id: 'syn_full_kit',
+    name: 'Full Kit',
+    description: 'All 5 part categories equipped: -10% all cooldowns.',
+    trigger: { kind: 'all_categories' },
+    effect: { kind: 'cooldown_mult', multiplier: 0.90 }
   }
 } as const satisfies SynergiesRegistry;
 

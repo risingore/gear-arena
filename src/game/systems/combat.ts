@@ -9,8 +9,14 @@
  * to keep allocation pressure minimal on every frame.
  */
 
-import type { RoundData } from '@/data';
+import { PARTS, type RoundData, type UltimateDef, type StatusEffectKind, type PartKey } from '@/data';
 import { applyDefense, type LoadoutStats } from './stats';
+
+export interface StatusEffect {
+  readonly kind: StatusEffectKind;
+  remainingDuration: number;
+  readonly magnitude: number;
+}
 
 export interface CombatWeapon {
   readonly label: string;
@@ -20,6 +26,8 @@ export interface CombatWeapon {
   cooldownSec: number;
   /** Remaining cooldown in seconds; fires when it drops to zero. */
   timer: number;
+  /** Part key for status effect lookup (optional). */
+  readonly partKey?: PartKey;
 }
 
 export interface Combatant {
@@ -38,6 +46,26 @@ export interface Combatant {
   repairTimer: number;
   /** Kinetic Shield: blocks the first incoming hit completely (one-time). */
   shieldCharges: number;
+  /** Ultimate ability (null = none). */
+  ultimate: UltimateDef | null;
+  /** Damage accumulated toward ultimate gauge (0-1 ratio of maxHp). */
+  ultimateGauge: number;
+  /** Whether ultimate has been used this battle. */
+  ultimateUsed: boolean;
+  /** Remaining duration of timed ultimate effects (seconds). */
+  ultimateEffectTimer: number;
+  /** Temporary DR boost from fortress ultimate. */
+  tempDrBoost: number;
+  /** Temporary speed multiplier from speed-burst ultimate. */
+  tempSpeedMult: number;
+  /** Remaining weapon-disable time from system-hack (seconds). */
+  weaponDisableTimer: number;
+  /** Active status effects on this combatant. */
+  statusEffects: StatusEffect[];
+  /** Evasion chance (0-0.3). */
+  evasionChance: number;
+  /** Consecutive hit counter for combo damage bonus. */
+  comboCount: number;
 }
 
 export interface AttackEvent {
@@ -47,17 +75,20 @@ export interface AttackEvent {
   readonly rawDamage: number;
   readonly finalDamage: number;
   readonly killed: boolean;
+  readonly combo: number;
 }
 
 export interface TickResult {
   readonly attacks: AttackEvent[];
   readonly healed: number;
   readonly overdriveTriggered: boolean;
+  readonly ultimateFired: string | null;
 }
 
 export const createPlayerCombatant = (
   robotName: string,
-  stats: LoadoutStats
+  stats: LoadoutStats,
+  ultimate: UltimateDef | null = null
 ): Combatant => ({
   name: robotName,
   maxHp: stats.maxHp,
@@ -68,7 +99,8 @@ export const createPlayerCombatant = (
     label: w.name,
     damage: w.damage,
     cooldownSec: w.cooldownSec,
-    timer: w.cooldownSec
+    timer: w.cooldownSec,
+    partKey: w.partKey
   })),
   overdriveMultiplier: stats.overdriveMultiplier,
   overdriveThresholdHp: stats.overdriveThresholdHp,
@@ -76,10 +108,23 @@ export const createPlayerCombatant = (
   repairIntervalSec: stats.repairIntervalSec,
   repairAmount: stats.repairAmount,
   repairTimer: stats.repairIntervalSec,
-  shieldCharges: stats.shieldCharges
+  shieldCharges: stats.shieldCharges,
+  ultimate,
+  ultimateGauge: 0,
+  ultimateUsed: false,
+  ultimateEffectTimer: 0,
+  tempDrBoost: 0,
+  tempSpeedMult: 1,
+  weaponDisableTimer: 0,
+  statusEffects: [],
+  evasionChance: stats.evasionChance,
+  comboCount: 0
 });
 
-export const createEnemyCombatant = (round: RoundData): Combatant => ({
+export const createEnemyCombatant = (
+  round: RoundData,
+  ultimate: UltimateDef | null = null
+): Combatant => ({
   name: round.enemy.name,
   maxHp: round.enemy.hp,
   hp: round.enemy.hp,
@@ -99,8 +144,140 @@ export const createEnemyCombatant = (round: RoundData): Combatant => ({
   repairIntervalSec: 0,
   repairAmount: 0,
   repairTimer: 0,
-  shieldCharges: 0
+  shieldCharges: 0,
+  ultimate,
+  ultimateGauge: 0,
+  ultimateUsed: false,
+  ultimateEffectTimer: 0,
+  tempDrBoost: 0,
+  tempSpeedMult: 1,
+  weaponDisableTimer: 0,
+  statusEffects: [],
+  evasionChance: 0,
+  comboCount: 0
 });
+
+/** Maximum combo damage bonus (20%). */
+const COMBO_BONUS_CAP = 0.2;
+/** Damage increase per combo hit (1%). */
+const COMBO_BONUS_PER_HIT = 0.01;
+
+/** Roll for and apply a weapon's status effect on the defender. */
+const tryApplyStatusEffect = (weapon: CombatWeapon, defender: Combatant): void => {
+  if (!weapon.partKey) return;
+  const partDef = PARTS[weapon.partKey];
+  if (!partDef || partDef.category !== 'weapon') return;
+  const weaponDef = partDef as import('@/data').WeaponPart;
+  if (!weaponDef.statusEffect) return;
+  const se = weaponDef.statusEffect;
+  if (Math.random() >= se.chance) return;
+  // Replace existing effect of the same kind (refresh duration).
+  const idx = defender.statusEffects.findIndex((e) => e.kind === se.kind);
+  const effect: StatusEffect = { kind: se.kind, remainingDuration: se.durationSec, magnitude: se.magnitude };
+  if (idx >= 0) {
+    defender.statusEffects[idx] = effect;
+  } else {
+    defender.statusEffects.push(effect);
+  }
+};
+
+/** Apply damage to defender, filling their ultimate gauge. */
+const dealDamage = (
+  attacker: Combatant,
+  defender: Combatant,
+  weapon: CombatWeapon,
+  attacks: AttackEvent[],
+  damageMultiplier = 1
+): boolean => {
+  // Evasion check.
+  if (defender.evasionChance > 0 && Math.random() < defender.evasionChance) {
+    attacks.push({ attackerName: attacker.name, defenderName: defender.name, weaponLabel: 'DODGE', rawDamage: 0, finalDamage: 0, killed: false, combo: attacker.comboCount });
+    attacker.comboCount = 0;
+    return false;
+  }
+  if (defender.shieldCharges > 0) {
+    defender.shieldCharges -= 1;
+    attacker.comboCount += 1;
+    attacks.push({ attackerName: attacker.name, defenderName: defender.name, weaponLabel: weapon.label, rawDamage: weapon.damage, finalDamage: 0, killed: false, combo: attacker.comboCount });
+    return false;
+  }
+  // Combo bonus.
+  const comboBonus = 1 + Math.min(attacker.comboCount * COMBO_BONUS_PER_HIT, COMBO_BONUS_CAP);
+  const raw = Math.round(weapon.damage * damageMultiplier * comboBonus);
+  // Freeze speed reduction is handled in tick; here we only compute damage.
+  const effectiveDr = defender.damageReductionPct + defender.tempDrBoost;
+  const finalDamage = applyDefense(raw, defender.damageReductionFlat, Math.min(effectiveDr, 0.9));
+  defender.hp = Math.max(0, defender.hp - finalDamage);
+  // Fill defender's ultimate gauge based on damage taken.
+  if (defender.ultimate && !defender.ultimateUsed) {
+    defender.ultimateGauge += finalDamage / defender.maxHp;
+  }
+  attacker.comboCount += 1;
+  // Roll for status effect.
+  tryApplyStatusEffect(weapon, defender);
+  const killed = defender.hp <= 0;
+  attacks.push({ attackerName: attacker.name, defenderName: defender.name, weaponLabel: weapon.label, rawDamage: raw, finalDamage, killed, combo: attacker.comboCount });
+  return killed;
+};
+
+/** Fire the attacker's ultimate ability against the defender. */
+const fireUltimate = (
+  attacker: Combatant,
+  defender: Combatant,
+  attacks: AttackEvent[]
+): void => {
+  const ult = attacker.ultimate!;
+  attacker.ultimateUsed = true;
+  attacker.ultimateGauge = 0;
+
+  switch (ult.effect.kind) {
+    case 'multi_strike':
+      for (const w of attacker.weapons) {
+        dealDamage(attacker, defender, w, attacks, ult.effect.damageMultiplier);
+        if (defender.hp <= 0) return;
+      }
+      break;
+    case 'fortress': {
+      const healAmt = Math.floor(attacker.maxHp * ult.effect.healPct);
+      attacker.hp = Math.min(attacker.maxHp, attacker.hp + healAmt);
+      attacker.tempDrBoost = ult.effect.drBoost;
+      attacker.ultimateEffectTimer = ult.effect.durationSec;
+      break;
+    }
+    case 'speed_burst':
+      attacker.tempSpeedMult = ult.effect.speedMultiplier;
+      attacker.ultimateEffectTimer = ult.effect.durationSec;
+      break;
+    case 'system_hack': {
+      const hackDmg: CombatWeapon = { label: ult.name, damage: ult.effect.damage, cooldownSec: 999, timer: 999 };
+      dealDamage(attacker, defender, hackDmg, attacks);
+      defender.weaponDisableTimer = ult.effect.disableSec;
+      break;
+    }
+  }
+};
+
+/** Tick status effects: apply burn/poison damage and expire durations. */
+const tickStatusEffects = (target: Combatant, dtSec: number): void => {
+  for (let i = target.statusEffects.length - 1; i >= 0; i -= 1) {
+    const se = target.statusEffects[i]!;
+    if (se.kind === 'burn' || se.kind === 'poison') {
+      target.hp = Math.max(0, target.hp - se.magnitude * dtSec);
+    }
+    se.remainingDuration -= dtSec;
+    if (se.remainingDuration <= 0) {
+      target.statusEffects.splice(i, 1);
+    }
+  }
+};
+
+/** Returns a speed multiplier reduction from active freeze effects (stacks replaced, not additive). */
+const getFreezeSlowdown = (target: Combatant): number => {
+  for (const se of target.statusEffects) {
+    if (se.kind === 'freeze') return 1 - se.magnitude;
+  }
+  return 1;
+};
 
 /** Advance time by `dtSec` seconds and return any events that fired. Mutates the combatants. */
 export const tickCombatant = (
@@ -111,11 +288,38 @@ export const tickCombatant = (
   const attacks: AttackEvent[] = [];
   let healed = 0;
   let overdriveTriggered = false;
+  let ultimateFired: string | null = null;
   if (attacker.hp <= 0 || defender.hp <= 0) {
-    return { attacks, healed, overdriveTriggered };
+    return { attacks, healed, overdriveTriggered, ultimateFired };
   }
 
-  // Overdrive activation check (HP threshold -> attack-speed boost).
+  // Tick status effects on attacker (burn/poison damage, freeze slowdown, expiry).
+  tickStatusEffects(attacker, dtSec);
+  if (attacker.hp <= 0) return { attacks, healed, overdriveTriggered, ultimateFired };
+
+  // Tick down timed ultimate effects.
+  if (attacker.ultimateEffectTimer > 0) {
+    attacker.ultimateEffectTimer -= dtSec;
+    if (attacker.ultimateEffectTimer <= 0) {
+      attacker.tempDrBoost = 0;
+      attacker.tempSpeedMult = 1;
+    }
+  }
+  if (attacker.weaponDisableTimer > 0) {
+    attacker.weaponDisableTimer -= dtSec;
+    if (attacker.weaponDisableTimer > 0) {
+      return { attacks, healed, overdriveTriggered, ultimateFired };
+    }
+  }
+
+  // Check ultimate gauge — fire automatically when full.
+  if (attacker.ultimate && !attacker.ultimateUsed && attacker.ultimateGauge >= attacker.ultimate.gaugeFillRatio) {
+    ultimateFired = attacker.ultimate.name;
+    fireUltimate(attacker, defender, attacks);
+    if (defender.hp <= 0) return { attacks, healed, overdriveTriggered, ultimateFired };
+  }
+
+  // Overdrive activation check.
   if (
     attacker.overdriveMultiplier > 0 &&
     !attacker.overdriveActive &&
@@ -124,10 +328,14 @@ export const tickCombatant = (
     attacker.overdriveActive = true;
     overdriveTriggered = true;
   }
-  const effectiveDt =
-    attacker.overdriveActive && attacker.overdriveMultiplier > 0
-      ? dtSec * (1 + attacker.overdriveMultiplier)
-      : dtSec;
+
+  let effectiveDt = dtSec;
+  if (attacker.overdriveActive && attacker.overdriveMultiplier > 0) {
+    effectiveDt *= (1 + attacker.overdriveMultiplier);
+  }
+  effectiveDt *= attacker.tempSpeedMult;
+  // Apply freeze slowdown to attacker's effective tick speed.
+  effectiveDt *= getFreezeSlowdown(attacker);
 
   // Repair Kit healing.
   if (attacker.repairIntervalSec > 0 && attacker.repairAmount > 0) {
@@ -140,43 +348,21 @@ export const tickCombatant = (
     }
   }
 
+  let attackedThisTick = false;
   for (let i = 0; i < attacker.weapons.length; i += 1) {
     const w = attacker.weapons[i]!;
     w.timer -= effectiveDt;
     while (w.timer <= 0) {
-      // Kinetic Shield: first hit is completely blocked.
-      if (defender.shieldCharges > 0) {
-        defender.shieldCharges -= 1;
-        attacks.push({
-          attackerName: attacker.name,
-          defenderName: defender.name,
-          weaponLabel: w.label,
-          rawDamage: w.damage,
-          finalDamage: 0,
-          killed: false
-        });
-        w.timer += w.cooldownSec;
-        continue;
-      }
-      const finalDamage = applyDefense(
-        w.damage,
-        defender.damageReductionFlat,
-        defender.damageReductionPct
-      );
-      defender.hp = Math.max(0, defender.hp - finalDamage);
-      const killed = defender.hp <= 0;
-      attacks.push({
-        attackerName: attacker.name,
-        defenderName: defender.name,
-        weaponLabel: w.label,
-        rawDamage: w.damage,
-        finalDamage,
-        killed
-      });
+      attackedThisTick = true;
+      const killed = dealDamage(attacker, defender, w, attacks);
       w.timer += w.cooldownSec;
-      if (killed) return { attacks, healed, overdriveTriggered };
+      if (killed) return { attacks, healed, overdriveTriggered, ultimateFired };
     }
   }
+  // Reset combo if no attack fired this tick.
+  if (!attackedThisTick) {
+    attacker.comboCount = 0;
+  }
 
-  return { attacks, healed, overdriveTriggered };
+  return { attacks, healed, overdriveTriggered, ultimateFired };
 };

@@ -1,14 +1,15 @@
 import { Scene } from 'phaser';
 
 import gameOptions from '../helper/gameOptions';
-import { PARTS, ROBOTS, type PartCategory, type PartKey } from '@/data';
+import { PARTS, ROBOTS, rollSkillChoices, type PartCategory, type PartKey } from '@/data';
+import type { SkillDef } from '@/data/skills';
 import { getRunState, setRunState } from '../systems/runState';
 import { PALETTE } from '../systems/palette';
 import { awardRoundReward } from '../systems/loadout';
 import { generateShopOffer } from '../systems/shop';
 import { playSfx } from '../systems/audio';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
-import { recordVictory, recordDefeatedEnemy, recordUsedPart } from '../systems/savedata';
+import { recordVictory, recordDefeatedEnemy, recordUsedPart, recordAcquiredSkill, recordScrap } from '../systems/savedata';
 import { t } from '../systems/i18n';
 import { playMusic, MUSIC_KEYS } from '../systems/music';
 import { applyHiDpiToScene, showDebugBadge } from '../helper/hiDpiText';
@@ -80,38 +81,71 @@ export class Result extends Scene {
         .setOrigin(0.5)
         .setColor('#ffd94a');
 
-      this.makeClickButton(gameWidth / 2, gameHeight * 0.70, t('▶  NEXT ROUND'), () => {
-        playSfx('click');
-        fadeToScene(this, 'Build');
-      });
-      this.makeClickButton(gameWidth / 2, gameHeight * 0.78, t('QUIT TO TITLE'), () => {
-        playSfx('click');
-        fadeToScene(this, 'Title');
-      }, 0.5);
+      // Check if the cleared round was a boss → offer skill selection.
+      const clearedRound = state.generatedRounds[state.currentRound - 1];
+      const isBossRound = clearedRound?.isBoss === true;
+      const isBigBoss = clearedRound && !clearedRound.isSuperBoss && state.currentRound >= 10;
+      const isSuperRoute = state.generatedRounds.length > 10;
 
-      this.input.keyboard?.once('keydown-SPACE', () => { playSfx('click'); fadeToScene(this, 'Build'); });
+      if (isBossRound && advanced.acquiredSkills.length < 3) {
+        // Big boss skills only offered on super-boss route.
+        const offerSkills = isBigBoss ? isSuperRoute : true;
+        if (offerSkills) {
+          const tier = isBigBoss ? 'bigBoss' as const : 'midBoss' as const;
+          const choices = rollSkillChoices(tier, advanced.acquiredSkills);
+          if (choices.length > 0) {
+            this.showSkillSelection(choices, advanced);
+            return;
+          }
+        }
+      }
+
+      this.showContinueButtons();
     } else if (outcome === 'victory') {
       if (state.robotKey) recordVictory(state.robotKey);
+      // Convert remaining gold to scrap.
+      const scrapEarned = Math.floor(state.gold * 0.5);
+      if (scrapEarned > 0) recordScrap(scrapEarned);
+
       const totalRounds = state.generatedRounds.length;
       this.add
         .text(
           gameWidth / 2,
-          gameHeight * 0.55,
+          gameHeight * 0.50,
           `${t('All')} ${totalRounds} ${t('rounds cleared. Final gold:')} ${state.gold}g`,
           textStyles.body
         )
         .setOrigin(0.5)
         .setColor('#ffd94a');
 
+      if (scrapEarned > 0) {
+        this.add
+          .text(gameWidth / 2, gameHeight * 0.54, `+${scrapEarned} Scrap`, textStyles.small)
+          .setOrigin(0.5)
+          .setColor('#aeeaff');
+      }
+
+      // Run stats summary
+      const rs = state.runStats;
+      const statsLines = [
+        `DMG Dealt: ${rs.totalDamageDealt}   DMG Taken: ${rs.totalDamageTaken}`,
+        `Healed: ${rs.totalHealed}   Rounds: ${rs.roundsCleared}   Enemies: ${rs.enemiesDefeated}`,
+        `Parts Used: ${rs.partsUsed}`
+      ];
+      this.add
+        .text(gameWidth / 2, gameHeight * 0.60, statsLines.join('\n'), textStyles.small)
+        .setOrigin(0.5)
+        .setAlpha(0.7);
+
       const summary = this.buildMachineSummary(state.robotKey, state.equipped);
       if (summary) {
         this.add
-          .text(gameWidth / 2, gameHeight * 0.63, summary, textStyles.small)
+          .text(gameWidth / 2, gameHeight * 0.68, summary, textStyles.small)
           .setOrigin(0.5)
           .setAlpha(0.85);
       }
 
-      this.makeClickButton(gameWidth / 2, gameHeight * 0.75, t('▶  RETURN TO TITLE'), () => {
+      this.makeClickButton(gameWidth / 2, gameHeight * 0.78, t('▶  RETURN TO TITLE'), () => {
         playSfx('click');
         fadeToScene(this, 'Title');
       });
@@ -130,6 +164,72 @@ export class Result extends Scene {
       });
       this.input.keyboard?.once('keydown-SPACE', () => fadeToScene(this, 'Title'));
     }
+
+    applyHiDpiToScene(this);
+    showDebugBadge(this, isDebugEnabled());
+  }
+
+  private showAcquiredLabel(skillName: string): void {
+    const { gameWidth, gameHeight, textStyles } = gameOptions;
+    this.add
+      .text(gameWidth / 2, gameHeight * 0.64, `Acquired: ${t(skillName)}`, textStyles.body)
+      .setOrigin(0.5)
+      .setColor('#3aff7a');
+  }
+
+  private showContinueButtons(): void {
+    const { gameWidth, gameHeight } = gameOptions;
+    this.makeClickButton(gameWidth / 2, gameHeight * 0.70, t('▶  NEXT ROUND'), () => {
+      playSfx('click');
+      fadeToScene(this, 'Build');
+    });
+    this.makeClickButton(gameWidth / 2, gameHeight * 0.78, t('QUIT TO TITLE'), () => {
+      playSfx('click');
+      fadeToScene(this, 'Title');
+    }, 0.5);
+    this.input.keyboard?.once('keydown-SPACE', () => { playSfx('click'); fadeToScene(this, 'Build'); });
+    applyHiDpiToScene(this);
+  }
+
+  private showSkillSelection(choices: SkillDef[], currentState: import('../systems/runState').RunState): void {
+    const { gameWidth, gameHeight, textStyles } = gameOptions;
+
+    this.add
+      .text(gameWidth / 2, gameHeight * 0.56, t('CHOOSE A SKILL'), textStyles.body)
+      .setOrigin(0.5)
+      .setColor('#ffd94a');
+
+    const cardW = 280;
+    const cardH = 100;
+    const gap = 20;
+    const totalW = choices.length * cardW + (choices.length - 1) * gap;
+    const startX = gameWidth / 2 - totalW / 2 + cardW / 2;
+    const cardY = gameHeight * 0.70;
+
+    choices.forEach((skill, i) => {
+      const x = startX + i * (cardW + gap);
+      const bg = this.add
+        .rectangle(x, cardY, cardW, cardH, PALETTE.cardBg, 1)
+        .setStrokeStyle(2, PALETTE.cardStroke)
+        .setInteractive({ useHandCursor: true });
+
+      this.add.text(x, cardY - 28, t(skill.name), textStyles.body).setOrigin(0.5).setColor('#ffd94a');
+      this.add.text(x, cardY + 8, t(skill.description), textStyles.small).setOrigin(0.5);
+
+      bg.on('pointerover', () => bg.setStrokeStyle(3, PALETTE.accentOrange));
+      bg.on('pointerout', () => bg.setStrokeStyle(2, PALETTE.cardStroke));
+      bg.on('pointerdown', () => {
+        playSfx('buy');
+        recordAcquiredSkill(skill.id);
+        const updated = {
+          ...currentState,
+          acquiredSkills: [...currentState.acquiredSkills, skill.id]
+        };
+        setRunState(this, updated);
+        this.showAcquiredLabel(skill.name);
+        this.showContinueButtons();
+      });
+    });
 
     applyHiDpiToScene(this);
     showDebugBadge(this, isDebugEnabled());

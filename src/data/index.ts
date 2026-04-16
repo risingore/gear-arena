@@ -25,6 +25,12 @@ export type { SynergyKey } from './synergies';
 export { ITEMS, ALL_ITEM_KEYS, isItemKey } from './items';
 export type { ItemKey } from './items';
 
+export { SKILLS, ALL_SKILL_IDS, findSkillDef, rollSkillChoices } from './skills';
+export type { SkillDef, SkillEffectKind } from './skills';
+
+export { ROBOT_ULTIMATES, ENEMY_ULTIMATES } from './ultimates';
+export type { UltimateDef, UltimateEffect } from './ultimates';
+
 export {
   NORMAL_ENEMIES,
   MID_BOSSES,
@@ -64,5 +70,8 @@ export type {
   ItemData,
   ItemTiming,
   ItemEffect,
-  ItemsRegistry
+  ItemsRegistry,
+  StatusEffectKind,
+  StatusEffectDef,
+  PartRarity
 } from './schema';

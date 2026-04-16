@@ -5,6 +5,7 @@ import { getRunState } from '../systems/runState';
 import { PALETTE } from '../systems/palette';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { playSfx } from '../systems/audio';
+import { recordScrap } from '../systems/savedata';
 import { t } from '../systems/i18n';
 import { applyHiDpiToScene, showDebugBadge } from '../helper/hiDpiText';
 import { isDebugEnabled } from '../systems/debug';
@@ -29,11 +30,33 @@ export class GameOver extends Scene {
     this.add
       .text(
         gameWidth / 2,
-        gameHeight * 0.45,
+        gameHeight * 0.40,
         `${t('Reached round')} ${state.currentRound} / ${state.generatedRounds?.length || 10}`,
         textStyles.body
       )
       .setOrigin(0.5);
+
+    // Convert remaining gold to scrap on defeat.
+    const scrapEarned = Math.floor(state.gold * 0.5);
+    if (scrapEarned > 0) {
+      recordScrap(scrapEarned);
+      this.add
+        .text(gameWidth / 2, gameHeight * 0.44, `+${scrapEarned} Scrap`, textStyles.small)
+        .setOrigin(0.5)
+        .setColor('#aeeaff');
+    }
+
+    // Run stats summary
+    const rs = state.runStats;
+    const statsLines = [
+      `DMG Dealt: ${rs.totalDamageDealt}   DMG Taken: ${rs.totalDamageTaken}`,
+      `Healed: ${rs.totalHealed}   Rounds: ${rs.roundsCleared}   Enemies: ${rs.enemiesDefeated}`,
+      `Parts Used: ${rs.partsUsed}`
+    ];
+    this.add
+      .text(gameWidth / 2, gameHeight * 0.49, statsLines.join('\n'), textStyles.small)
+      .setOrigin(0.5)
+      .setAlpha(0.7);
 
     // Analysis hint based on loadout.
     const equipped = state.equipped ?? {};
@@ -45,12 +68,12 @@ export class GameOver extends Scene {
     else if (weaponCount === 1) hint = t('Tip: Adding a second weapon doubles your DPS.');
     else hint = t('Tip: Try different part combinations or a different robot.');
     this.add
-      .text(gameWidth / 2, gameHeight * 0.54, hint, textStyles.small)
+      .text(gameWidth / 2, gameHeight * 0.59, hint, textStyles.small)
       .setOrigin(0.5)
       .setAlpha(0.7);
 
     const restartBtn = this.add
-      .text(gameWidth / 2, gameHeight * 0.64, t('▶  RETURN TO TITLE'), textStyles.body)
+      .text(gameWidth / 2, gameHeight * 0.69, t('▶  RETURN TO TITLE'), textStyles.body)
       .setOrigin(0.5)
       .setAlpha(0.8)
       .setInteractive({ useHandCursor: true });

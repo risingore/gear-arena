@@ -30,6 +30,8 @@ export interface EnemyDef {
   readonly category: 'normal' | 'midBoss' | 'bigBoss' | 'super';
   readonly tier: number;
   readonly assetKey: string;
+  /** Short flavor text for display. */
+  readonly flavorText: string;
   /** Extra weapons beyond the primary attack (optional). */
   readonly extraWeapons?: readonly EnemyWeaponDef[];
   /** Shield charges that block the first N player hits (optional). */
@@ -45,16 +47,16 @@ export interface EnemyDef {
 // ============================================================
 
 export const NORMAL_ENEMIES: readonly EnemyDef[] = [
-  { id: 'enemy_scrap_drone',    name: 'Scrap Drone',      baseHp: 30,  baseDamage: 4,  baseCooldownSec: 1.8, baseDamageReductionPct: 0,    category: 'normal', tier: 1, assetKey: 'enemy_drone' },
-  { id: 'enemy_rust_walker',    name: 'Rust Walker',      baseHp: 50,  baseDamage: 6,  baseCooldownSec: 1.6, baseDamageReductionPct: 0,    category: 'normal', tier: 2, assetKey: 'enemy_walker' },
-  { id: 'enemy_bolt_spider',    name: 'Bolt Spider',      baseHp: 65,  baseDamage: 7,  baseCooldownSec: 1.4, baseDamageReductionPct: 0.03, category: 'normal', tier: 3, assetKey: 'enemy_spider' },
-  { id: 'enemy_gear_hound',     name: 'Gear Hound',       baseHp: 80,  baseDamage: 9,  baseCooldownSec: 1.3, baseDamageReductionPct: 0.05, category: 'normal', tier: 4, assetKey: 'enemy_hound' },
-  { id: 'enemy_piston_brute',   name: 'Piston Brute',     baseHp: 100, baseDamage: 11, baseCooldownSec: 1.5, baseDamageReductionPct: 0.05, category: 'normal', tier: 5, assetKey: 'enemy_brute' },
-  { id: 'enemy_arc_striker',    name: 'Arc Striker',       baseHp: 120, baseDamage: 13, baseCooldownSec: 1.2, baseDamageReductionPct: 0.08, category: 'normal', tier: 6, assetKey: 'enemy_striker' },
-  { id: 'enemy_hover_sentinel', name: 'Hover Sentinel',    baseHp: 150, baseDamage: 15, baseCooldownSec: 1.1, baseDamageReductionPct: 0.08, category: 'normal', tier: 7, assetKey: 'enemy_hover' },
-  { id: 'enemy_heavy_bipod',    name: 'Heavy Bipod',       baseHp: 180, baseDamage: 17, baseCooldownSec: 1.4, baseDamageReductionPct: 0.12, category: 'normal', tier: 8, assetKey: 'enemy_bipod' },
-  { id: 'enemy_twin_rotor',     name: 'Twin Rotor',        baseHp: 210, baseDamage: 19, baseCooldownSec: 1.0, baseDamageReductionPct: 0.10, category: 'normal', tier: 9, assetKey: 'enemy_rotor' },
-  { id: 'enemy_plasma_crawler', name: 'Plasma Crawler',    baseHp: 250, baseDamage: 22, baseCooldownSec: 1.3, baseDamageReductionPct: 0.12, category: 'normal', tier: 10, assetKey: 'enemy_crawler' },
+  { id: 'enemy_scrap_drone',    name: 'Scrap Drone',      baseHp: 30,  baseDamage: 4,  baseCooldownSec: 1.8, baseDamageReductionPct: 0,    category: 'normal', tier: 1, assetKey: 'enemy_drone',   flavorText: 'Cobbled together from discarded servos.' },
+  { id: 'enemy_rust_walker',    name: 'Rust Walker',      baseHp: 50,  baseDamage: 6,  baseCooldownSec: 1.6, baseDamageReductionPct: 0,    category: 'normal', tier: 2, assetKey: 'enemy_walker',  flavorText: 'Corroded legs still carry a mean kick.' },
+  { id: 'enemy_bolt_spider',    name: 'Bolt Spider',      baseHp: 65,  baseDamage: 7,  baseCooldownSec: 1.4, baseDamageReductionPct: 0.03, category: 'normal', tier: 3, assetKey: 'enemy_spider',  flavorText: 'Eight legs, each tipped with a spark plug.' },
+  { id: 'enemy_gear_hound',     name: 'Gear Hound',       baseHp: 80,  baseDamage: 9,  baseCooldownSec: 1.3, baseDamageReductionPct: 0.05, category: 'normal', tier: 4, assetKey: 'enemy_hound',   flavorText: 'Tracks prey by the whine of overheated gears.' },
+  { id: 'enemy_piston_brute',   name: 'Piston Brute',     baseHp: 100, baseDamage: 11, baseCooldownSec: 1.5, baseDamageReductionPct: 0.05, category: 'normal', tier: 5, assetKey: 'enemy_brute',   flavorText: 'Slow and heavy. Every swing cracks plating.' },
+  { id: 'enemy_arc_striker',    name: 'Arc Striker',       baseHp: 120, baseDamage: 13, baseCooldownSec: 1.2, baseDamageReductionPct: 0.08, category: 'normal', tier: 6, assetKey: 'enemy_striker', flavorText: 'Electrified blades discharge on contact.' },
+  { id: 'enemy_hover_sentinel', name: 'Hover Sentinel',    baseHp: 150, baseDamage: 15, baseCooldownSec: 1.1, baseDamageReductionPct: 0.08, category: 'normal', tier: 7, assetKey: 'enemy_hover',   flavorText: 'Floats above the scrapyard, scanning for threats.' },
+  { id: 'enemy_heavy_bipod',    name: 'Heavy Bipod',       baseHp: 180, baseDamage: 17, baseCooldownSec: 1.4, baseDamageReductionPct: 0.12, category: 'normal', tier: 8, assetKey: 'enemy_bipod',   flavorText: 'Two legs of tempered alloy. Nearly immovable.' },
+  { id: 'enemy_twin_rotor',     name: 'Twin Rotor',        baseHp: 210, baseDamage: 19, baseCooldownSec: 1.0, baseDamageReductionPct: 0.10, category: 'normal', tier: 9, assetKey: 'enemy_rotor',   flavorText: 'Dual propellers whip up a storm of razor debris.' },
+  { id: 'enemy_plasma_crawler', name: 'Plasma Crawler',    baseHp: 250, baseDamage: 22, baseCooldownSec: 1.3, baseDamageReductionPct: 0.12, category: 'normal', tier: 10, assetKey: 'enemy_crawler', flavorText: 'Superheated treads melt the ground it crosses.' },
 ];
 
 // ============================================================
@@ -63,14 +65,19 @@ export const NORMAL_ENEMIES: readonly EnemyDef[] = [
 
 export const MID_BOSSES: readonly EnemyDef[] = [
   { id: 'midboss_iron_sentinel', name: 'Iron Sentinel',    baseHp: 200, baseDamage: 16, baseCooldownSec: 1.3, baseDamageReductionPct: 0.12, category: 'midBoss', tier: 5, assetKey: 'midboss_sentinel',
+    flavorText: 'A fortress on two legs. Its shield absorbs the first blow.',
     extraWeapons: [{ label: 'Iron Bash', damage: 8, cooldownSec: 2.5 }], shieldCharges: 1 },
   { id: 'midboss_volt_charger',  name: 'Volt Charger',     baseHp: 180, baseDamage: 20, baseCooldownSec: 1.0, baseDamageReductionPct: 0.08, category: 'midBoss', tier: 5, assetKey: 'midboss_charger',
+    flavorText: 'Overcharged capacitors make every strike arc twice.',
     extraWeapons: [{ label: 'Volt Burst', damage: 12, cooldownSec: 1.8 }] },
   { id: 'midboss_shield_golem',  name: 'Shield Golem',     baseHp: 260, baseDamage: 12, baseCooldownSec: 1.5, baseDamageReductionPct: 0.20, category: 'midBoss', tier: 5, assetKey: 'midboss_golem',
+    flavorText: 'Built to outlast, not outfight. Repairs itself mid-combat.',
     shieldCharges: 2, repairAmount: 3, repairIntervalSec: 6 },
   { id: 'midboss_flame_mantis',  name: 'Flame Mantis',     baseHp: 170, baseDamage: 22, baseCooldownSec: 0.9, baseDamageReductionPct: 0.05, category: 'midBoss', tier: 5, assetKey: 'midboss_mantis',
+    flavorText: 'Strikes faster than sensors can track. Burns everything.',
     extraWeapons: [{ label: 'Flame Spit', damage: 6, cooldownSec: 0.5 }] },
   { id: 'midboss_frost_walker',  name: 'Frost Walker',     baseHp: 220, baseDamage: 14, baseCooldownSec: 1.2, baseDamageReductionPct: 0.15, category: 'midBoss', tier: 5, assetKey: 'midboss_frost',
+    flavorText: 'Cryo-cooled armor bleeds heat from anything nearby.',
     extraWeapons: [{ label: 'Frost Spike', damage: 10, cooldownSec: 2.0 }], repairAmount: 2, repairIntervalSec: 5 },
 ];
 
@@ -80,10 +87,13 @@ export const MID_BOSSES: readonly EnemyDef[] = [
 
 export const BIG_BOSSES: readonly EnemyDef[] = [
   { id: 'boss_leviathan',       name: 'Leviathan',         baseHp: 500, baseDamage: 30, baseCooldownSec: 1.3, baseDamageReductionPct: 0.18, category: 'bigBoss', tier: 10, assetKey: 'boss_leviathan',
+    flavorText: 'An ancient war machine from the deep foundries.',
     extraWeapons: [{ label: 'Tail Sweep', damage: 15, cooldownSec: 2.0 }, { label: 'Deep Charge', damage: 40, cooldownSec: 4.0 }], shieldCharges: 2 },
   { id: 'boss_colossus',        name: 'Colossus',          baseHp: 600, baseDamage: 25, baseCooldownSec: 1.5, baseDamageReductionPct: 0.25, category: 'bigBoss', tier: 10, assetKey: 'boss_colossus',
+    flavorText: 'Towering siege unit. Shrugs off damage and heals through it.',
     extraWeapons: [{ label: 'Ground Pound', damage: 20, cooldownSec: 3.0 }], shieldCharges: 3, repairAmount: 5, repairIntervalSec: 8 },
   { id: 'boss_storm_kaiser',    name: 'Storm Kaiser',      baseHp: 450, baseDamage: 35, baseCooldownSec: 1.1, baseDamageReductionPct: 0.15, category: 'bigBoss', tier: 10, assetKey: 'boss_kaiser',
+    flavorText: 'Commands lightning itself. Speed and power in perfect union.',
     extraWeapons: [{ label: 'Lightning Arc', damage: 18, cooldownSec: 1.5 }, { label: 'Thunder Crash', damage: 50, cooldownSec: 5.0 }] },
 ];
 
@@ -101,6 +111,7 @@ export const SUPER_BOSS: EnemyDef = {
   category: 'super',
   tier: 99,
   assetKey: 'superboss_apex',
+  flavorText: 'The ultimate weapon. No pilot. Pure logic.',
   extraWeapons: [
     { label: 'Apex Cannon', damage: 25, cooldownSec: 1.8 },
     { label: 'Extinction Beam', damage: 60, cooldownSec: 6.0 }

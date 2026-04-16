@@ -88,6 +88,16 @@ export class Settings extends Scene {
     });
     y += ROW_H;
 
+    // --- Recommended resolution (read-only info) ---
+    this.add
+      .text(LABEL_X, y, t('Recommended'), textStyles.body)
+      .setOrigin(0, 0.5);
+    this.add
+      .text(VALUE_X, y, `${gameWidth} × ${gameHeight}`, textStyles.body)
+      .setOrigin(0.5)
+      .setAlpha(0.7);
+    y += ROW_H;
+
     // --- Separator ---
     y += 10;
     this.add
@@ -144,7 +154,7 @@ export class Settings extends Scene {
 
     // --- Back to Title ---
     const backBtn = this.add
-      .text(gameWidth / 2, gameHeight - 40, t('← BACK TO TITLE'), textStyles.body)
+      .text(80, gameHeight - 28, t('← BACK'), textStyles.body)
       .setOrigin(0.5)
       .setAlpha(0.7)
       .setInteractive({ useHandCursor: true });

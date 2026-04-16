@@ -110,3 +110,13 @@ export const setMusicMuted = (flag: boolean): void => {
   muted = flag;
   if (flag) stopMusic();
 };
+
+/** Adjust the playback rate of the current BGM track (1.0 = normal). */
+export const setMusicPlaybackRate = (rate: number): void => {
+  if (!currentSound) return;
+  try {
+    (currentSound as unknown as { rate: number }).rate = rate;
+  } catch {
+    // ignore — not all backends support rate
+  }
+};

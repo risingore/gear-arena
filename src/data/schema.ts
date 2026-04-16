@@ -58,6 +58,10 @@ export type RobotArchetype = 'balanced' | 'heavy' | 'speed' | 'tech';
 
 export type WeaponRange = 'melee' | 'mid' | 'long';
 
+export type StatusEffectKind = 'burn' | 'freeze' | 'poison';
+
+export type PartRarity = 'common' | 'rare' | 'epic';
+
 // =============================================================================
 // Discriminated union: each part category carries its own fields
 // =============================================================================
@@ -67,7 +71,18 @@ interface PartBase {
   readonly name: string;
   readonly description: string;
   readonly price: number;
+  readonly rarity: PartRarity;
   readonly allowedSlots: readonly SlotType[];
+}
+
+export interface StatusEffectDef {
+  readonly kind: StatusEffectKind;
+  /** Probability of applying the effect on hit (0-1). */
+  readonly chance: number;
+  /** Damage per second (burn/poison) or speed reduction ratio (freeze). */
+  readonly magnitude: number;
+  /** Duration in seconds. */
+  readonly durationSec: number;
 }
 
 export interface WeaponPart extends PartBase {
@@ -75,6 +90,7 @@ export interface WeaponPart extends PartBase {
   readonly cooldownSec: number;
   readonly damage: number;
   readonly range: WeaponRange;
+  readonly statusEffect?: StatusEffectDef;
 }
 
 export interface ArmorPart extends PartBase {
@@ -135,6 +151,8 @@ export interface RobotData {
   readonly baseDamageReductionPct: number;
   readonly baseAttackSpeedMultiplier: number;
   readonly passiveText: string;
+  /** Base evasion chance (0-1). Defaults to 0 if omitted. */
+  readonly baseEvasion?: number;
   readonly slots: readonly SlotDef[];
   /** Asset key for the Build scene's blueprint line-art. */
   readonly blueprintAssetKey: string;
@@ -182,12 +200,19 @@ export interface EconomyData {
 
 export type SynergyTrigger =
   | { readonly kind: 'gear_count'; readonly threshold: number }
-  | { readonly kind: 'category_pair'; readonly a: PartCategory; readonly b: PartCategory };
+  | { readonly kind: 'category_pair'; readonly a: PartCategory; readonly b: PartCategory }
+  | { readonly kind: 'weapon_count'; readonly threshold: number }
+  | { readonly kind: 'armor_count'; readonly threshold: number }
+  | { readonly kind: 'special_count'; readonly threshold: number }
+  | { readonly kind: 'all_categories' };
 
 export type SynergyEffect =
   | { readonly kind: 'cooldown_mult'; readonly multiplier: number }
   | { readonly kind: 'damage_flat'; readonly bonus: number }
-  | { readonly kind: 'pierce_plus'; readonly amount: number };
+  | { readonly kind: 'pierce_plus'; readonly amount: number }
+  | { readonly kind: 'hp_bonus'; readonly amount: number }
+  | { readonly kind: 'damage_pct'; readonly multiplier: number }
+  | { readonly kind: 'magnitude_mult'; readonly multiplier: number };
 
 export interface SynergyData {
   readonly id: SynergyId;

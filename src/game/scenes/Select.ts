@@ -2,11 +2,11 @@ import { Scene } from 'phaser';
 import type { GameObjects } from 'phaser';
 
 import gameOptions from '../helper/gameOptions';
-import { ROBOTS, ALL_ROBOT_KEYS, type RobotKey } from '@/data';
+import { ROBOTS, ALL_ROBOT_KEYS, ROBOT_ULTIMATES, type RobotKey } from '@/data';
 import { getRunState, setRunState, resetRunState } from '../systems/runState';
 import { PALETTE, ROBOT_COLORS } from '../systems/palette';
 import { generateShopOffer } from '../systems/shop';
-import { generateRunEnemies } from '../systems/enemyPool';
+import { generateRunEnemies, getDailySeed } from '../systems/enemyPool';
 import { isRobotUnlocked, isSuperBossUnlocked } from '../systems/savedata';
 import { playSfx } from '../systems/audio';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
@@ -40,9 +40,9 @@ export class Select extends Scene {
       .setOrigin(0.5);
 
     this.add
-      .text(gameWidth / 2, 100, t('Click a machine to select, then CONFIRM'), textStyles.body)
+      .text(gameWidth / 2, 100, t('Click a machine to deploy'), textStyles.small)
       .setOrigin(0.5)
-      .setAlpha(0.7);
+      .setAlpha(0.5);
 
     const totalWidth = this.keys.length * CARD_WIDTH + (this.keys.length - 1) * CARD_GAP;
     const startX = gameWidth / 2 - totalWidth / 2 + CARD_WIDTH / 2;
@@ -119,6 +119,16 @@ export class Select extends Scene {
         .text(x, cardY + 132, `HP ${robot.baseHp}  |  Slots ${robot.slots.length}`, textStyles.small)
         .setOrigin(0.5);
 
+      // Ultimate ability name
+      const ult = ROBOT_ULTIMATES[key];
+      if (ult) {
+        this.add
+          .text(x, cardY + 152, `ULT: ${ult.name}`, textStyles.small)
+          .setOrigin(0.5)
+          .setColor('#ffd94a')
+          .setAlpha(0.7);
+      }
+
       // Lock overlay for unearned robots
       if (!isRobotUnlocked(key)) {
         this.add.rectangle(x, cardY, CARD_WIDTH, CARD_HEIGHT, 0x000000, 0.7);
@@ -130,9 +140,9 @@ export class Select extends Scene {
     });
 
     this.detailText = this.add
-      .text(gameWidth / 2, gameHeight - 80, '', textStyles.body)
+      .text(gameWidth / 2, gameHeight - 64, '', textStyles.small)
       .setOrigin(0.5)
-      .setAlpha(0.9);
+      .setAlpha(0.8);
 
     this.refresh();
 
@@ -150,21 +160,19 @@ export class Select extends Scene {
     this.input.keyboard?.on('keydown-SPACE', () => this.confirm());
     this.input.keyboard?.on('keydown-R', () => fadeToScene(this, 'Title'));
 
-    // CONFIRM button
-    const confirmBg = this.add
-      .rectangle(gameWidth / 2, gameHeight - 40, 200, 44, PALETTE.buttonBg, 1)
-      .setStrokeStyle(2, PALETTE.cardStroke)
+    // DAILY RUN button
+    const dailyBtn = this.add
+      .text(gameWidth / 2, gameHeight - 28, t('DAILY RUN'), textStyles.body)
+      .setOrigin(0.5)
+      .setAlpha(0.7)
       .setInteractive({ useHandCursor: true });
-    this.add
-      .text(gameWidth / 2, gameHeight - 40, t('CONFIRM  ▶'), textStyles.body)
-      .setOrigin(0.5);
-    confirmBg.on('pointerover', () => confirmBg.setFillStyle(PALETTE.buttonBgHover, 1));
-    confirmBg.on('pointerout', () => confirmBg.setFillStyle(PALETTE.buttonBg, 1));
-    confirmBg.on('pointerdown', () => this.confirm());
+    dailyBtn.on('pointerover', () => { dailyBtn.setAlpha(1); dailyBtn.setScale(1.05); });
+    dailyBtn.on('pointerout', () => { dailyBtn.setAlpha(0.7); dailyBtn.setScale(1); });
+    dailyBtn.on('pointerdown', () => this.confirmWithSeed(getDailySeed()));
 
     // BACK button
     const backText = this.add
-      .text(80, gameHeight - 40, t('← BACK'), textStyles.body)
+      .text(80, gameHeight - 28, t('← BACK'), textStyles.body)
       .setOrigin(0.5)
       .setAlpha(0.7)
       .setInteractive({ useHandCursor: true });
@@ -189,6 +197,14 @@ export class Select extends Scene {
   }
 
   private confirm(): void {
+    this.startRun();
+  }
+
+  private confirmWithSeed(seed: number): void {
+    this.startRun(seed);
+  }
+
+  private startRun(seed?: number): void {
     const robotKey: RobotKey = this.keys[this.selectedIndex]!;
     if (!isRobotUnlocked(robotKey)) {
       playSfx('click');
@@ -196,8 +212,9 @@ export class Select extends Scene {
     }
     playSfx('buy');
     const fresh = resetRunState(this);
-    const generatedRounds = generateRunEnemies(isSuperBossUnlocked());
-    const next = { ...fresh, robotKey, shopOffer: generateShopOffer(), generatedRounds };
+    const generatedRounds = generateRunEnemies(isSuperBossUnlocked(), seed);
+    const debugGold = isDebugEnabled() ? 100000 : fresh.gold;
+    const next = { ...fresh, robotKey, gold: debugGold, shopOffer: generateShopOffer(), generatedRounds };
     setRunState(this, next);
     getRunState(this);
     fadeToScene(this, 'Build');

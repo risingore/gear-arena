@@ -8,6 +8,7 @@ import {
   ECONOMY,
   ITEMS,
   isItemKey,
+  findSkillDef,
   type PartKey,
   type RobotKey,
   type SlotDef,
@@ -24,14 +25,24 @@ import { playMusic, MUSIC_KEYS } from '../systems/music';
 import { applyHiDpiToScene, showDebugBadge } from '../helper/hiDpiText';
 import { isDebugEnabled } from '../systems/debug';
 
-const BLUEPRINT_BOX_W = 420;
-const BLUEPRINT_BOX_H = 580;
+/** Layout: all columns centered in 1280px canvas. */
+const SKILL_COL_W = 72;
+const BLUEPRINT_BOX_W = 370;
+const BLUEPRINT_BOX_H = 570;
 const SLOT_RADIUS = 18;
-const SHOP_CARD_W = 120;
+const SHOP_CARD_W = 130;
 const SHOP_CARD_H = 90;
-const SHOP_CARD_GAP = 10;
+const SHOP_CARD_GAP = 8;
 const SHOP_COLS = 2;
-const SHOP_AREA_X = 470;
+const STATS_W = 240;
+const COL_GAP = 35;
+const SHOP_W = SHOP_COLS * SHOP_CARD_W + (SHOP_COLS - 1) * SHOP_CARD_GAP;
+const TOTAL_W = SKILL_COL_W + COL_GAP + BLUEPRINT_BOX_W + COL_GAP + SHOP_W + COL_GAP + STATS_W;
+const LEFT_MARGIN = Math.floor((1280 - TOTAL_W) / 2);
+const SKILL_COL_X = LEFT_MARGIN;
+const BLUEPRINT_X = SKILL_COL_X + SKILL_COL_W + COL_GAP;
+const SHOP_AREA_X = BLUEPRINT_X + BLUEPRINT_BOX_W + COL_GAP;
+const STATS_X = SHOP_AREA_X + SHOP_W + COL_GAP;
 
 interface SlotVisual {
   readonly slot: SlotDef;
@@ -51,6 +62,9 @@ export class Build extends Scene {
   private blueprintOriginY = 0;
   private blueprintScale = 1;
   private hoverShopIndex: number | null = null;
+  private rerollBtnText!: GameObjects.Text;
+  /** Last purchase info for undo support. */
+  private lastPurchase: { shopIndex: number; slotId: string; partKey: string; goldSpent: number } | null = null;
   /** Drag & drop state: index of the shop card being dragged (-1 = none). */
   private dragShopIndex = -1;
   private dragGhost: GameObjects.Rectangle | null = null;
@@ -68,7 +82,7 @@ export class Build extends Scene {
       return;
     }
     if (state.shopOffer.length === 0) {
-      const next = { ...state, shopOffer: generateShopOffer() };
+      const next = { ...state, shopOffer: generateShopOffer(state.currentRound) };
       setRunState(this, next);
     }
 
@@ -76,42 +90,41 @@ export class Build extends Scene {
     fadeInCurrent(this);
     playMusic(this, MUSIC_KEYS.build);
 
-    // Header (compact — body size, not title, to save vertical space)
+    // Header
     this.roundText = this.add
-      .text(20, 16, '', textStyles.body)
+      .text(BLUEPRINT_X, 16, '', textStyles.body)
       .setOrigin(0, 0);
 
-    this.add
-      .text(20, 44, t('BUILD your machine — click shop or press 1-5 to buy, click slots to sell'), textStyles.small)
-      .setOrigin(0, 0)
-      .setAlpha(0.5);
+    // Acquired skills (vertical strip, far left)
+    this.drawSkillSlots(state.acquiredSkills);
 
-    // Blueprint panel (left, large)
+    // Blueprint panel
     this.drawBlueprintPanel(state.robotKey);
 
-    // Gold + stats (far right column, x=750)
-    const rightX = 750;
+    // Gold + stats (right column)
     this.goldText = this.add
-      .text(rightX, 72, '', textStyles.body)
+      .text(STATS_X, 72, '', textStyles.body)
       .setOrigin(0, 0)
       .setColor('#ffd94a');
 
     this.statsText = this.add
-      .text(rightX, 110, '', textStyles.small)
+      .text(STATS_X, 110, '', textStyles.small)
       .setOrigin(0, 0);
 
     this.previewText = this.add
-      .text(rightX, 310, '', textStyles.small)
+      .text(STATS_X, 310, '', textStyles.small)
       .setOrigin(0, 0)
       .setColor('#3ab0ff');
 
-    // Reroll + Ready buttons (far right, bottom)
+    // Reroll + Undo + Ready buttons
+    const btnX = STATS_X + STATS_W / 2;
     const rerollCost = getRerollCost(getRunState(this));
-    this.drawButton(rightX + 100, 540, 180, 44, `${t('REROLL')} (${rerollCost}g)`, () => {
+    this.drawButton(btnX, 520, 200, 44, `${t('REROLL')} (${rerollCost}g)`, () => {
       const s = getRunState(this);
-      const rerolled = attemptReroll(s, generateShopOffer());
+      const rerolled = attemptReroll(s, generateShopOffer(s.currentRound));
       if (rerolled) {
         setRunState(this, rerolled);
+        this.lastPurchase = null;
         this.refreshShop();
         this.refreshHud();
         playSfx('reroll');
@@ -119,8 +132,15 @@ export class Build extends Scene {
         playSfx('click');
       }
     });
+    // Store reference to reroll button text (last text child added by drawButton).
+    this.rerollBtnText = this.children.list[this.children.list.length - 1] as GameObjects.Text;
 
-    this.drawButton(rightX + 100, 610, 180, 50, t('READY  ▶'), () => {
+    // Undo button
+    this.drawButton(btnX, 568, 200, 36, t('UNDO'), () => {
+      this.handleUndo();
+    });
+
+    this.drawButton(btnX, 620, 200, 50, t('READY  ▶'), () => {
       playSfx('click');
       fadeToScene(this, 'Battle');
     });
@@ -158,8 +178,8 @@ export class Build extends Scene {
     if (state.currentRound === 1) {
       const { gameHeight: gh } = gameOptions;
       const hint = this.add
-        .text(230, gh - 30,
-          t('Click shop cards to buy parts → they auto-fill matching slots. Click slots to sell.'),
+        .text(BLUEPRINT_X + BLUEPRINT_BOX_W / 2, gh - 20,
+          t('Click shop to buy · Click slots to sell · Drag parts to specific slots'),
           { ...gameOptions.textStyles.small, color: '#88ccff' })
         .setOrigin(0.5, 1)
         .setAlpha(0.8);
@@ -182,8 +202,8 @@ export class Build extends Scene {
   private drawBlueprintPanel(robotKey: RobotKey): void {
     const { textStyles } = gameOptions;
     const robot = ROBOTS[robotKey];
-    const panelX = 20;
-    const panelY = 66;
+    const panelX = BLUEPRINT_X;
+    const panelY = 58;
 
     this.add
       .rectangle(panelX, panelY, BLUEPRINT_BOX_W, BLUEPRINT_BOX_H, PALETTE.blueprintBg, 1)
@@ -219,6 +239,10 @@ export class Build extends Scene {
         .setStrokeStyle(2, PALETTE.slotEmptyStroke);
       circle.setInteractive({ useHandCursor: true });
       circle.on('pointerdown', () => this.handleSlotClick(slot.id));
+      circle.on('pointerover', () => this.showSlotTooltip(slot.id));
+      circle.on('pointerout', () => {
+        if (this.hoverShopIndex === null) this.previewText.setText('');
+      });
 
       const label = this.add
         .text(cx, cy, CATEGORY_LABEL[slot.accepts], { ...gameOptions.textStyles.small, color: '#aeeaff' })
@@ -231,12 +255,66 @@ export class Build extends Scene {
   private handleSlotClick(slotId: string): void {
     const state = getRunState(this);
     if (!state.equipped[slotId]) return;
+    this.lastPurchase = null;
     const next = attemptSell(state, slotId);
     setRunState(this, next);
     this.refreshSlots();
     this.refreshHud();
     playSfx('sell');
     this.flashSlot(slotId);
+  }
+
+  private handleUndo(): void {
+    if (!this.lastPurchase) {
+      playSfx('click');
+      return;
+    }
+    const { shopIndex, slotId, partKey, goldSpent } = this.lastPurchase;
+    const state = getRunState(this);
+    // Only undo if the part is still in the slot.
+    if (state.equipped[slotId] !== partKey) {
+      this.lastPurchase = null;
+      playSfx('click');
+      return;
+    }
+    const nextEquipped = { ...state.equipped };
+    delete nextEquipped[slotId];
+    const nextOffer = [...state.shopOffer];
+    nextOffer[shopIndex] = partKey;
+    const next: import('../systems/runState').RunState = {
+      ...state,
+      gold: state.gold + goldSpent,
+      equipped: nextEquipped,
+      shopOffer: nextOffer
+    };
+    setRunState(this, next);
+    this.lastPurchase = null;
+    this.refreshSlots();
+    this.refreshShop();
+    this.refreshHud();
+    playSfx('sell');
+  }
+
+  private showSlotTooltip(slotId: string): void {
+    const state = getRunState(this);
+    const partKey = state.equipped[slotId];
+    if (!partKey) return;
+    const part = PARTS[partKey];
+    if (!part) return;
+    const lines = [`${t(part.name)} (${CATEGORY_LABEL[part.category]})`];
+    lines.push(t(part.description));
+    if (part.category === 'weapon') {
+      const w = part as import('@/data').WeaponPart;
+      lines.push(`DMG ${w.damage}  |  CD ${w.cooldownSec}s  |  ${w.range}`);
+    }
+    if (part.category === 'armor') {
+      const a = part as import('@/data').ArmorPart;
+      if (a.bonusHp) lines.push(`HP +${a.bonusHp}`);
+      if (a.damageReduction) lines.push(`DR flat +${a.damageReduction}`);
+      if (a.damageReductionPct) lines.push(`DR pct +${(a.damageReductionPct * 100).toFixed(0)}%`);
+    }
+    lines.push(`Sell: ${Math.floor(part.price * 0.5)}g`);
+    this.previewText.setText(lines.join('\n'));
   }
 
   private flashSlot(slotId: string): void {
@@ -273,6 +351,63 @@ export class Build extends Scene {
         sv.label.setText(CATEGORY_LABEL[sv.slot.accepts]).setColor('#aeeaff');
       }
     });
+  }
+
+  // --------------------------------------------------------------------------
+  // Skill slots (left of blueprint)
+  // --------------------------------------------------------------------------
+
+  private drawSkillSlots(acquiredSkills: readonly string[]): void {
+    const { textStyles } = gameOptions;
+    const slotSize = SKILL_COL_W;
+    const gap = 8;
+    const centerX = SKILL_COL_X + SKILL_COL_W / 2;
+    const startY = 80;
+    const maxSlots = 3;
+
+    this.add
+      .text(centerX, startY - 18, t('SKILLS'), { ...textStyles.small, fontSize: '12px' })
+      .setOrigin(0.5)
+      .setAlpha(0.4);
+
+    for (let i = 0; i < maxSlots; i += 1) {
+      const y = startY + i * (slotSize + gap) + slotSize / 2;
+      const skillId = acquiredSkills[i];
+      const skill = skillId ? findSkillDef(skillId) : null;
+
+      const bg = this.add
+        .rectangle(centerX, y, slotSize, slotSize, skill ? 0x1a1a28 : 0x0d0d14, 1)
+        .setStrokeStyle(skill ? 2 : 1, skill ? PALETTE.accentOrange : 0x333344);
+
+      if (skill) {
+        // Two-line name inside the slot
+        const words = skill.name.split(' ');
+        this.add
+          .text(centerX, y - 10, words[0]!, { ...textStyles.small, fontSize: '13px' })
+          .setOrigin(0.5)
+          .setColor('#ffd94a');
+        if (words.length > 1) {
+          this.add
+            .text(centerX, y + 10, words.slice(1).join(' '), { ...textStyles.small, fontSize: '11px' })
+            .setOrigin(0.5)
+            .setColor('#ffd94a')
+            .setAlpha(0.7);
+        }
+        bg.setInteractive();
+        bg.on('pointerover', () => {
+          this.previewText.setText(`${t('SKILL')}: ${t(skill.name)}\n  ${t(skill.description)}`);
+          bg.setStrokeStyle(2, 0xffffff);
+        });
+        bg.on('pointerout', () => {
+          this.previewText.setText('');
+          bg.setStrokeStyle(2, PALETTE.accentOrange);
+        });
+      } else {
+        // Empty slot indicator
+        this.add
+          .rectangle(centerX, y, slotSize * 0.4, 2, 0x333344, 0.5);
+      }
+    }
   }
 
   // --------------------------------------------------------------------------
@@ -346,6 +481,11 @@ export class Build extends Scene {
       const before = Object.keys(state.equipped);
       const after = Object.keys(result.next.equipped);
       const newSlot = after.find((s) => !before.includes(s));
+      const partKey = key as PartKey;
+      const part = PARTS[partKey];
+      if (newSlot && part) {
+        this.lastPurchase = { shopIndex: index, slotId: newSlot, partKey, goldSpent: part.price };
+      }
       setRunState(this, result.next);
       this.refreshSlots();
       this.refreshShop();
@@ -448,6 +588,10 @@ export class Build extends Scene {
     const totalRounds = state.generatedRounds?.length || 10;
     this.roundText.setText(`${t('ROUND')} ${state.currentRound} / ${totalRounds}`);
 
+    // Update reroll button cost dynamically.
+    const newRerollCost = getRerollCost(state);
+    this.rerollBtnText.setText(`${t('REROLL')} (${newRerollCost}g)`);
+
     // Gold display + overflow warning (large reserve is suspicious)
     this.goldText.setText(`${state.gold}g`);
     if (state.gold >= 15) this.goldText.setColor('#ff7a00');
@@ -455,7 +599,7 @@ export class Build extends Scene {
 
     if (!state.robotKey) return;
     const robot = ROBOTS[state.robotKey];
-    const stats = computeLoadoutStats(robot, state.equipped);
+    const stats = computeLoadoutStats(robot, state.equipped, state.acquiredSkills);
     const weaponSummary =
       stats.weapons.length === 0
         ? t('— no weapon equipped —')
@@ -483,6 +627,16 @@ export class Build extends Scene {
       ].join('\n')
     );
 
+    // Next enemy preview
+    const nextRound = state.generatedRounds[state.currentRound - 1];
+    if (nextRound) {
+      const enemy = nextRound.enemy;
+      this.statsText.setText(
+        this.statsText.text +
+          `\n\n${t('NEXT ENEMY')}\n${t(enemy.name)}\nHP ${enemy.hp}  |  DMG ${enemy.damage}`
+      );
+    }
+
     // Hover preview: simulate buying the hovered shop card
     if (this.hoverShopIndex !== null) {
       const hoveredKey = state.shopOffer[this.hoverShopIndex] as string | '' | undefined;
@@ -495,7 +649,7 @@ export class Build extends Scene {
         const slotId = this.findFreeSlotFor(state.robotKey, partKey, state.equipped);
         if (slotId) {
           const nextEquipped = { ...state.equipped, [slotId]: partKey };
-          const nextStats = computeLoadoutStats(robot, nextEquipped);
+          const nextStats = computeLoadoutStats(robot, nextEquipped, state.acquiredSkills);
           const lines: string[] = [`${t('PREVIEW')}: ${t('buy')} ${t(part.name)} (${part.price}g)`];
           const hpDelta = nextStats.maxHp - stats.maxHp;
           if (hpDelta !== 0) lines.push(`  ${t('MAX HP')}  ${stats.maxHp} → ${nextStats.maxHp}  (${hpDelta > 0 ? '+' : ''}${hpDelta})`);
@@ -616,6 +770,7 @@ export class Build extends Scene {
     nextOffer[shopIndex] = '';
     next = { ...next, gold: next.gold - part.price, equipped: nextEquipped, shopOffer: nextOffer };
 
+    this.lastPurchase = { shopIndex, slotId, partKey, goldSpent: part.price };
     setRunState(this, next);
     this.refreshSlots();
     this.refreshShop();

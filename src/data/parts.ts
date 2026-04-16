@@ -21,6 +21,7 @@ export const PARTS = {
     category: 'weapon',
     allowedSlots: ['arm_l', 'arm_r'],
     price: 3,
+    rarity: 'common',
     cooldownSec: 1.2,
     damage: 8,
     range: 'melee'
@@ -32,6 +33,7 @@ export const PARTS = {
     category: 'weapon',
     allowedSlots: ['arm_l', 'arm_r'],
     price: 5,
+    rarity: 'rare',
     cooldownSec: 2.0,
     damage: 18,
     range: 'long'
@@ -39,13 +41,15 @@ export const PARTS = {
   weapon_laser: {
     id: 'weapon_laser',
     name: 'Pulse Laser',
-    description: 'Piercing mid-range laser.',
+    description: 'Piercing mid-range laser. May freeze targets.',
     category: 'weapon',
     allowedSlots: ['arm_l', 'arm_r'],
     price: 7,
+    rarity: 'rare',
     cooldownSec: 1.5,
     damage: 12,
-    range: 'mid'
+    range: 'mid',
+    statusEffect: { kind: 'freeze', chance: 0.2, magnitude: 0.3, durationSec: 2 }
   },
   weapon_railgun: {
     id: 'weapon_railgun',
@@ -54,6 +58,7 @@ export const PARTS = {
     category: 'weapon',
     allowedSlots: ['arm_l', 'arm_r'],
     price: 9,
+    rarity: 'epic',
     cooldownSec: 3.5,
     damage: 35,
     range: 'long'
@@ -61,13 +66,15 @@ export const PARTS = {
   weapon_flamethrower: {
     id: 'weapon_flamethrower',
     name: 'Flamethrower',
-    description: 'Rapid close-range burn. Low per-hit but fast.',
+    description: 'Rapid close-range burn. May ignite targets.',
     category: 'weapon',
     allowedSlots: ['arm_l', 'arm_r'],
     price: 6,
+    rarity: 'rare',
     cooldownSec: 0.7,
     damage: 5,
-    range: 'melee'
+    range: 'melee',
+    statusEffect: { kind: 'burn', chance: 0.3, magnitude: 3, durationSec: 3 }
   },
 
   // ============================================================
@@ -80,6 +87,7 @@ export const PARTS = {
     category: 'armor',
     allowedSlots: ['head', 'chest', 'arm_l', 'arm_r', 'legs_l', 'legs_r'],
     price: 3,
+    rarity: 'common',
     damageReduction: 2,
     damageReductionPct: 0,
     bonusHp: 0
@@ -91,6 +99,7 @@ export const PARTS = {
     category: 'armor',
     allowedSlots: ['chest', 'arm_l', 'arm_r', 'legs_l', 'legs_r'],
     price: 5,
+    rarity: 'rare',
     damageReduction: 0,
     damageReductionPct: 0.15,
     bonusHp: 0
@@ -102,6 +111,7 @@ export const PARTS = {
     category: 'armor',
     allowedSlots: ['chest', 'arm_l', 'arm_r'],
     price: 7,
+    rarity: 'rare',
     damageReduction: 0,
     damageReductionPct: 0.05,
     bonusHp: 15
@@ -113,6 +123,7 @@ export const PARTS = {
     category: 'armor',
     allowedSlots: ['chest', 'arm_l', 'arm_r', 'legs_l', 'legs_r'],
     price: 4,
+    rarity: 'rare',
     damageReduction: 4,
     damageReductionPct: 0,
     bonusHp: -10
@@ -124,6 +135,7 @@ export const PARTS = {
     category: 'armor',
     allowedSlots: ['chest'],
     price: 8,
+    rarity: 'epic',
     damageReduction: 0,
     damageReductionPct: 0.10,
     bonusHp: 30
@@ -139,6 +151,7 @@ export const PARTS = {
     category: 'engine',
     allowedSlots: ['chest', 'back'],
     price: 4,
+    rarity: 'common',
     bonusHp: 20,
     bonusDamage: 0,
     bonusDamageReductionPct: 0
@@ -150,6 +163,7 @@ export const PARTS = {
     category: 'engine',
     allowedSlots: ['chest', 'back'],
     price: 6,
+    rarity: 'rare',
     bonusHp: 10,
     bonusDamage: 2,
     bonusDamageReductionPct: 0
@@ -161,6 +175,7 @@ export const PARTS = {
     category: 'engine',
     allowedSlots: ['chest'],
     price: 8,
+    rarity: 'epic',
     bonusHp: 40,
     bonusDamage: 0,
     bonusDamageReductionPct: 0.05
@@ -172,6 +187,7 @@ export const PARTS = {
     category: 'engine',
     allowedSlots: ['chest', 'back'],
     price: 7,
+    rarity: 'epic',
     bonusHp: 0,
     bonusDamage: 5,
     bonusDamageReductionPct: 0
@@ -183,6 +199,7 @@ export const PARTS = {
     category: 'engine',
     allowedSlots: ['back'],
     price: 5,
+    rarity: 'rare',
     bonusHp: 15,
     bonusDamage: 0,
     bonusDamageReductionPct: 0.03
@@ -198,6 +215,7 @@ export const PARTS = {
     category: 'gear',
     allowedSlots: ['head', 'chest', 'arm_l', 'arm_r', 'legs_l', 'legs_r', 'back'],
     price: 3,
+    rarity: 'common',
     cooldownMultiplier: 0.9,
     hpPenalty: 0
   },
@@ -208,6 +226,7 @@ export const PARTS = {
     category: 'gear',
     allowedSlots: ['head', 'chest', 'arm_l', 'arm_r', 'legs_l', 'legs_r', 'back'],
     price: 5,
+    rarity: 'rare',
     cooldownMultiplier: 0.8,
     hpPenalty: 5
   },
@@ -218,6 +237,7 @@ export const PARTS = {
     category: 'gear',
     allowedSlots: ['head', 'chest', 'arm_l', 'arm_r', 'legs_l', 'legs_r', 'back'],
     price: 7,
+    rarity: 'rare',
     cooldownMultiplier: 0.92,
     hpPenalty: 0
   },
@@ -228,6 +248,7 @@ export const PARTS = {
     category: 'gear',
     allowedSlots: ['head', 'chest', 'arm_l', 'arm_r', 'legs_l', 'legs_r', 'back'],
     price: 2,
+    rarity: 'common',
     cooldownMultiplier: 0.95,
     hpPenalty: 0
   },
@@ -238,6 +259,7 @@ export const PARTS = {
     category: 'gear',
     allowedSlots: ['head', 'chest', 'arm_l', 'arm_r', 'legs_l', 'legs_r', 'back'],
     price: 6,
+    rarity: 'epic',
     cooldownMultiplier: 0.75,
     hpPenalty: 10
   },
@@ -252,6 +274,7 @@ export const PARTS = {
     category: 'special',
     allowedSlots: ['back'],
     price: 6,
+    rarity: 'rare',
     effectKind: 'overdrive',
     magnitude: 0.5
   },
@@ -262,6 +285,7 @@ export const PARTS = {
     category: 'special',
     allowedSlots: ['back'],
     price: 5,
+    rarity: 'rare',
     effectKind: 'repair',
     magnitude: 3
   },
@@ -272,6 +296,7 @@ export const PARTS = {
     category: 'special',
     allowedSlots: ['back'],
     price: 8,
+    rarity: 'rare',
     effectKind: 'synergy_gear',
     magnitude: 3
   },
@@ -282,6 +307,7 @@ export const PARTS = {
     category: 'special',
     allowedSlots: ['back'],
     price: 9,
+    rarity: 'epic',
     effectKind: 'overdrive',
     magnitude: 0.8
   },
@@ -292,6 +318,7 @@ export const PARTS = {
     category: 'special',
     allowedSlots: ['back'],
     price: 7,
+    rarity: 'epic',
     effectKind: 'repair',
     magnitude: 2
   }

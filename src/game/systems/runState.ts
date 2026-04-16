@@ -13,6 +13,7 @@ import type { Scene } from 'phaser';
 
 import { ECONOMY, type PartKey, type RobotKey, type ItemKey } from '@/data';
 import type { GeneratedRound } from './enemyPool';
+import { createEmptyRunStats, type RunStats } from './runStats';
 
 const REGISTRY_KEY = 'runState';
 
@@ -39,6 +40,12 @@ export interface RunState {
   carryHp: number;
   /** Battle buffs queued from next-battle items (consumed on battle start). */
   battleBuffs: ItemKey[];
+  /** Permanent skills acquired from boss rewards (max 3 per run). */
+  acquiredSkills: string[];
+  /** Pending skill choices offered after boss fight (skill IDs; empty = none). */
+  pendingSkillChoices: string[];
+  /** Accumulated statistics for the current run. */
+  runStats: RunStats;
 }
 
 export const createInitialRunState = (): RunState => ({
@@ -53,7 +60,10 @@ export const createInitialRunState = (): RunState => ({
   lastDefeatedEnemyId: '',
   rerollsUsed: 0,
   carryHp: 0,
-  battleBuffs: []
+  battleBuffs: [],
+  acquiredSkills: [],
+  pendingSkillChoices: [],
+  runStats: createEmptyRunStats()
 });
 
 export const getRunState = (scene: Scene): RunState => {

@@ -26,6 +26,8 @@ export interface SaveData {
   unlockedRobots: string[];
   defeatedEnemies: string[];
   usedParts: string[];
+  acquiredSkillsEver: string[];
+  scrap: number;
 }
 
 const emptySave = (): SaveData => {
@@ -37,7 +39,9 @@ const emptySave = (): SaveData => {
     perRobotClears,
     unlockedRobots: [UNLOCK_ORDER[0]!],
     defeatedEnemies: [],
-    usedParts: []
+    usedParts: [],
+    acquiredSkillsEver: [],
+    scrap: 0
   };
 };
 
@@ -57,7 +61,9 @@ export const loadSaveData = (): SaveData => {
           perRobotClears: { ...base.perRobotClears, ...(parsed.perRobotClears ?? {}) },
           unlockedRobots: base.unlockedRobots,
           defeatedEnemies: [],
-          usedParts: []
+          usedParts: [],
+          acquiredSkillsEver: [],
+          scrap: 0
         };
         // Compute unlocks from existing clears
         recomputeUnlocks(migrated);
@@ -74,7 +80,9 @@ export const loadSaveData = (): SaveData => {
       perRobotClears: { ...base.perRobotClears, ...(parsed.perRobotClears ?? {}) },
       unlockedRobots: Array.isArray(parsed.unlockedRobots) ? parsed.unlockedRobots : base.unlockedRobots,
       defeatedEnemies: Array.isArray(parsed.defeatedEnemies) ? parsed.defeatedEnemies : [],
-      usedParts: Array.isArray(parsed.usedParts) ? parsed.usedParts : []
+      usedParts: Array.isArray(parsed.usedParts) ? parsed.usedParts : [],
+      acquiredSkillsEver: Array.isArray(parsed.acquiredSkillsEver) ? parsed.acquiredSkillsEver : [],
+      scrap: typeof parsed.scrap === 'number' ? parsed.scrap : 0
     };
   } catch {
     return emptySave();
@@ -135,6 +143,22 @@ export const recordUsedPart = (partKey: PartKey): SaveData => {
   if (!data.usedParts.includes(key)) {
     data.usedParts.push(key);
   }
+  saveSaveData(data);
+  return data;
+};
+
+export const recordAcquiredSkill = (skillId: string): SaveData => {
+  const data = loadSaveData();
+  if (!data.acquiredSkillsEver.includes(skillId)) {
+    data.acquiredSkillsEver.push(skillId);
+  }
+  saveSaveData(data);
+  return data;
+};
+
+export const recordScrap = (amount: number): SaveData => {
+  const data = loadSaveData();
+  data.scrap += amount;
   saveSaveData(data);
   return data;
 };

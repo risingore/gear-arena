@@ -86,7 +86,8 @@ export const ROBOTS = {
     baseHp: 70,
     baseDamageReductionPct: -0.10,
     baseAttackSpeedMultiplier: 1.30,
-    passiveText: 'Attack speed +30% / damage taken +10%.',
+    passiveText: 'Attack speed +30% / damage taken +10%. 10% evasion.',
+    baseEvasion: 0.1,
     blueprintAssetKey: 'blueprint_striker',
     battleAssetKey: 'battle_striker',
     slots: [

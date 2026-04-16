@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="dark" />
     <title>GEAR ARENA</title>
+    <link rel="manifest" href="./manifest.json" />
     <style>
       html, body {
         margin: 0;
@@ -38,5 +39,10 @@
 <body>
     <div id="game-container"></div>
     <script type="module" src="/src/main.ts"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      }
+    </script>
 </body>
 </html>

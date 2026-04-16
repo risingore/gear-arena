@@ -27,21 +27,52 @@ import type { EnemyData } from '@/data/schema';
 /** Stat variance range for normal enemies (±10%). */
 const VARIANCE = 0.10;
 
+/**
+ * Simple seeded PRNG (mulberry32).
+ * Returns a function that produces deterministic values in [0, 1).
+ */
+const createSeededRandom = (seed: number): (() => number) => {
+  let s = seed | 0;
+  return (): number => {
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+};
+
+/**
+ * Returns a deterministic seed derived from today's UTC date.
+ * Same seed for all players on the same calendar day.
+ */
+export const getDailySeed = (): number => {
+  const now = new Date();
+  const dateStr = `${now.getUTCFullYear()}-${now.getUTCMonth()}-${now.getUTCDate()}`;
+  let hash = 0;
+  for (let i = 0; i < dateStr.length; i += 1) {
+    hash = ((hash << 5) - hash + dateStr.charCodeAt(i)) | 0;
+  }
+  return hash;
+};
+
+/** Random function used by generation helpers; swapped when seed is provided. */
+let rng = Math.random;
+
 const vary = (base: number, pct: number): number => {
-  const factor = 1 + (Math.random() * 2 - 1) * pct;
+  const factor = 1 + (rng() * 2 - 1) * pct;
   return Math.max(1, Math.round(base * factor));
 };
 
 const varyPct = (base: number, pct: number): number => {
-  const factor = 1 + (Math.random() * 2 - 1) * pct;
+  const factor = 1 + (rng() * 2 - 1) * pct;
   return Math.max(0, +(base * factor).toFixed(3));
 };
 
 const pickRandom = <T>(arr: readonly T[]): T =>
-  arr[Math.floor(Math.random() * arr.length)]!;
+  arr[Math.floor(rng() * arr.length)]!;
 
 const pickAndRemove = <T>(arr: T[]): T => {
-  const idx = Math.floor(Math.random() * arr.length);
+  const idx = Math.floor(rng() * arr.length);
   return arr.splice(idx, 1)[0]!;
 };
 
@@ -50,7 +81,7 @@ const defToEnemy = (def: EnemyDef, applyVariance: boolean): EnemyData => ({
   hp: applyVariance ? vary(def.baseHp, VARIANCE) : def.baseHp,
   damage: applyVariance ? vary(def.baseDamage, VARIANCE) : def.baseDamage,
   cooldownSec: applyVariance
-    ? +(def.baseCooldownSec * (1 + (Math.random() * 2 - 1) * VARIANCE)).toFixed(2)
+    ? +(def.baseCooldownSec * (1 + (rng() * 2 - 1) * VARIANCE)).toFixed(2)
     : def.baseCooldownSec,
   damageReductionPct: applyVariance
     ? varyPct(def.baseDamageReductionPct, VARIANCE)
@@ -73,7 +104,10 @@ export interface GeneratedRound {
  * @param superBossUnlocked Whether the super boss has been earned
  *   (all 4 robots cleared + all normal/mid/big enemies defeated).
  */
-export function generateRunEnemies(superBossUnlocked: boolean): GeneratedRound[] {
+export function generateRunEnemies(superBossUnlocked: boolean, seed?: number): GeneratedRound[] {
+  // Install seeded or default RNG for the duration of generation.
+  const prevRng = rng;
+  rng = seed !== undefined ? createSeededRandom(seed) : Math.random;
   const rounds: GeneratedRound[] = [];
 
   // ---- Normal enemy pool: shuffle by tier and pick 6 for the 6 normal rounds ----
@@ -128,6 +162,9 @@ export function generateRunEnemies(superBossUnlocked: boolean): GeneratedRound[]
   if (superBossUnlocked) {
     rounds.push({ index: 11, enemy: defToEnemy(SUPER_BOSS, false), enemyId: SUPER_BOSS.id, goldReward: 0, isBoss: true, isSuperBoss: true });
   }
+
+  // Restore previous RNG to avoid polluting non-generation code.
+  rng = prevRng;
 
   return rounds;
 }

@@ -81,10 +81,21 @@ export class Title extends Scene {
     // Clickable start text (instead of whole-scene pointerdown, so the
     // debug button in the corner doesn't accidentally trigger start).
     const startText = this.add
-      .text(gameWidth / 2, gameHeight * 0.62, t('Press SPACE or click to start'), textStyles.body)
+      .text(gameWidth / 2, gameHeight * 0.58, t('Press SPACE or click to start'), textStyles.body)
       .setOrigin(0.5)
       .setInteractive({ useHandCursor: true });
     startText.once('pointerdown', start);
+
+    // Collection button
+    const collectionBtn = this.add
+      .text(gameWidth / 2, gameHeight * 0.68, t('COLLECTION'), textStyles.body)
+      .setOrigin(0.5)
+      .setAlpha(0.7)
+      .setInteractive({ useHandCursor: true });
+    collectionBtn.on('pointerdown', () => {
+      playSfx('click');
+      fadeToScene(this, 'Collection');
+    });
 
     // Debug toggle button (bottom-left)
     const debugLabel = this.add

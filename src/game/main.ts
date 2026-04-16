@@ -12,6 +12,7 @@ import { Build } from './scenes/Build';
 import { Battle } from './scenes/Battle';
 import { Result } from './scenes/Result';
 import { GameOver } from './scenes/GameOver';
+import { Collection } from './scenes/Collection';
 import gameOptions from './helper/gameOptions';
 
 const config: Types.Core.GameConfig = {
@@ -49,7 +50,7 @@ const config: Types.Core.GameConfig = {
       debug: false
     }
   },
-  scene: [Boot, Preloader, Title, Select, Build, Battle, Result, GameOver]
+  scene: [Boot, Preloader, Title, Select, Build, Battle, Result, GameOver, Collection]
 };
 
 export const startGame = (parent: string): Game => {

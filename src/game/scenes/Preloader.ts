@@ -15,8 +15,9 @@ export class Preloader extends Scene {
   }
 
   preload(): void {
-    // --- Robot battle sprites (uncomment as images are generated) ---
-    this.load.image('battle_knight',  'assets/images/battle_knight.jpg');
+    // --- Robot battle sprites (PNG preferred for transparency, JPG fallback) ---
+    // Phaser picks the first file that exists from each key.
+    this.load.image('battle_knight',  'assets/images/battle_knight.png');
     // this.load.image('battle_goliath', 'assets/images/battle_goliath.jpg');
     // this.load.image('battle_striker', 'assets/images/battle_striker.jpg');
     // this.load.image('battle_oracle',  'assets/images/battle_oracle.jpg');

@@ -23,10 +23,10 @@ import { playMusic, MUSIC_KEYS } from '../systems/music';
 import { applyHiDpiToScene, TEXT_DPR } from '../helper/hiDpiText';
 import { isDebugEnabled } from '../systems/debug';
 
-const HP_BAR_W = 320;
-const HP_BAR_H = 22;
-const SPRITE_W = 140;
-const SPRITE_H = 200;
+const HP_BAR_W = 280;
+const HP_BAR_H = 20;
+const SPRITE_W = 280;
+const SPRITE_H = 360;
 const LOG_LINE_COUNT = 5;
 const POPUP_RISE_PX = 48;
 const POPUP_DURATION_MS = 600;
@@ -121,10 +121,10 @@ export class Battle extends Scene {
       .setOrigin(0.5)
       .setColor(genRound.isBoss ? '#ff7a00' : '#ffffff');
 
-    // Player side
-    const playerX = gameWidth * 0.28;
-    const enemyX = gameWidth * 0.72;
-    const arenaY = gameHeight * 0.52;
+    // Player side — pushed apart so the large sprites have room to breathe.
+    const playerX = gameWidth * 0.25;
+    const enemyX = gameWidth * 0.75;
+    const arenaY = gameHeight * 0.44;
 
     // Use the real battle sprite if the image asset has been loaded,
     // otherwise fall back to the archetype-colored rectangle placeholder.

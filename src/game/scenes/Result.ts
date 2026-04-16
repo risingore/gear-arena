@@ -66,11 +66,13 @@ export class Result extends Scene {
       // Auto-reroll the shop on every round transition so the player always
       // greets the next Build phase with a fresh selection — no need to spend
       // a manual reroll just to clear leftover inventory.
+      // HP carries over at 50% of max (not full heal).
       const advanced = {
         ...rewarded,
         currentRound: state.currentRound + 1,
         battleOutcome: 'pending' as const,
-        shopOffer: generateShopOffer()
+        shopOffer: generateShopOffer(),
+        carryHp: -1  // -1 = compute 50% in Battle.create
       };
       setRunState(this, advanced);
       instruction = t('Press SPACE to continue to next round   ·   R to quit');

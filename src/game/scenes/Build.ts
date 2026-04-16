@@ -14,7 +14,7 @@ import { getRunState, setRunState } from '../systems/runState';
 import { PALETTE, CATEGORY_COLORS, CATEGORY_LABEL } from '../systems/palette';
 import { computeLoadoutStats } from '../systems/stats';
 import { generateShopOffer } from '../systems/shop';
-import { attemptBuy, attemptSell, attemptReroll } from '../systems/loadout';
+import { attemptBuy, attemptSell, attemptReroll, getRerollCost } from '../systems/loadout';
 import { playSfx } from '../systems/audio';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { t } from '../systems/i18n';
@@ -100,7 +100,8 @@ export class Build extends Scene {
       .setColor('#3ab0ff');
 
     // Reroll + Ready buttons (far right, bottom)
-    this.drawButton(rightX + 100, 540, 180, 44, `${t('REROLL')} (${ECONOMY.rerollCost}g)`, () => {
+    const rerollCost = getRerollCost(getRunState(this));
+    this.drawButton(rightX + 100, 540, 180, 44, `${t('REROLL')} (${rerollCost}g)`, () => {
       const s = getRunState(this);
       const rerolled = attemptReroll(s, generateShopOffer());
       if (rerolled) {
@@ -135,6 +136,23 @@ export class Build extends Scene {
     });
 
     this.refreshAll();
+
+    // First-time tutorial hint (shown only on round 1).
+    if (state.currentRound === 1) {
+      const { gameHeight: gh } = gameOptions;
+      const hint = this.add
+        .text(230, gh - 30,
+          t('Click shop cards to buy parts → they auto-fill matching slots. Click slots to sell.'),
+          { ...gameOptions.textStyles.small, color: '#88ccff' })
+        .setOrigin(0.5, 1)
+        .setAlpha(0.8);
+      this.tweens.add({
+        targets: hint,
+        alpha: 0,
+        delay: 8000,
+        duration: 2000
+      });
+    }
 
     applyHiDpiToScene(this);
     showDebugBadge(this, isDebugEnabled());

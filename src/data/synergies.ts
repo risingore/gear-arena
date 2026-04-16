@@ -20,9 +20,9 @@ export const SYNERGIES = {
   syn_turbo_laser: {
     id: 'syn_turbo_laser',
     name: 'Turbo Combo',
-    description: 'Equip Turbo Engine + Pulse Laser for +1 laser pierce.',
+    description: 'Equip Turbo Engine + Pulse Laser for -15% weapon cooldown.',
     trigger: { kind: 'category_pair', a: 'engine', b: 'weapon' },
-    effect: { kind: 'pierce_plus', amount: 1 }
+    effect: { kind: 'cooldown_mult', multiplier: 0.85 }
   }
 } as const satisfies SynergiesRegistry;
 

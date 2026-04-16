@@ -35,6 +35,8 @@ export interface LoadoutStats {
   readonly repairIntervalSec: number;
   readonly repairAmount: number;
   readonly equippedGearCount: number;
+  /** Number of Kinetic Shield charges (first N hits are blocked). */
+  readonly shieldCharges: number;
 }
 
 const HP_FLOOR = 1;
@@ -69,6 +71,7 @@ export const computeLoadoutStats = (
   let repairMagnitude = 0;
   let gearSynergyMagnitude = 0;
   let gearCount = 0;
+  let shieldCount = 0;
 
   const weaponParts: { slotId: string; key: PartKey; part: Extract<PartData, { category: 'weapon' }> }[] = [];
 
@@ -86,6 +89,7 @@ export const computeLoadoutStats = (
         bonusHp += part.bonusHp;
         flatReduction += part.damageReduction;
         pctReduction += part.damageReductionPct;
+        if (key === 'armor_shield') shieldCount += 1;
         break;
       case 'engine':
         bonusHp += part.bonusHp;
@@ -110,6 +114,20 @@ export const computeLoadoutStats = (
   if (gearSyncSyn.trigger.kind === 'gear_count' && gearCount >= gearSyncSyn.trigger.threshold) {
     if (gearSyncSyn.effect.kind === 'cooldown_mult') {
       cooldownMult *= gearSyncSyn.effect.multiplier;
+    }
+  }
+
+  // Turbo Combo synergy: engine_turbo + weapon_laser both equipped.
+  const turboSyn = SYNERGIES.syn_turbo_laser;
+  if (turboSyn.trigger.kind === 'category_pair') {
+    let hasEngine = false;
+    let hasWeapon = false;
+    for (const p of equippedParts) {
+      if (p.category === turboSyn.trigger.a) hasEngine = true;
+      if (p.category === turboSyn.trigger.b) hasWeapon = true;
+    }
+    if (hasEngine && hasWeapon && turboSyn.effect.kind === 'cooldown_mult') {
+      cooldownMult *= turboSyn.effect.multiplier;
     }
   }
 
@@ -139,7 +157,8 @@ export const computeLoadoutStats = (
     overdriveMultiplier: overdriveMagnitude,
     repairIntervalSec: REPAIR_INTERVAL_SEC,
     repairAmount: repairMagnitude,
-    equippedGearCount: gearCount
+    equippedGearCount: gearCount,
+    shieldCharges: shieldCount
   };
 };
 

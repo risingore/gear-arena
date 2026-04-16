@@ -34,6 +34,8 @@ export interface Combatant {
   repairIntervalSec: number;
   repairAmount: number;
   repairTimer: number;
+  /** Kinetic Shield: blocks the first incoming hit completely (one-time). */
+  shieldCharges: number;
 }
 
 export interface AttackEvent {
@@ -71,7 +73,8 @@ export const createPlayerCombatant = (
   overdriveActive: false,
   repairIntervalSec: stats.repairIntervalSec,
   repairAmount: stats.repairAmount,
-  repairTimer: stats.repairIntervalSec
+  repairTimer: stats.repairIntervalSec,
+  shieldCharges: stats.shieldCharges
 });
 
 export const createEnemyCombatant = (round: RoundData): Combatant => ({
@@ -93,7 +96,8 @@ export const createEnemyCombatant = (round: RoundData): Combatant => ({
   overdriveActive: false,
   repairIntervalSec: 0,
   repairAmount: 0,
-  repairTimer: 0
+  repairTimer: 0,
+  shieldCharges: 0
 });
 
 /** Advance time by `dtSec` seconds and return any events that fired. Mutates the combatants. */
@@ -138,6 +142,20 @@ export const tickCombatant = (
     const w = attacker.weapons[i]!;
     w.timer -= effectiveDt;
     while (w.timer <= 0) {
+      // Kinetic Shield: first hit is completely blocked.
+      if (defender.shieldCharges > 0) {
+        defender.shieldCharges -= 1;
+        attacks.push({
+          attackerName: attacker.name,
+          defenderName: defender.name,
+          weaponLabel: w.label,
+          rawDamage: w.damage,
+          finalDamage: 0,
+          killed: false
+        });
+        w.timer += w.cooldownSec;
+        continue;
+      }
       const finalDamage = applyDefense(
         w.damage,
         defender.damageReductionFlat,

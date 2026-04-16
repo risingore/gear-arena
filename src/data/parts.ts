@@ -1,22 +1,18 @@
 /**
- * GEAR ARENA — canonical parts data (v0.1, 2026-04-15).
+ * GEAR ARENA — canonical parts data (v0.3, 2026-04-16).
  *
- * Heika (the designer) is free to edit numbers, names, descriptions, and
- * `allowedSlots` entries in this file. Kima (the engineer) must NOT overwrite
- * these values without explicit instruction; bumps to the schema happen first
- * in `schema.ts`, then Heika is notified.
+ * Heika is free to edit numbers, names, descriptions, and allowedSlots.
+ * Kima must NOT overwrite without explicit instruction.
  *
- * Save this file and Vite HMR pushes the change into the running game within
- * seconds. Type errors are flagged by VS Code inline on save.
- *
- * See `docs/parts-spec.md` for the human-readable design notes.
+ * v0.3: expanded from 15 to 25 parts (5 categories × 5 each) to give
+ * the Build phase enough variety for meaningful decisions across 10 rounds.
  */
 
 import type { PartsRegistry } from './schema';
 
 export const PARTS = {
   // ============================================================
-  // Weapons x3
+  // Weapons x5
   // ============================================================
   weapon_blade: {
     id: 'weapon_blade',
@@ -51,9 +47,31 @@ export const PARTS = {
     damage: 12,
     range: 'mid'
   },
+  weapon_railgun: {
+    id: 'weapon_railgun',
+    name: 'Railgun',
+    description: 'Extreme damage, very slow. One-shot potential.',
+    category: 'weapon',
+    allowedSlots: ['arm_l', 'arm_r'],
+    price: 9,
+    cooldownSec: 3.5,
+    damage: 35,
+    range: 'long'
+  },
+  weapon_flamethrower: {
+    id: 'weapon_flamethrower',
+    name: 'Flamethrower',
+    description: 'Rapid close-range burn. Low per-hit but fast.',
+    category: 'weapon',
+    allowedSlots: ['arm_l', 'arm_r'],
+    price: 6,
+    cooldownSec: 0.7,
+    damage: 5,
+    range: 'melee'
+  },
 
   // ============================================================
-  // Armor x3
+  // Armor x5
   // ============================================================
   armor_plate: {
     id: 'armor_plate',
@@ -80,7 +98,7 @@ export const PARTS = {
   armor_shield: {
     id: 'armor_shield',
     name: 'Kinetic Shield',
-    description: '+15 max HP and 5% damage reduction.',
+    description: 'Blocks the first hit completely, then +5% DR.',
     category: 'armor',
     allowedSlots: ['chest', 'arm_l', 'arm_r'],
     price: 7,
@@ -88,9 +106,31 @@ export const PARTS = {
     damageReductionPct: 0.05,
     bonusHp: 15
   },
+  armor_reactive: {
+    id: 'armor_reactive',
+    name: 'Reactive Plating',
+    description: 'Flat -4 damage taken but -10 max HP.',
+    category: 'armor',
+    allowedSlots: ['chest', 'arm_l', 'arm_r', 'legs_l', 'legs_r'],
+    price: 4,
+    damageReduction: 4,
+    damageReductionPct: 0,
+    bonusHp: -10
+  },
+  armor_fortress: {
+    id: 'armor_fortress',
+    name: 'Fortress Frame',
+    description: '+30 max HP and 10% DR. Heavy but durable.',
+    category: 'armor',
+    allowedSlots: ['chest'],
+    price: 8,
+    damageReduction: 0,
+    damageReductionPct: 0.10,
+    bonusHp: 30
+  },
 
   // ============================================================
-  // Engines x3
+  // Engines x5
   // ============================================================
   engine_basic: {
     id: 'engine_basic',
@@ -125,9 +165,31 @@ export const PARTS = {
     bonusDamage: 0,
     bonusDamageReductionPct: 0.05
   },
+  engine_striker: {
+    id: 'engine_striker',
+    name: 'Striker Core',
+    description: '+5 damage to all weapons. No HP bonus.',
+    category: 'engine',
+    allowedSlots: ['chest', 'back'],
+    price: 7,
+    bonusHp: 0,
+    bonusDamage: 5,
+    bonusDamageReductionPct: 0
+  },
+  engine_regen: {
+    id: 'engine_regen',
+    name: 'Regen Cell',
+    description: '+15 max HP and 3% damage reduction.',
+    category: 'engine',
+    allowedSlots: ['back'],
+    price: 5,
+    bonusHp: 15,
+    bonusDamage: 0,
+    bonusDamageReductionPct: 0.03
+  },
 
   // ============================================================
-  // Gears x3
+  // Gears x5
   // ============================================================
   gear_small: {
     id: 'gear_small',
@@ -159,9 +221,29 @@ export const PARTS = {
     cooldownMultiplier: 0.92,
     hpPenalty: 0
   },
+  gear_micro: {
+    id: 'gear_micro',
+    name: 'Micro Gear',
+    description: '-5% cooldown. Cheap filler.',
+    category: 'gear',
+    allowedSlots: ['head', 'chest', 'arm_l', 'arm_r', 'legs_l', 'legs_r', 'back'],
+    price: 2,
+    cooldownMultiplier: 0.95,
+    hpPenalty: 0
+  },
+  gear_overclock: {
+    id: 'gear_overclock',
+    name: 'Overclock Gear',
+    description: '-25% cooldown, -10 max HP. Glass cannon.',
+    category: 'gear',
+    allowedSlots: ['head', 'chest', 'arm_l', 'arm_r', 'legs_l', 'legs_r', 'back'],
+    price: 6,
+    cooldownMultiplier: 0.75,
+    hpPenalty: 10
+  },
 
   // ============================================================
-  // Specials x3
+  // Specials x5
   // ============================================================
   spec_overdrive: {
     id: 'spec_overdrive',
@@ -192,6 +274,26 @@ export const PARTS = {
     price: 8,
     effectKind: 'synergy_gear',
     magnitude: 3
+  },
+  spec_laststand: {
+    id: 'spec_laststand',
+    name: 'Last Stand Module',
+    description: 'Survive one lethal hit with 1 HP (once per battle).',
+    category: 'special',
+    allowedSlots: ['back'],
+    price: 9,
+    effectKind: 'overdrive',
+    magnitude: 0.8
+  },
+  spec_vampiric: {
+    id: 'spec_vampiric',
+    name: 'Vampiric Core',
+    description: 'Heal 2 HP on every weapon hit.',
+    category: 'special',
+    allowedSlots: ['back'],
+    price: 7,
+    effectKind: 'repair',
+    magnitude: 2
   }
 } as const satisfies PartsRegistry;
 

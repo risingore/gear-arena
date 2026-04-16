@@ -94,6 +94,13 @@ export class Battle extends Scene {
     const roundEnemy = genRound.enemy;
 
     this.player = createPlayerCombatant(robot.name, stats);
+    // HP carry-over: if carryHp is -1, heal to 50% of maxHp.
+    // Round 1 starts at full HP (carryHp = 0 from initial state).
+    if (state.carryHp === -1) {
+      this.player.hp = Math.max(1, Math.ceil(this.player.maxHp * 0.5));
+    } else if (state.carryHp > 0) {
+      this.player.hp = Math.min(this.player.maxHp, state.carryHp);
+    }
     this.enemy = {
       name: roundEnemy.name,
       maxHp: roundEnemy.hp,
@@ -113,7 +120,8 @@ export class Battle extends Scene {
       overdriveActive: false,
       repairIntervalSec: 0,
       repairAmount: 0,
-      repairTimer: 0
+      repairTimer: 0,
+      shieldCharges: 0
     };
 
     // Header
@@ -377,6 +385,9 @@ export class Battle extends Scene {
 
     this.cameras.main.shake(60, fromPlayer ? 0.002 : 0.005);
 
+    // --- Slash / flash effect ---
+    this.spawnSlashEffect(targetSprite.x, targetSprite.y, fromPlayer);
+
     this.spawnDamagePopup(targetSprite.x, targetSprite.y - 20, event.finalDamage, fromPlayer);
 
     if (event.killed) {
@@ -491,6 +502,36 @@ export class Battle extends Scene {
     this.pushLog(message);
     playSfx(finalOutcome === 'victory' ? 'victory' : outcome === 'win' ? 'win' : 'lose');
     this.refreshHp();
+  }
+
+  private spawnSlashEffect(x: number, y: number, fromPlayer: boolean): void {
+    const color = fromPlayer ? 0xffd94a : 0xff6a6a;
+    const angle = fromPlayer ? -30 : 30;
+    const slash = this.add
+      .rectangle(x, y, 120, 4, color, 0.9)
+      .setAngle(angle)
+      .setDepth(100);
+    this.tweens.add({
+      targets: slash,
+      scaleX: { from: 0.2, to: 1.5 },
+      scaleY: { from: 1, to: 0.3 },
+      alpha: { from: 0.9, to: 0 },
+      duration: 200,
+      ease: 'Cubic.easeOut',
+      onComplete: () => slash.destroy()
+    });
+    // Flash circle
+    const flash = this.add
+      .circle(x, y, 30, 0xffffff, 0.6)
+      .setDepth(99);
+    this.tweens.add({
+      targets: flash,
+      scale: { from: 0.5, to: 2 },
+      alpha: { from: 0.6, to: 0 },
+      duration: 150,
+      ease: 'Cubic.easeOut',
+      onComplete: () => flash.destroy()
+    });
   }
 
   private goToResult(): void {

@@ -71,15 +71,21 @@ export const attemptSell = (state: RunState, slotId: string): RunState => {
   };
 };
 
+/** Reroll cost escalates: base + rerollsUsed this run. */
+export const getRerollCost = (state: RunState): number =>
+  ECONOMY.rerollCost + (state.rerollsUsed ?? 0);
+
 export const attemptReroll = (
   state: RunState,
   nextOffer: string[]
 ): RunState | null => {
-  if (!canAfford(state, ECONOMY.rerollCost)) return null;
+  const cost = getRerollCost(state);
+  if (!canAfford(state, cost)) return null;
   return {
     ...state,
-    gold: state.gold - ECONOMY.rerollCost,
-    shopOffer: nextOffer
+    gold: state.gold - cost,
+    shopOffer: nextOffer,
+    rerollsUsed: (state.rerollsUsed ?? 0) + 1
   };
 };
 

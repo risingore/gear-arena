@@ -35,8 +35,22 @@ export class GameOver extends Scene {
       )
       .setOrigin(0.5);
 
+    // Analysis hint based on loadout.
+    const equipped = state.equipped ?? {};
+    const partCount = Object.keys(equipped).length;
+    const weaponCount = Object.values(equipped).filter((k) => k && String(k).startsWith('weapon_')).length;
+    let hint = '';
+    if (weaponCount === 0) hint = t('Tip: You had no weapons. Buy a weapon first!');
+    else if (partCount <= 2) hint = t('Tip: Try filling more slots before fighting.');
+    else if (weaponCount === 1) hint = t('Tip: Adding a second weapon doubles your DPS.');
+    else hint = t('Tip: Try different part combinations or a different robot.');
     this.add
-      .text(gameWidth / 2, gameHeight * 0.6, t('Press SPACE or R to restart'), textStyles.body)
+      .text(gameWidth / 2, gameHeight * 0.54, hint, textStyles.small)
+      .setOrigin(0.5)
+      .setAlpha(0.7);
+
+    this.add
+      .text(gameWidth / 2, gameHeight * 0.64, t('Press SPACE or R to restart'), textStyles.body)
       .setOrigin(0.5);
 
     const restart = (): void => {

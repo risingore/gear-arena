@@ -33,6 +33,10 @@ export interface RunState {
   generatedRounds: GeneratedRound[];
   /** The enemy ID of the most recent battle (for collection tracking). */
   lastDefeatedEnemyId: string;
+  /** Number of rerolls used this run (drives cost escalation). */
+  rerollsUsed: number;
+  /** HP carried from last battle (0 = use max HP). */
+  carryHp: number;
 }
 
 export const createInitialRunState = (): RunState => ({
@@ -44,7 +48,9 @@ export const createInitialRunState = (): RunState => ({
   battleOutcome: 'pending',
   lastResultMessage: '',
   generatedRounds: [],
-  lastDefeatedEnemyId: ''
+  lastDefeatedEnemyId: '',
+  rerollsUsed: 0,
+  carryHp: 0
 });
 
 export const getRunState = (scene: Scene): RunState => {

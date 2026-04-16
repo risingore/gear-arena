@@ -130,14 +130,30 @@ export class Battle extends Scene {
     const enemyX = gameWidth * 0.75;
     const arenaY = gameHeight * 0.44;
 
-    // Player visual — real sprite or placeholder rectangle.
+    // Player visual — bone-animated container if parts exist, else fallback.
     this.playerBaseX = playerX;
     this.playerImg = null;
     const battleKey = robot.battleAssetKey;
+    const hasBodyParts = this.textures.exists('knight_arm_r') && this.textures.exists('knight_head');
     if (this.textures.exists(battleKey)) {
+      // Base full-body image (serves as torso + left arm + legs).
       this.playerImg = this.add.image(playerX, arenaY, battleKey);
-      const scale = Math.min(SPRITE_W / this.playerImg.width, SPRITE_H / this.playerImg.height);
-      this.playerImg.setScale(scale);
+      const baseScale = Math.min(SPRITE_W / this.playerImg.width, SPRITE_H / this.playerImg.height);
+      this.playerImg.setScale(baseScale);
+
+      if (hasBodyParts) {
+        // Overlay movable parts on top of the full-body base.
+        const headImg = this.add.image(playerX + 10, arenaY - SPRITE_H * 0.32, 'knight_head');
+        headImg.setScale(baseScale * 0.6);
+        headImg.setDepth(10);
+        (this as Record<string, unknown>)['_headPart'] = headImg;
+
+        const armRImg = this.add.image(playerX - 20, arenaY + 10, 'knight_arm_r');
+        armRImg.setScale(baseScale * 0.7);
+        armRImg.setOrigin(0.7, 0.15);
+        armRImg.setDepth(11);
+        (this as Record<string, unknown>)['_armRPart'] = armRImg;
+      }
     }
     this.playerSprite = this.add
       .rectangle(playerX, arenaY, SPRITE_W, SPRITE_H, this.playerImg ? 0x000000 : ROBOT_COLORS[robot.archetype], this.playerImg ? 0 : 1);
@@ -155,7 +171,10 @@ export class Battle extends Scene {
       .setStrokeStyle(3, PALETTE.textPrimary);
 
     // --- Idle breathing animation (Slay the Spire style) ---
-    const idleTargets = [this.playerImg ?? this.playerSprite, this.enemyImg ?? this.enemySprite];
+    const idleTargets: unknown[] = [this.playerImg ?? this.playerSprite, this.enemyImg ?? this.enemySprite];
+    // Also breathe the bone parts if they exist.
+    if ((this as Record<string, unknown>)['_headPart']) idleTargets.push((this as Record<string, unknown>)['_headPart']);
+    if ((this as Record<string, unknown>)['_armRPart']) idleTargets.push((this as Record<string, unknown>)['_armRPart']);
     for (const target of idleTargets) {
       this.tweens.add({
         targets: target,
@@ -344,6 +363,34 @@ export class Battle extends Scene {
       yoyo: true,
       ease: 'Cubic.easeOut'
     });
+
+    // --- Bone part animations (player attacking) ---
+    if (fromPlayer) {
+      const armR = (this as Record<string, unknown>)['_armRPart'] as { angle: number } | undefined;
+      if (armR) {
+        this.tweens.add({
+          targets: armR,
+          angle: -35,
+          duration: 80,
+          yoyo: true,
+          ease: 'Cubic.easeOut'
+        });
+      }
+    } else {
+      // Player got hit — shake head
+      const head = (this as Record<string, unknown>)['_headPart'] as { x: number } | undefined;
+      if (head) {
+        const hx = (head as { x: number }).x;
+        this.tweens.add({
+          targets: head,
+          x: hx + 8,
+          duration: 60,
+          yoyo: true,
+          repeat: 1,
+          ease: 'Sine.easeInOut'
+        });
+      }
+    }
 
     // --- Defender knockback + flash ---
     const defenderVisual = fromPlayer

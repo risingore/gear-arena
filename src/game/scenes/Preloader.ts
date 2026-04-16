@@ -15,12 +15,13 @@ export class Preloader extends Scene {
   }
 
   preload(): void {
-    // --- Robot battle sprites (PNG preferred for transparency, JPG fallback) ---
-    // Phaser picks the first file that exists from each key.
+    // --- Robot battle sprites + bone parts ---
     this.load.image('battle_knight',  'assets/images/battle_knight.png');
-    // this.load.image('battle_goliath', 'assets/images/battle_goliath.jpg');
-    // this.load.image('battle_striker', 'assets/images/battle_striker.jpg');
-    // this.load.image('battle_oracle',  'assets/images/battle_oracle.jpg');
+    this.load.image('knight_head',    'assets/images/knight_head.png');
+    this.load.image('knight_arm_r',   'assets/images/knight_arm_r.png');
+    // this.load.image('battle_goliath', 'assets/images/battle_goliath.png');
+    // this.load.image('battle_striker', 'assets/images/battle_striker.png');
+    // this.load.image('battle_oracle',  'assets/images/battle_oracle.png');
 
     // --- BGM tracks (mp3 with ogg fallback) ---
     this.load.audio('bgm_title',   ['assets/audio/bgm_title.mp3',   'assets/audio/bgm_title.ogg']);

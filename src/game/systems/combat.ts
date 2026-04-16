@@ -14,8 +14,10 @@ import { applyDefense, type LoadoutStats } from './stats';
 
 export interface CombatWeapon {
   readonly label: string;
-  readonly damage: number;
-  readonly cooldownSec: number;
+  /** Effective damage (may be boosted by item buffs). */
+  damage: number;
+  /** Effective cooldown (may be modified by item buffs). */
+  cooldownSec: number;
   /** Remaining cooldown in seconds; fires when it drops to zero. */
   timer: number;
 }

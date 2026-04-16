@@ -31,6 +31,8 @@ export type PartId =
   | `gear_${string}`
   | `spec_${string}`;
 
+export type ItemId = `item_${string}`;
+
 export type RobotId = `robot_${string}`;
 export type RoundId = `round_${string}`;
 export type SynergyId = `syn_${string}`;
@@ -196,6 +198,27 @@ export interface SynergyData {
 }
 
 // =============================================================================
+// Items (consumables)
+// =============================================================================
+
+export type ItemTiming = 'immediate' | 'next_battle';
+
+export type ItemEffect =
+  | { readonly kind: 'heal'; readonly amount: number }
+  | { readonly kind: 'attack_speed'; readonly multiplier: number }
+  | { readonly kind: 'damage_reduction'; readonly amount: number }
+  | { readonly kind: 'enemy_vulnerability'; readonly multiplier: number };
+
+export interface ItemData {
+  readonly id: ItemId;
+  readonly name: string;
+  readonly description: string;
+  readonly price: number;
+  readonly timing: ItemTiming;
+  readonly effect: ItemEffect;
+}
+
+// =============================================================================
 // Registry container types (used with `as const satisfies`)
 // =============================================================================
 
@@ -203,3 +226,4 @@ export type PartsRegistry    = Record<string, PartData>;
 export type RobotsRegistry   = Record<string, RobotData>;
 export type RoundsRegistry   = Record<string, RoundData>;
 export type SynergiesRegistry = Record<string, SynergyData>;
+export type ItemsRegistry    = Record<string, ItemData>;

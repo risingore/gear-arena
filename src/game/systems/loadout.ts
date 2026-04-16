@@ -5,7 +5,7 @@
  * Callers are responsible for pushing the result through `setRunState`.
  */
 
-import { PARTS, ROBOTS, ECONOMY, type PartKey, type RobotKey } from '@/data';
+import { PARTS, ROBOTS, ECONOMY, ITEMS, type PartKey, type RobotKey, type ItemKey } from '@/data';
 import type { RunState } from './runState';
 
 export interface BuyResult {
@@ -71,9 +71,10 @@ export const attemptSell = (state: RunState, slotId: string): RunState => {
   };
 };
 
-/** Reroll cost escalates: base + rerollsUsed this run. */
+/** Reroll cost escalates: +1g for every 3 rerolls used this run. */
+const REROLL_STEP = 3;
 export const getRerollCost = (state: RunState): number =>
-  ECONOMY.rerollCost + (state.rerollsUsed ?? 0);
+  ECONOMY.rerollCost + Math.floor((state.rerollsUsed ?? 0) / REROLL_STEP);
 
 export const attemptReroll = (
   state: RunState,
@@ -92,4 +93,39 @@ export const attemptReroll = (
 export const awardRoundReward = (state: RunState): RunState => {
   const reward = ECONOMY.roundRewardBase + ECONOMY.roundRewardPerRound * state.currentRound;
   return { ...state, gold: state.gold + reward };
+};
+
+/**
+ * Attempt to buy an item from the shop. Immediate items are applied right
+ * away (e.g. heal), next-battle items are queued in `battleBuffs`.
+ */
+export const attemptBuyItem = (
+  state: RunState,
+  shopIndex: number
+): { ok: boolean; next?: RunState; healApplied?: number } => {
+  const itemKey = state.shopOffer[shopIndex] as ItemKey | '' | undefined;
+  if (!itemKey || !(itemKey in ITEMS)) return { ok: false };
+  const item = ITEMS[itemKey as keyof typeof ITEMS];
+  if (!canAfford(state, item.price)) return { ok: false };
+
+  let next: RunState = {
+    ...state,
+    gold: state.gold - item.price,
+    shopOffer: state.shopOffer.map((s, i) => (i === shopIndex ? '' : s))
+  };
+
+  let healApplied = 0;
+
+  if (item.timing === 'immediate') {
+    if (item.effect.kind === 'heal') {
+      // carryHp 0 means "full HP" — heal still applies by bumping above
+      // zero so Battle.create treats it as an explicit value to clamp.
+      healApplied = item.effect.amount;
+      next = { ...next, carryHp: next.carryHp + item.effect.amount };
+    }
+  } else {
+    next = { ...next, battleBuffs: [...next.battleBuffs, itemKey as ItemKey] };
+  }
+
+  return { ok: true, next, healApplied };
 };

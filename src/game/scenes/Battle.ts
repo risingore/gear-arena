@@ -4,6 +4,8 @@ import type { GameObjects } from 'phaser';
 import gameOptions from '../helper/gameOptions';
 import {
   ROBOTS,
+  ITEMS,
+  findEnemyDef,
   type PartKey
 } from '@/data';
 import { getRunState, setRunState } from '../systems/runState';
@@ -94,34 +96,67 @@ export class Battle extends Scene {
     const roundEnemy = genRound.enemy;
 
     this.player = createPlayerCombatant(robot.name, stats);
-    // HP carry-over: if carryHp is -1, heal to 50% of maxHp.
+    // HP carry-over: previous battle's remaining HP carries into the next round.
     // Round 1 starts at full HP (carryHp = 0 from initial state).
-    if (state.carryHp === -1) {
-      this.player.hp = Math.max(1, Math.ceil(this.player.maxHp * 0.5));
-    } else if (state.carryHp > 0) {
+    if (state.carryHp > 0) {
       this.player.hp = Math.min(this.player.maxHp, state.carryHp);
     }
+
+    // Apply and consume next-battle item buffs.
+    for (const itemKey of state.battleBuffs) {
+      const item = ITEMS[itemKey as keyof typeof ITEMS];
+      if (!item) continue;
+      switch (item.effect.kind) {
+        case 'attack_speed':
+          for (const w of this.player.weapons) {
+            w.cooldownSec = Math.max(0.2, w.cooldownSec / item.effect.multiplier);
+          }
+          break;
+        case 'damage_reduction':
+          this.player.damageReductionPct = Math.min(
+            0.8,
+            this.player.damageReductionPct + item.effect.amount
+          );
+          break;
+        case 'enemy_vulnerability':
+          // "Enemy takes +X% damage" = multiply player weapon damage.
+          for (const w of this.player.weapons) {
+            w.damage = Math.round(w.damage * item.effect.multiplier);
+          }
+          break;
+      }
+    }
+    // Clear consumed buffs from run state.
+    if (state.battleBuffs.length > 0) {
+      setRunState(this, { ...state, battleBuffs: [] });
+    }
+
+    // Build enemy weapons list: primary + any extra weapons from EnemyDef.
+    const enemyWeapons: import('../systems/combat').CombatWeapon[] = [
+      { label: 'Strike', damage: roundEnemy.damage, cooldownSec: roundEnemy.cooldownSec, timer: roundEnemy.cooldownSec }
+    ];
+    // Retrieve the original EnemyDef to access extraWeapons / shieldCharges / repair.
+    const originalDef = findEnemyDef(genRound.enemyId);
+    if (originalDef?.extraWeapons) {
+      for (const ew of originalDef.extraWeapons) {
+        enemyWeapons.push({ label: ew.label, damage: ew.damage, cooldownSec: ew.cooldownSec, timer: ew.cooldownSec });
+      }
+    }
+
     this.enemy = {
       name: roundEnemy.name,
       maxHp: roundEnemy.hp,
       hp: roundEnemy.hp,
       damageReductionFlat: 0,
       damageReductionPct: roundEnemy.damageReductionPct,
-      weapons: [
-        {
-          label: 'Enemy Strike',
-          damage: roundEnemy.damage,
-          cooldownSec: roundEnemy.cooldownSec,
-          timer: roundEnemy.cooldownSec
-        }
-      ],
+      weapons: enemyWeapons,
       overdriveMultiplier: 0,
       overdriveThresholdHp: 0,
       overdriveActive: false,
-      repairIntervalSec: 0,
-      repairAmount: 0,
-      repairTimer: 0,
-      shieldCharges: 0
+      repairIntervalSec: originalDef?.repairIntervalSec ?? 0,
+      repairAmount: originalDef?.repairAmount ?? 0,
+      repairTimer: originalDef?.repairIntervalSec ?? 0,
+      shieldCharges: originalDef?.shieldCharges ?? 0
     };
 
     // Header
@@ -310,6 +345,7 @@ export class Battle extends Scene {
 
     const enemyTick = tickCombatant(this.enemy, this.player, dtSec);
     enemyTick.attacks.forEach((e) => this.onAttack(e, this.playerSprite, false));
+    if (enemyTick.healed > 0) this.spawnHealPopup(this.enemySprite.x, this.enemySprite.y, enemyTick.healed);
 
     if (this.player.hp <= 0) {
       this.finishBattle('lose');
@@ -497,7 +533,8 @@ export class Battle extends Scene {
       ...state,
       battleOutcome: finalOutcome,
       lastResultMessage: message,
-      lastDefeatedEnemyId: outcome === 'win' && genRound ? genRound.enemyId : ''
+      lastDefeatedEnemyId: outcome === 'win' && genRound ? genRound.enemyId : '',
+      carryHp: outcome === 'win' ? Math.max(1, this.player.hp) : 0
     });
     this.pushLog(message);
     playSfx(finalOutcome === 'victory' ? 'victory' : outcome === 'win' ? 'win' : 'lose');

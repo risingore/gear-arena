@@ -115,6 +115,8 @@ export class Settings extends Scene {
       .setOrigin(0.5)
       .setColor('#ff4444')
       .setInteractive({ useHandCursor: true });
+    resetLabel.on('pointerover', () => resetLabel.setScale(1.05));
+    resetLabel.on('pointerout', () => resetLabel.setScale(1));
 
     let confirmPending = false;
     resetLabel.on('pointerdown', () => {
@@ -141,14 +143,14 @@ export class Settings extends Scene {
     });
 
     // --- Back to Title ---
-    this.add
-      .text(gameWidth / 2, gameHeight - 40, t('BACK TO TITLE'), textStyles.body)
+    const backBtn = this.add
+      .text(gameWidth / 2, gameHeight - 40, t('← BACK TO TITLE'), textStyles.body)
       .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => {
-        playSfx('click');
-        fadeToScene(this, 'Title');
-      });
+      .setAlpha(0.7)
+      .setInteractive({ useHandCursor: true });
+    backBtn.on('pointerdown', () => { playSfx('click'); fadeToScene(this, 'Title'); });
+    backBtn.on('pointerover', () => { backBtn.setAlpha(1); backBtn.setScale(1.05); });
+    backBtn.on('pointerout', () => { backBtn.setAlpha(0.7); backBtn.setScale(1); });
 
     this.input.keyboard?.on('keydown-ESC', () => fadeToScene(this, 'Title'));
     this.input.keyboard?.on('keydown-R', () => fadeToScene(this, 'Title'));

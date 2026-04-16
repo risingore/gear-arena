@@ -15,10 +15,12 @@ import { PALETTE, ROBOT_COLORS, CATEGORY_COLORS, CATEGORY_LABEL } from '../syste
 import { playSfx } from '../systems/audio';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { t } from '../systems/i18n';
+import { getEarnedAchievements } from '../systems/achievements';
+import { ACHIEVEMENTS } from '@/data/achievements';
 import { applyHiDpiToScene, showDebugBadge } from '../helper/hiDpiText';
 import { isDebugEnabled } from '../systems/debug';
 
-type TabName = 'machines' | 'parts' | 'enemies';
+type TabName = 'machines' | 'parts' | 'enemies' | 'titles';
 
 const CARD_W = 160;
 const CARD_H = 120;
@@ -49,7 +51,8 @@ export class Collection extends Scene {
     const tabs: { tab: TabName; label: string }[] = [
       { tab: 'machines', label: t('MACHINES') },
       { tab: 'parts',    label: t('PARTS') },
-      { tab: 'enemies',  label: t('ENEMIES') }
+      { tab: 'enemies',  label: t('ENEMIES') },
+      { tab: 'titles',   label: t('TITLES') }
     ];
     const tabW = 180;
     const tabH = 40;
@@ -73,18 +76,24 @@ export class Collection extends Scene {
         this.refreshTabs();
         this.drawContent();
       });
+      bg.on('pointerover', () => {
+        if (def.tab !== this.activeTab) bg.setFillStyle(PALETTE.buttonBgHover, 1);
+      });
+      bg.on('pointerout', () => {
+        bg.setFillStyle(def.tab === this.activeTab ? PALETTE.buttonBgHover : PALETTE.buttonBg, 1);
+      });
       return { tab: def.tab, bg, label };
     });
 
     // Back button
     const backBtn = this.add
-      .text(gameWidth / 2, gameHeight - 40, t('BACK TO TITLE'), textStyles.body)
+      .text(gameWidth / 2, gameHeight - 40, t('← BACK TO TITLE'), textStyles.body)
       .setOrigin(0.5)
+      .setAlpha(0.7)
       .setInteractive({ useHandCursor: true });
-    backBtn.on('pointerdown', () => {
-      playSfx('click');
-      fadeToScene(this, 'Title');
-    });
+    backBtn.on('pointerdown', () => { playSfx('click'); fadeToScene(this, 'Title'); });
+    backBtn.on('pointerover', () => { backBtn.setAlpha(1); backBtn.setScale(1.05); });
+    backBtn.on('pointerout', () => { backBtn.setAlpha(0.7); backBtn.setScale(1); });
 
     this.input.keyboard?.on('keydown-ESC', () => fadeToScene(this, 'Title'));
     this.input.keyboard?.on('keydown-R', () => fadeToScene(this, 'Title'));
@@ -117,6 +126,9 @@ export class Collection extends Scene {
         break;
       case 'enemies':
         this.drawEnemiesTab();
+        break;
+      case 'titles':
+        this.drawTitlesTab();
         break;
     }
     applyHiDpiToScene(this);
@@ -286,6 +298,51 @@ export class Collection extends Scene {
     const bottomY = GRID_TOP + rows * (CARD_H + CARD_GAP) + 20;
     this.contentGroup!.add(
       this.add.text(gameWidth / 2, bottomY, `${count} / ${totalEnemies} ${t('defeated')}`, textStyles.body).setOrigin(0.5).setAlpha(0.8)
+    );
+  }
+
+  // --------------------------------------------------------------------------
+  // Titles tab
+  // --------------------------------------------------------------------------
+
+  private drawTitlesTab(): void {
+    const { gameWidth, textStyles } = gameOptions;
+    const save = loadSaveData();
+    const earned = getEarnedAchievements(save);
+    const earnedIds = new Set(earned.map((e) => e.def.id));
+    let y = GRID_TOP + 20;
+
+    ACHIEVEMENTS.forEach((ach) => {
+      const isEarned = earnedIds.has(ach.id);
+      const card = this.add
+        .rectangle(gameWidth / 2, y, 700, 48, isEarned ? PALETTE.cardBg : 0x111118, 1)
+        .setStrokeStyle(2, isEarned ? PALETTE.accentOrange : PALETTE.cardStroke);
+      this.contentGroup!.add(card);
+
+      if (isEarned) {
+        this.contentGroup!.add(
+          this.add.text(gameWidth / 2 - 320, y, `★  ${ach.name}`, textStyles.body).setOrigin(0, 0.5).setColor('#ffd94a')
+        );
+        this.contentGroup!.add(
+          this.add.text(gameWidth / 2 + 320, y - 8, `"${ach.title}"`, textStyles.small).setOrigin(1, 0.5).setColor('#ffd94a')
+        );
+        this.contentGroup!.add(
+          this.add.text(gameWidth / 2 + 320, y + 10, ach.description, textStyles.small).setOrigin(1, 0.5).setAlpha(0.6)
+        );
+      } else {
+        this.contentGroup!.add(
+          this.add.text(gameWidth / 2 - 320, y, `☆  ${ach.name}`, textStyles.body).setOrigin(0, 0.5).setAlpha(0.4)
+        );
+        this.contentGroup!.add(
+          this.add.text(gameWidth / 2 + 320, y, ach.description, textStyles.small).setOrigin(1, 0.5).setAlpha(0.3)
+        );
+      }
+
+      y += 54;
+    });
+
+    this.contentGroup!.add(
+      this.add.text(gameWidth / 2, y + 20, `${earned.length} / ${ACHIEVEMENTS.length} ${t('earned')}`, textStyles.body).setOrigin(0.5).setAlpha(0.8)
     );
   }
 }

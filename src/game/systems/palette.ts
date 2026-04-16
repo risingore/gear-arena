@@ -33,7 +33,10 @@ export const PALETTE = {
   accentBlue: 0x3ab0ff,
   accentGreen: 0x3aff7a,
   accentRed: 0xff3a3a,
-  danger: 0xff4444
+  danger: 0xff4444,
+  itemCardBg: 0x2a1a3a,
+  itemBar: 0xcc66ff,
+  itemText: '#cc88ff'
 } as const;
 
 export const ROBOT_COLORS: Record<RobotArchetype, number> = {

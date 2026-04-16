@@ -1,4 +1,5 @@
 import { Scene } from 'phaser';
+import type { GameObjects } from 'phaser';
 
 import gameOptions from '../helper/gameOptions';
 import { resetRunState } from '../systems/runState';
@@ -6,6 +7,7 @@ import { PALETTE } from '../systems/palette';
 import { playSfx } from '../systems/audio';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { loadSaveData } from '../systems/savedata';
+import { getPlayerTitle } from '../systems/achievements';
 import { t } from '../systems/i18n';
 import { playMusic, MUSIC_KEYS } from '../systems/music';
 import { applyHiDpiToScene, showDebugBadge } from '../helper/hiDpiText';
@@ -48,17 +50,18 @@ export class Title extends Scene {
     this.add
       .text(
         gameWidth / 2,
-        gameHeight * 0.72,
+        gameHeight * 0.76,
         t('R = restart anytime'),
         textStyles.small
       )
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setAlpha(0.4);
 
     this.add
       .text(gameWidth / 2, gameHeight - 40, t('Gamedev.js Jam 2026 / theme: Machines'), textStyles.small)
       .setOrigin(0.5);
 
-    // Best-run stats (if any)
+    // Best-run stats + title (if any)
     const save = loadSaveData();
     if (save.bestRound > 0 || save.totalClears > 0) {
       const statLine = `Best Round: ${save.bestRound}   ·   Victories: ${save.totalClears}`;
@@ -66,6 +69,14 @@ export class Title extends Scene {
         .text(gameWidth / 2, gameHeight * 0.82, statLine, textStyles.small)
         .setOrigin(0.5)
         .setAlpha(0.8);
+    }
+    const title = getPlayerTitle(save);
+    if (title) {
+      this.add
+        .text(gameWidth / 2, gameHeight * 0.88, `— ${title} —`, textStyles.body)
+        .setOrigin(0.5)
+        .setColor('#ffd94a')
+        .setAlpha(0.9);
     }
 
     const start = (): void => {
@@ -75,27 +86,21 @@ export class Title extends Scene {
     this.input.keyboard?.once('keydown-SPACE', start);
 
     // Clickable start button
-    const startText = this.add
-      .text(gameWidth / 2, gameHeight * 0.56, t('Press SPACE or click to start'), textStyles.body)
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true });
-    startText.once('pointerdown', start);
+    this.makeMenuButton(
+      gameWidth / 2, gameHeight * 0.56, t('▶  START'), start
+    );
 
     // Collection button
-    this.add
-      .text(gameWidth / 2, gameHeight * 0.63, t('COLLECTION'), textStyles.body)
-      .setOrigin(0.5)
-      .setAlpha(0.7)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => { playSfx('click'); fadeToScene(this, 'Collection'); });
+    this.makeMenuButton(
+      gameWidth / 2, gameHeight * 0.63, t('COLLECTION'),
+      () => { playSfx('click'); fadeToScene(this, 'Collection'); }
+    );
 
     // Settings button
-    this.add
-      .text(gameWidth / 2, gameHeight * 0.69, t('SETTINGS'), textStyles.body)
-      .setOrigin(0.5)
-      .setAlpha(0.7)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => { playSfx('click'); fadeToScene(this, 'Settings'); });
+    this.makeMenuButton(
+      gameWidth / 2, gameHeight * 0.69, t('SETTINGS'),
+      () => { playSfx('click'); fadeToScene(this, 'Settings'); }
+    );
 
     // Debug toggle button (bottom-left)
     const debugLabel = this.add
@@ -109,9 +114,29 @@ export class Title extends Scene {
       debugLabel.setAlpha(on ? 0.9 : 0.5);
       playSfx('click');
     });
+    debugLabel.on('pointerover', () => debugLabel.setAlpha(1));
+    debugLabel.on('pointerout', () => debugLabel.setAlpha(isDebugEnabled() ? 0.9 : 0.5));
 
     applyHiDpiToScene(this);
     showDebugBadge(this, isDebugEnabled());
+  }
+
+  private makeMenuButton(
+    x: number,
+    y: number,
+    label: string,
+    onClick: () => void
+  ): GameObjects.Text {
+    const { textStyles } = gameOptions;
+    const btn = this.add
+      .text(x, y, label, textStyles.body)
+      .setOrigin(0.5)
+      .setAlpha(0.8)
+      .setInteractive({ useHandCursor: true });
+    btn.on('pointerover', () => { btn.setAlpha(1); btn.setScale(1.08); });
+    btn.on('pointerout', () => { btn.setAlpha(0.8); btn.setScale(1); });
+    btn.on('pointerdown', onClick);
+    return btn;
   }
 
   private drawBackgroundGear(

@@ -60,30 +60,16 @@ export class Result extends Scene {
       .text(gameWidth / 2, gameHeight * 0.44, state.lastResultMessage, textStyles.body)
       .setOrigin(0.5);
 
-    let instruction = '';
     if (outcome === 'win') {
       const rewarded = awardRoundReward(state);
-      // Auto-reroll the shop on every round transition so the player always
-      // greets the next Build phase with a fresh selection — no need to spend
-      // a manual reroll just to clear leftover inventory.
-      // HP carries over at 50% of max (not full heal).
       const advanced = {
         ...rewarded,
         currentRound: state.currentRound + 1,
         battleOutcome: 'pending' as const,
-        shopOffer: generateShopOffer(),
-        carryHp: -1  // -1 = compute 50% in Battle.create
+        shopOffer: generateShopOffer()
       };
       setRunState(this, advanced);
-      instruction = t('Press SPACE to continue to next round   ·   R to quit');
-      this.input.keyboard?.once('keydown-SPACE', () => {
-        playSfx('click');
-        fadeToScene(this, 'Build');
-      });
-      this.input.keyboard?.once('keydown-R', () => {
-        playSfx('click');
-        fadeToScene(this, 'Title');
-      });
+
       this.add
         .text(
           gameWidth / 2,
@@ -93,11 +79,19 @@ export class Result extends Scene {
         )
         .setOrigin(0.5)
         .setColor('#ffd94a');
+
+      this.makeClickButton(gameWidth / 2, gameHeight * 0.70, t('▶  NEXT ROUND'), () => {
+        playSfx('click');
+        fadeToScene(this, 'Build');
+      });
+      this.makeClickButton(gameWidth / 2, gameHeight * 0.78, t('QUIT TO TITLE'), () => {
+        playSfx('click');
+        fadeToScene(this, 'Title');
+      }, 0.5);
+
+      this.input.keyboard?.once('keydown-SPACE', () => { playSfx('click'); fadeToScene(this, 'Build'); });
     } else if (outcome === 'victory') {
       if (state.robotKey) recordVictory(state.robotKey);
-      instruction = t('Press SPACE to return to title');
-      this.input.keyboard?.once('keydown-SPACE', () => fadeToScene(this, 'Title'));
-      this.input.keyboard?.once('keydown-R', () => fadeToScene(this, 'Title'));
       const totalRounds = state.generatedRounds.length;
       this.add
         .text(
@@ -109,7 +103,6 @@ export class Result extends Scene {
         .setOrigin(0.5)
         .setColor('#ffd94a');
 
-      // Theme-reinforcing machine summary: "Your machine contained: ..."
       const summary = this.buildMachineSummary(state.robotKey, state.equipped);
       if (summary) {
         this.add
@@ -117,23 +110,46 @@ export class Result extends Scene {
           .setOrigin(0.5)
           .setAlpha(0.85);
       }
+
+      this.makeClickButton(gameWidth / 2, gameHeight * 0.75, t('▶  RETURN TO TITLE'), () => {
+        playSfx('click');
+        fadeToScene(this, 'Title');
+      });
+      this.input.keyboard?.once('keydown-SPACE', () => fadeToScene(this, 'Title'));
     } else if (outcome === 'lose') {
-      instruction = t('Press SPACE or R to restart');
+      this.makeClickButton(gameWidth / 2, gameHeight * 0.70, t('▶  CONTINUE'), () => {
+        playSfx('click');
+        fadeToScene(this, 'GameOver');
+      });
       this.input.keyboard?.once('keydown-SPACE', () => fadeToScene(this, 'GameOver'));
-      this.input.keyboard?.once('keydown-R', () => fadeToScene(this, 'GameOver'));
-      this.time.delayedCall(1800, () => fadeToScene(this, 'GameOver'));
+      this.time.delayedCall(2500, () => fadeToScene(this, 'GameOver'));
     } else {
-      instruction = t('Press SPACE to return to title');
+      this.makeClickButton(gameWidth / 2, gameHeight * 0.70, t('▶  RETURN TO TITLE'), () => {
+        playSfx('click');
+        fadeToScene(this, 'Title');
+      });
       this.input.keyboard?.once('keydown-SPACE', () => fadeToScene(this, 'Title'));
     }
 
-    this.add
-      .text(gameWidth / 2, gameHeight * 0.75, instruction, textStyles.small)
-      .setOrigin(0.5)
-      .setAlpha(0.8);
-
     applyHiDpiToScene(this);
     showDebugBadge(this, isDebugEnabled());
+  }
+
+  private makeClickButton(
+    x: number,
+    y: number,
+    label: string,
+    onClick: () => void,
+    baseAlpha = 0.8
+  ): void {
+    const btn = this.add
+      .text(x, y, label, gameOptions.textStyles.body)
+      .setOrigin(0.5)
+      .setAlpha(baseAlpha)
+      .setInteractive({ useHandCursor: true });
+    btn.on('pointerover', () => { btn.setAlpha(1); btn.setScale(1.08); });
+    btn.on('pointerout', () => { btn.setAlpha(baseAlpha); btn.setScale(1); });
+    btn.on('pointerdown', onClick);
   }
 
   /**

@@ -11,7 +11,7 @@
 
 import type { Scene } from 'phaser';
 
-import { ECONOMY, type PartKey, type RobotKey } from '@/data';
+import { ECONOMY, type PartKey, type RobotKey, type ItemKey } from '@/data';
 import type { GeneratedRound } from './enemyPool';
 
 const REGISTRY_KEY = 'runState';
@@ -37,6 +37,8 @@ export interface RunState {
   rerollsUsed: number;
   /** HP carried from last battle (0 = use max HP). */
   carryHp: number;
+  /** Battle buffs queued from next-battle items (consumed on battle start). */
+  battleBuffs: ItemKey[];
 }
 
 export const createInitialRunState = (): RunState => ({
@@ -50,7 +52,8 @@ export const createInitialRunState = (): RunState => ({
   generatedRounds: [],
   lastDefeatedEnemyId: '',
   rerollsUsed: 0,
-  carryHp: 0
+  carryHp: 0,
+  battleBuffs: []
 });
 
 export const getRunState = (scene: Scene): RunState => {

@@ -40,7 +40,7 @@ export class Select extends Scene {
       .setOrigin(0.5);
 
     this.add
-      .text(gameWidth / 2, 100, t('← →  to browse    ENTER  to confirm'), textStyles.body)
+      .text(gameWidth / 2, 100, t('Click a machine to select, then CONFIRM'), textStyles.body)
       .setOrigin(0.5)
       .setAlpha(0.7);
 
@@ -57,12 +57,20 @@ export class Select extends Scene {
         .setStrokeStyle(CARD_STROKE, PALETTE.cardStroke);
       card.setInteractive({ useHandCursor: true });
       card.on('pointerdown', () => {
-        this.selectedIndex = i;
-        this.refresh();
+        if (this.selectedIndex === i) {
+          // Second click on same card confirms immediately.
+          this.confirm();
+        } else {
+          this.selectedIndex = i;
+          playSfx('click');
+          this.refresh();
+        }
       });
       card.on('pointerover', () => {
-        this.selectedIndex = i;
-        this.refresh();
+        if (this.selectedIndex !== i) {
+          this.selectedIndex = i;
+          this.refresh();
+        }
       });
       this.cards.push(card);
 
@@ -142,14 +150,27 @@ export class Select extends Scene {
     this.input.keyboard?.on('keydown-SPACE', () => this.confirm());
     this.input.keyboard?.on('keydown-R', () => fadeToScene(this, 'Title'));
 
-    // Double-click / second pointerdown confirms selection.
-    this.cards.forEach((card, i) => {
-      card.on('pointerdown', () => {
-        if (this.selectedIndex === i) {
-          // Confirm on second click of same card (or on explicit Enter).
-        }
-      });
-    });
+    // CONFIRM button
+    const confirmBg = this.add
+      .rectangle(gameWidth / 2, gameHeight - 40, 200, 44, PALETTE.buttonBg, 1)
+      .setStrokeStyle(2, PALETTE.cardStroke)
+      .setInteractive({ useHandCursor: true });
+    this.add
+      .text(gameWidth / 2, gameHeight - 40, t('CONFIRM  ▶'), textStyles.body)
+      .setOrigin(0.5);
+    confirmBg.on('pointerover', () => confirmBg.setFillStyle(PALETTE.buttonBgHover, 1));
+    confirmBg.on('pointerout', () => confirmBg.setFillStyle(PALETTE.buttonBg, 1));
+    confirmBg.on('pointerdown', () => this.confirm());
+
+    // BACK button
+    const backText = this.add
+      .text(80, gameHeight - 40, t('← BACK'), textStyles.body)
+      .setOrigin(0.5)
+      .setAlpha(0.7)
+      .setInteractive({ useHandCursor: true });
+    backText.on('pointerover', () => { backText.setAlpha(1); backText.setScale(1.05); });
+    backText.on('pointerout', () => { backText.setAlpha(0.7); backText.setScale(1); });
+    backText.on('pointerdown', () => { playSfx('click'); fadeToScene(this, 'Title'); });
 
     applyHiDpiToScene(this);
     showDebugBadge(this, isDebugEnabled());

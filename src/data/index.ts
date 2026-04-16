@@ -22,15 +22,19 @@ export { ECONOMY } from './economy';
 export { SYNERGIES, ALL_SYNERGY_KEYS } from './synergies';
 export type { SynergyKey } from './synergies';
 
+export { ITEMS, ALL_ITEM_KEYS, isItemKey } from './items';
+export type { ItemKey } from './items';
+
 export {
   NORMAL_ENEMIES,
   MID_BOSSES,
   BIG_BOSSES,
   SUPER_BOSS,
   ALL_ENEMY_IDS,
-  TOTAL_COLLECTIBLE_ENEMIES
+  TOTAL_COLLECTIBLE_ENEMIES,
+  findEnemyDef
 } from './enemies';
-export type { EnemyDef } from './enemies';
+export type { EnemyDef, EnemyWeaponDef } from './enemies';
 
 export type {
   PartId,
@@ -55,5 +59,10 @@ export type {
   EconomyData,
   SynergyData,
   SynergyTrigger,
-  SynergyEffect
+  SynergyEffect,
+  ItemId,
+  ItemData,
+  ItemTiming,
+  ItemEffect,
+  ItemsRegistry
 } from './schema';

@@ -6,15 +6,17 @@ import {
   PARTS,
   ROBOTS,
   ECONOMY,
+  ITEMS,
+  isItemKey,
   type PartKey,
   type RobotKey,
-  type SlotDef
+  type SlotDef,
 } from '@/data';
 import { getRunState, setRunState } from '../systems/runState';
 import { PALETTE, CATEGORY_COLORS, CATEGORY_LABEL } from '../systems/palette';
 import { computeLoadoutStats } from '../systems/stats';
 import { generateShopOffer } from '../systems/shop';
-import { attemptBuy, attemptSell, attemptReroll, getRerollCost } from '../systems/loadout';
+import { attemptBuy, attemptSell, attemptReroll, getRerollCost, attemptBuyItem } from '../systems/loadout';
 import { playSfx } from '../systems/audio';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { t } from '../systems/i18n';
@@ -49,6 +51,10 @@ export class Build extends Scene {
   private blueprintOriginY = 0;
   private blueprintScale = 1;
   private hoverShopIndex: number | null = null;
+  /** Drag & drop state: index of the shop card being dragged (-1 = none). */
+  private dragShopIndex = -1;
+  private dragGhost: GameObjects.Rectangle | null = null;
+  private dragLabel: GameObjects.Text | null = null;
 
   constructor() {
     super('Build');
@@ -133,6 +139,17 @@ export class Build extends Scene {
     const numberKeys = ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE'] as const;
     numberKeys.forEach((key, i) => {
       this.input.keyboard?.on(`keydown-${key}`, () => this.handleShopClick(i));
+    });
+
+    // Drag & drop: scene-level pointer tracking.
+    this.input.on('pointermove', (pointer: { x: number; y: number }) => {
+      if (this.dragShopIndex < 0) return;
+      this.dragGhost?.setPosition(pointer.x, pointer.y);
+      this.dragLabel?.setPosition(pointer.x, pointer.y - 20);
+    });
+    this.input.on('pointerup', (pointer: { x: number; y: number }) => {
+      if (this.dragShopIndex < 0) return;
+      this.handleDrop(pointer.x, pointer.y);
     });
 
     this.refreshAll();
@@ -283,8 +300,10 @@ export class Build extends Scene {
       const bg = this.add
         .rectangle(0, 0, SHOP_CARD_W, SHOP_CARD_H, PALETTE.cardBg, 1)
         .setStrokeStyle(2, PALETTE.cardStroke);
-      bg.setInteractive({ useHandCursor: true });
-      bg.on('pointerdown', () => this.handleShopClick(i));
+      bg.setInteractive({ useHandCursor: true, draggable: true });
+      bg.on('pointerdown', (pointer: { x: number; y: number }) => {
+        this.startDrag(i, pointer.x, pointer.y);
+      });
       bg.on('pointerover', () => {
         bg.setFillStyle(PALETTE.cardBgHover, 1);
         this.hoverShopIndex = i;
@@ -305,6 +324,23 @@ export class Build extends Scene {
 
   private handleShopClick(index: number): void {
     const state = getRunState(this);
+    const key = state.shopOffer[index];
+    if (!key) return;
+
+    // Check if this is an item (consumable) rather than a part.
+    if (isItemKey(key)) {
+      const result = attemptBuyItem(state, index);
+      if (result.ok && result.next) {
+        setRunState(this, result.next);
+        this.refreshShop();
+        this.refreshHud();
+        playSfx('buy');
+      } else {
+        playSfx('click');
+      }
+      return;
+    }
+
     const result = attemptBuy(state, index);
     if (result.ok && result.next) {
       const before = Object.keys(state.equipped);
@@ -328,14 +364,39 @@ export class Build extends Scene {
       // Strip previous dynamic children (everything except the bg at index 0).
       const bg = container.list[0] as GameObjects.Rectangle;
       container.list.slice(1).forEach((child) => child.destroy());
-      const key = state.shopOffer[i] as PartKey | '' | undefined;
+      const key = state.shopOffer[i] as string | undefined;
       if (!key) {
         bg.setFillStyle(PALETTE.buttonDisabled, 1);
         container.add(this.add.text(0, 0, t('SOLD'), textStyles.small).setOrigin(0.5));
         return;
       }
+      // Render item cards (consumables) differently from part cards.
+      if (isItemKey(key)) {
+        const item = ITEMS[key];
+        bg.setFillStyle(PALETTE.itemCardBg, 1);
+        const itemBar = this.add
+          .rectangle(0, -SHOP_CARD_H / 2 + 6, SHOP_CARD_W - 8, 4, PALETTE.itemBar, 1);
+        container.add(itemBar);
+        container.add(
+          this.add
+            .text(0, -SHOP_CARD_H / 2 + 18, item.timing === 'immediate' ? t('USE') : t('BUFF'), textStyles.small)
+            .setOrigin(0.5)
+            .setColor(PALETTE.itemText)
+        );
+        container.add(
+          this.add.text(0, 2, t(item.name), textStyles.body).setOrigin(0.5)
+        );
+        container.add(
+          this.add
+            .text(0, SHOP_CARD_H / 2 - 16, `${item.price}g`, textStyles.body)
+            .setOrigin(0.5)
+            .setColor('#ffd94a')
+        );
+        return;
+      }
+
       bg.setFillStyle(PALETTE.cardBg, 1);
-      const part = PARTS[key];
+      const part = PARTS[key as PartKey];
       // Compact card layout for 120x90 cards: category bar + label + name + price.
       // Description is omitted (visible via hover preview on the right).
       const categoryBar = this.add
@@ -401,25 +462,39 @@ export class Build extends Scene {
         : stats.weapons
             .map((w) => `${t(w.name)}  ${w.damage}${t('dmg')} / ${w.cooldownSec.toFixed(2)}s`)
             .join('\n');
+    const hpDisplay = state.carryHp > 0
+      ? `${t('HP')}           ${Math.min(state.carryHp, stats.maxHp)} / ${stats.maxHp}`
+      : `${t('MAX HP')}       ${stats.maxHp}`;
+    const buffLines = state.battleBuffs.length > 0
+      ? ['', t('BUFFS'), ...state.battleBuffs.map((k) => {
+          const item = ITEMS[k as keyof typeof ITEMS];
+          return item ? `  ${t(item.name)}` : '';
+        }).filter(Boolean)]
+      : [];
     this.statsText.setText(
       [
-        `${t('MAX HP')}       ${stats.maxHp}`,
+        hpDisplay,
         `${t('DR flat')}      ${stats.damageReductionFlat}`,
         `${t('DR pct')}       ${(stats.damageReductionPct * 100).toFixed(0)}%`,
         '',
         t('WEAPONS'),
-        weaponSummary
+        weaponSummary,
+        ...buffLines
       ].join('\n')
     );
 
     // Hover preview: simulate buying the hovered shop card
     if (this.hoverShopIndex !== null) {
-      const hoveredKey = state.shopOffer[this.hoverShopIndex] as PartKey | '' | undefined;
-      if (hoveredKey) {
-        const part = PARTS[hoveredKey];
-        const slotId = this.findFreeSlotFor(state.robotKey, hoveredKey, state.equipped);
+      const hoveredKey = state.shopOffer[this.hoverShopIndex] as string | '' | undefined;
+      if (hoveredKey && isItemKey(hoveredKey)) {
+        const item = ITEMS[hoveredKey];
+        this.previewText.setText(`${t('ITEM')}: ${t(item.name)}\n  ${t(item.description)}`);
+      } else if (hoveredKey) {
+        const partKey = hoveredKey as PartKey;
+        const part = PARTS[partKey];
+        const slotId = this.findFreeSlotFor(state.robotKey, partKey, state.equipped);
         if (slotId) {
-          const nextEquipped = { ...state.equipped, [slotId]: hoveredKey };
+          const nextEquipped = { ...state.equipped, [slotId]: partKey };
           const nextStats = computeLoadoutStats(robot, nextEquipped);
           const lines: string[] = [`${t('PREVIEW')}: ${t('buy')} ${t(part.name)} (${part.price}g)`];
           const hpDelta = nextStats.maxHp - stats.maxHp;
@@ -457,6 +532,129 @@ export class Build extends Scene {
       return slot.id;
     }
     return null;
+  }
+
+  // --------------------------------------------------------------------------
+  // Drag & Drop
+  // --------------------------------------------------------------------------
+
+  private startDrag(shopIndex: number, x: number, y: number): void {
+    const state = getRunState(this);
+    const key = state.shopOffer[shopIndex];
+    if (!key) return;
+
+    this.dragShopIndex = shopIndex;
+    const itemMode = isItemKey(key);
+    const color = itemMode ? PALETTE.itemBar : PALETTE.accentBlue;
+    const name = itemMode
+      ? ITEMS[key].name
+      : PARTS[key as PartKey].name;
+
+    this.dragGhost = this.add
+      .rectangle(x, y, 36, 36, color, 0.7)
+      .setStrokeStyle(2, 0xffffff)
+      .setDepth(200);
+    this.dragLabel = this.add
+      .text(x, y - 20, t(name), gameOptions.textStyles.small)
+      .setOrigin(0.5, 1)
+      .setDepth(200);
+
+    this.highlightDropTargets(shopIndex);
+  }
+
+  private handleDrop(x: number, y: number): void {
+    const shopIndex = this.dragShopIndex;
+    this.cancelDrag();
+
+    const state = getRunState(this);
+    const key = state.shopOffer[shopIndex];
+    if (!key) return;
+
+    // Items: just buy on any drop (no slot targeting needed).
+    if (isItemKey(key)) {
+      this.handleShopClick(shopIndex);
+      return;
+    }
+
+    // Find the slot under the drop position.
+    const targetSlot = this.slotVisuals.find((sv) => {
+      const dx = sv.circle.x - x;
+      const dy = sv.circle.y - y;
+      return Math.sqrt(dx * dx + dy * dy) <= SLOT_RADIUS * 1.8;
+    });
+
+    if (targetSlot) {
+      this.handleDropOnSlot(shopIndex, targetSlot.slot.id);
+    } else {
+      // Dropped outside any slot — treat as a regular click buy.
+      this.handleShopClick(shopIndex);
+    }
+  }
+
+  private handleDropOnSlot(shopIndex: number, slotId: string): void {
+    const state = getRunState(this);
+    if (!state.robotKey) return;
+    const partKey = state.shopOffer[shopIndex] as PartKey | '' | undefined;
+    if (!partKey) return;
+    const part = PARTS[partKey];
+    if (!part) return;
+    if (state.gold < part.price) { playSfx('click'); return; }
+
+    const robot = ROBOTS[state.robotKey];
+    const slot = robot.slots.find((s) => s.id === slotId);
+    if (!slot) { playSfx('click'); return; }
+    if (!part.allowedSlots.some((s) => s === slot.slotType)) { playSfx('click'); return; }
+
+    // If slot is occupied, sell first then equip.
+    let next = state;
+    if (next.equipped[slotId]) {
+      next = attemptSell(next, slotId);
+    }
+
+    const nextEquipped = { ...next.equipped, [slotId]: partKey };
+    const nextOffer = [...next.shopOffer];
+    nextOffer[shopIndex] = '';
+    next = { ...next, gold: next.gold - part.price, equipped: nextEquipped, shopOffer: nextOffer };
+
+    setRunState(this, next);
+    this.refreshSlots();
+    this.refreshShop();
+    this.refreshHud();
+    playSfx('buy');
+    this.flashSlot(slotId);
+  }
+
+  private cancelDrag(): void {
+    this.dragShopIndex = -1;
+    this.dragGhost?.destroy();
+    this.dragGhost = null;
+    this.dragLabel?.destroy();
+    this.dragLabel = null;
+    this.clearSlotHighlights();
+  }
+
+  private highlightDropTargets(shopIndex: number): void {
+    const state = getRunState(this);
+    const key = state.shopOffer[shopIndex];
+    if (!key || isItemKey(key)) { this.clearSlotHighlights(); return; }
+    const part = PARTS[key as PartKey];
+    if (!part) return;
+
+    this.slotVisuals.forEach((sv) => {
+      const valid = part.allowedSlots.some((s) => s === sv.slot.slotType);
+      if (valid) {
+        sv.circle.setStrokeStyle(3, 0x3aff7a);
+      } else {
+        sv.circle.setStrokeStyle(2, state.equipped[sv.slot.id] ? PALETTE.slotFilledStroke : PALETTE.slotEmptyStroke);
+      }
+    });
+  }
+
+  private clearSlotHighlights(): void {
+    const state = getRunState(this);
+    this.slotVisuals.forEach((sv) => {
+      sv.circle.setStrokeStyle(2, state.equipped[sv.slot.id] ? PALETTE.slotFilledStroke : PALETTE.slotEmptyStroke);
+    });
   }
 
   private refreshAll(): void {

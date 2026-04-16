@@ -49,18 +49,22 @@ export class GameOver extends Scene {
       .setOrigin(0.5)
       .setAlpha(0.7);
 
-    this.add
-      .text(gameWidth / 2, gameHeight * 0.64, t('Press SPACE or R to restart'), textStyles.body)
-      .setOrigin(0.5);
+    const restartBtn = this.add
+      .text(gameWidth / 2, gameHeight * 0.64, t('▶  RETURN TO TITLE'), textStyles.body)
+      .setOrigin(0.5)
+      .setAlpha(0.8)
+      .setInteractive({ useHandCursor: true });
 
     const restart = (): void => {
       playSfx('click');
       fadeToScene(this, 'Title');
     };
 
+    restartBtn.on('pointerover', () => { restartBtn.setAlpha(1); restartBtn.setScale(1.08); });
+    restartBtn.on('pointerout', () => { restartBtn.setAlpha(0.8); restartBtn.setScale(1); });
+    restartBtn.on('pointerdown', restart);
     this.input.keyboard?.once('keydown-SPACE', restart);
     this.input.keyboard?.once('keydown-R', restart);
-    this.input.once('pointerdown', restart);
 
     applyHiDpiToScene(this);
     showDebugBadge(this, isDebugEnabled());

@@ -482,20 +482,37 @@ export class Battle extends Scene {
   private onAttack(event: AttackEvent, targetSprite: GameObjects.Rectangle, fromPlayer: boolean): void {
     this.pushLog(`${t(event.attackerName)} → ${t(event.defenderName)}: ${t(event.weaponLabel)}  ${event.finalDamage}`);
 
-    const weaponKey = event.weaponLabel.toLowerCase();
-    const isRanged = weaponKey.includes('laser') || weaponKey.includes('cannon') || weaponKey.includes('strike');
-    playSfx(fromPlayer ? (isRanged ? 'attack_ranged' : 'attack_melee') : 'hit');
+    // Dodge event — special visual
+    if (event.weaponLabel === 'DODGE') {
+      playSfx('dodge');
+      const dodgeText = this.add
+        .text(targetSprite.x, targetSprite.y - 30, 'DODGE', { ...gameOptions.textStyles.body, color: '#3aff7a', fontStyle: 'bold' })
+        .setOrigin(0.5).setDepth(100).setResolution(TEXT_DPR);
+      this.tweens.add({ targets: dodgeText, y: dodgeText.y - 40, alpha: 0, duration: 600, onComplete: () => dodgeText.destroy() });
+      return;
+    }
 
-    // --- Attacker slide forward (Slay the Spire style) ---
+    const weaponKey = event.weaponLabel.toLowerCase();
+    const isMelee = weaponKey.includes('blade') || weaponKey.includes('fist') || weaponKey.includes('bash') || weaponKey.includes('sweep') || weaponKey.includes('pound');
+    const isLaser = weaponKey.includes('laser') || weaponKey.includes('beam') || weaponKey.includes('arc');
+    const isFire = weaponKey.includes('flame') || weaponKey.includes('burn') || weaponKey.includes('fire');
+    const isHeavy = weaponKey.includes('cannon') || weaponKey.includes('rail') || weaponKey.includes('crash') || weaponKey.includes('charge');
+
+    if (isFire) playSfx('attack_melee');
+    else if (isMelee) playSfx('attack_melee');
+    else playSfx(fromPlayer ? 'attack_ranged' : 'hit');
+
+    // Attacker slide — melee slides far, ranged slides less
     const attackerVisual = fromPlayer
       ? (this.playerImg ?? this.playerSprite)
       : (this.enemyImg ?? this.enemySprite);
     const slideDir = fromPlayer ? 1 : -1;
     const attackerBaseX = fromPlayer ? this.playerBaseX : this.enemyBaseX;
+    const slideDist = isMelee ? 80 : isHeavy ? 20 : 40;
     this.tweens.add({
       targets: attackerVisual,
-      x: attackerBaseX + 50 * slideDir,
-      duration: 80,
+      x: attackerBaseX + slideDist * slideDir,
+      duration: isMelee ? 60 : 100,
       yoyo: true,
       ease: 'Cubic.easeOut'
     });
@@ -530,12 +547,14 @@ export class Battle extends Scene {
       ease: 'Back.easeOut'
     });
 
-    this.cameras.main.shake(60, fromPlayer ? 0.002 : 0.005);
+    const shakeIntensity = isHeavy ? 0.01 : fromPlayer ? 0.002 : 0.005;
+    this.cameras.main.shake(isHeavy ? 120 : 60, shakeIntensity);
 
-    // --- Slash / flash effect ---
-    this.spawnSlashEffect(targetSprite.x, targetSprite.y, fromPlayer);
+    // --- Weapon-specific visual effect ---
+    const effectColor = isFire ? 0xff6600 : isLaser ? 0x3ab0ff : isHeavy ? 0xffffff : fromPlayer ? 0xffd94a : 0xff6a6a;
+    this.spawnSlashEffect(targetSprite.x, targetSprite.y, fromPlayer, effectColor);
 
-    this.spawnDamagePopup(targetSprite.x, targetSprite.y - 20, event.finalDamage, fromPlayer);
+    this.spawnDamagePopup(targetSprite.x, targetSprite.y - 20, event.finalDamage, fromPlayer, event.combo);
 
     if (event.killed) {
       this.tweens.add({
@@ -551,14 +570,17 @@ export class Battle extends Scene {
     }
   }
 
-  private spawnDamagePopup(x: number, y: number, damage: number, fromPlayer: boolean): void {
+  private spawnDamagePopup(x: number, y: number, damage: number, fromPlayer: boolean, combo = 0): void {
+    const comboLabel = combo >= 3 ? ` x${combo}` : '';
+    const scale = combo >= 5 ? 1.3 : combo >= 3 ? 1.15 : 1;
     const text = this.add
-      .text(x, y, `-${damage}`, {
+      .text(x + (Math.random() - 0.5) * 30, y, `-${damage}${comboLabel}`, {
         ...gameOptions.textStyles.body,
         color: fromPlayer ? '#ffd94a' : '#ff6a6a',
         fontStyle: 'bold'
       })
       .setOrigin(0.5)
+      .setScale(scale)
       .setResolution(TEXT_DPR);
     this.tweens.add({
       targets: text,
@@ -707,8 +729,7 @@ export class Battle extends Scene {
     this.refreshHp();
   }
 
-  private spawnSlashEffect(x: number, y: number, fromPlayer: boolean): void {
-    const color = fromPlayer ? 0xffd94a : 0xff6a6a;
+  private spawnSlashEffect(x: number, y: number, fromPlayer: boolean, color = fromPlayer ? 0xffd94a : 0xff6a6a): void {
     const angle = fromPlayer ? -30 : 30;
     const slash = this.add
       .rectangle(x, y, 120, 4, color, 0.9)

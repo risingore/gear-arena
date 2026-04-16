@@ -71,15 +71,26 @@ export class Result extends Scene {
       };
       setRunState(this, advanced);
 
-      this.add
-        .text(
-          gameWidth / 2,
-          gameHeight * 0.55,
-          `${t('Earned gold — total now')} ${advanced.gold}g`,
-          textStyles.body
-        )
+      // Gold count-up animation
+      const goldEarned = advanced.gold - state.gold;
+      const goldCounter = { value: state.gold };
+      const goldText = this.add
+        .text(gameWidth / 2, gameHeight * 0.52, `${state.gold}g`, { ...textStyles.title, fontSize: '48px' })
         .setOrigin(0.5)
         .setColor('#ffd94a');
+      this.tweens.add({
+        targets: goldCounter,
+        value: advanced.gold,
+        duration: 800,
+        ease: 'Cubic.easeOut',
+        onUpdate: () => goldText.setText(`${Math.floor(goldCounter.value)}g`)
+      });
+      this.add
+        .text(gameWidth / 2, gameHeight * 0.60, `+${goldEarned}g`, textStyles.body)
+        .setOrigin(0.5)
+        .setColor('#3aff7a')
+        .setAlpha(0.8);
+      playSfx('buy');
 
       // Check if the cleared round was a boss → offer skill selection.
       const clearedRound = state.generatedRounds[state.currentRound - 1];

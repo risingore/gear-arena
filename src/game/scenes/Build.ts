@@ -9,6 +9,7 @@ import {
   ITEMS,
   isItemKey,
   findSkillDef,
+  findEnemyDef,
   type PartKey,
   type RobotKey,
   type SlotDef,
@@ -663,13 +664,20 @@ export class Build extends Scene {
       ].join('\n')
     );
 
-    // Next enemy preview
+    // Next enemy preview with special abilities
     const nextRound = state.generatedRounds[state.currentRound - 1];
     if (nextRound) {
       const enemy = nextRound.enemy;
+      const originalDef = findEnemyDef(nextRound.enemyId);
+      const specials: string[] = [];
+      if (originalDef?.shieldCharges) specials.push(`Shield x${originalDef.shieldCharges}`);
+      if (originalDef?.repairAmount) specials.push(`Heal ${originalDef.repairAmount}/s`);
+      if (originalDef?.extraWeapons?.length) specials.push(`${1 + originalDef.extraWeapons.length} weapons`);
+      const specialLine = specials.length > 0 ? `  ${specials.join(' · ')}` : '';
+      const bossTag = nextRound.isBoss ? ' [BOSS]' : '';
       this.statsText.setText(
         this.statsText.text +
-          `\n\n${t('NEXT ENEMY')}\n${t(enemy.name)}\nHP ${enemy.hp}  |  DMG ${enemy.damage}`
+          `\n\n${t('NEXT ENEMY')}${bossTag}\n${t(enemy.name)}\nHP ${enemy.hp}  |  DMG ${enemy.damage}${specialLine}`
       );
     }
 

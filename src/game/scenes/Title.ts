@@ -28,24 +28,46 @@ export class Title extends Scene {
     fadeInCurrent(this);
     playMusic(this, MUSIC_KEYS.title);
 
-    // Decorative rotating gears in the background (placeholder for Day 7 art).
-    this.drawBackgroundGear(gameWidth * 0.18, gameHeight * 0.7, 140, 14000, 0.25);
-    this.drawBackgroundGear(gameWidth * 0.82, gameHeight * 0.32, 180, -18000, 0.2);
-    this.drawBackgroundGear(gameWidth * 0.92, gameHeight * 0.82, 100, 10000, 0.18);
+    // Blueprint-style grid background
+    const gridAlpha = 0.06;
+    for (let x = 0; x < gameWidth; x += 40) {
+      this.add.rectangle(x, gameHeight / 2, 1, gameHeight, PALETTE.blueprintLine, gridAlpha);
+    }
+    for (let y = 0; y < gameHeight; y += 40) {
+      this.add.rectangle(gameWidth / 2, y, gameWidth, 1, PALETTE.blueprintLine, gridAlpha);
+    }
 
-    this.add
-      .text(gameWidth / 2, gameHeight * 0.3, gameTitle, textStyles.title)
-      .setOrigin(0.5);
+    // Decorative rotating gears
+    this.drawBackgroundGear(gameWidth * 0.15, gameHeight * 0.72, 160, 14000, 0.15);
+    this.drawBackgroundGear(gameWidth * 0.85, gameHeight * 0.28, 200, -18000, 0.12);
+    this.drawBackgroundGear(gameWidth * 0.50, gameHeight * 0.85, 120, 10000, 0.08);
 
-    this.add
-      .text(
-        gameWidth / 2,
-        gameHeight * 0.42,
-        t('Slot-based Mecha Auto-Battler'),
-        textStyles.body
-      )
+    // Title with entrance animation
+    const titleText = this.add
+      .text(gameWidth / 2, gameHeight * 0.28, gameTitle, { ...textStyles.title, fontSize: '80px' })
       .setOrigin(0.5)
-      .setAlpha(0.7);
+      .setAlpha(0)
+      .setScale(1.5);
+    this.tweens.add({
+      targets: titleText,
+      alpha: 1,
+      scale: 1,
+      duration: 600,
+      ease: 'Back.easeOut'
+    });
+
+    // Horizontal accent lines around title
+    const lineY = gameHeight * 0.36;
+    const lineL = this.add.rectangle(gameWidth / 2 - 200, lineY, 150, 2, PALETTE.accentOrange, 0.6);
+    const lineR = this.add.rectangle(gameWidth / 2 + 200, lineY, 150, 2, PALETTE.accentOrange, 0.6);
+    this.tweens.add({ targets: [lineL, lineR], alpha: { from: 0, to: 0.6 }, duration: 800, delay: 400 });
+
+    // Subtitle
+    const subText = this.add
+      .text(gameWidth / 2, gameHeight * 0.40, t('Slot-based Mecha Auto-Battler'), textStyles.body)
+      .setOrigin(0.5)
+      .setAlpha(0);
+    this.tweens.add({ targets: subText, alpha: 0.7, duration: 600, delay: 300 });
 
     this.add
       .text(gameWidth / 2, gameHeight - 24, t('Gamedev.js Jam 2026 / theme: Machines'), textStyles.small)

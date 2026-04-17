@@ -263,11 +263,13 @@ export const fireUltimate = (
     }
     let totalDealt = 0;
     for (let i = 0; i < attacker.ultimateStrikes; i += 1) {
+      const sourceWeapon = i < attacker.weapons.length ? attacker.weapons[i]! : undefined;
       const strikeWeapon: CombatWeapon = {
-        label: i < attacker.weapons.length ? attacker.weapons[i]!.label : ult.name,
+        label: sourceWeapon?.label ?? ult.name,
         damage: attacker.ultimateDmgPerStrike,
         cooldownSec: 999,
-        timer: 999
+        timer: 999,
+        partKey: sourceWeapon?.partKey
       };
       const hpBefore = defender.hp;
       dealDamage(attacker, defender, strikeWeapon, attacks);

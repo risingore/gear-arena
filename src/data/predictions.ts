@@ -26,7 +26,10 @@ export const PREDICTIONS: readonly PredictionDef[] = [
   { id: 'fish',        name: 'Fish School',  hitOnly: false, trustPct: 80,  weightOnHit: 25, weightOnMiss: 15 },
   { id: 'red_flash',   name: 'Red Flash',    hitOnly: false, trustPct: 60,  weightOnHit: 20, weightOnMiss: 15 },
   { id: 'exclaim',     name: 'Exclamation',  hitOnly: false, trustPct: 40,  weightOnHit: 25, weightOnMiss: 20 },
-  { id: 'none',        name: 'None',         hitOnly: false, trustPct: 0,   weightOnHit: 20, weightOnMiss: 50 },
+  { id: 'lightning',   name: 'Lightning',      hitOnly: false, trustPct: 70,  weightOnHit: 20, weightOnMiss: 10 },
+  { id: 'mandala',     name: 'Mandala Flash',  hitOnly: true,  trustPct: 90,  weightOnHit: 8,  weightOnMiss: 0 },
+  { id: 'glitch',      name: 'Screen Glitch',  hitOnly: false, trustPct: 30,  weightOnHit: 15, weightOnMiss: 25 },
+  { id: 'none',        name: 'None',           hitOnly: false, trustPct: 0,   weightOnHit: 20, weightOnMiss: 50 },
 ];
 
 /** Pick a prediction based on whether the result is a hit or miss. */

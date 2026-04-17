@@ -1381,6 +1381,66 @@ export class Battle extends Scene {
         this.tweens.add({ targets: ex, alpha: 1, scale: { from: 2, to: 1 }, duration: 300, ease: 'Back.easeOut' });
         break;
       }
+      case 'lightning': {
+        // 3 white flashes: rectangle alpha 0→0.6→0, 100ms each
+        for (let i = 0; i < 3; i++) {
+          const rect = this.add.rectangle(gw / 2, gh / 2, gw, gh, 0xffffff, 0).setDepth(190);
+          container.add(rect);
+          this.tweens.add({
+            targets: rect,
+            alpha: { from: 0, to: 0.6 },
+            duration: 50,
+            delay: i * 100,
+            yoyo: true,
+            ease: 'Linear',
+            onComplete: () => rect.setAlpha(0)
+          });
+        }
+        break;
+      }
+      case 'mandala': {
+        // Circle + cross pattern in gold, fades in and out over 800ms
+        const cx = gw / 2;
+        const cy = gh / 2 - 80;
+        const radius = 80;
+        const mandalaCircle = this.add.circle(cx, cy, radius, 0xffd94a, 0)
+          .setStrokeStyle(3, 0xffd94a).setAlpha(0).setDepth(190);
+        const innerCircle = this.add.circle(cx, cy, radius * 0.5, 0xffd94a, 0)
+          .setStrokeStyle(2, 0xffd94a).setAlpha(0).setDepth(190);
+        const crossH = this.add.rectangle(cx, cy, radius * 2, 2, 0xffd94a, 0).setDepth(190);
+        const crossV = this.add.rectangle(cx, cy, 2, radius * 2, 0xffd94a, 0).setDepth(190);
+        const crossD1 = this.add.rectangle(cx, cy, radius * 2, 2, 0xffd94a, 0).setAngle(45).setDepth(190);
+        const crossD2 = this.add.rectangle(cx, cy, radius * 2, 2, 0xffd94a, 0).setAngle(-45).setDepth(190);
+        const mandalaParts = [mandalaCircle, innerCircle, crossH, crossV, crossD1, crossD2];
+        for (const part of mandalaParts) container.add(part);
+        this.tweens.add({
+          targets: mandalaParts,
+          alpha: { from: 0, to: 0.8 },
+          duration: 400,
+          yoyo: true,
+          ease: 'Sine.easeInOut'
+        });
+        break;
+      }
+      case 'glitch': {
+        // 5 thin horizontal lines at random y positions, random colors, flash for 200ms
+        const glitchColors = [0xff0000, 0x00ff00, 0x0000ff, 0xff00ff, 0x00ffff];
+        for (let i = 0; i < 5; i++) {
+          const ly = Math.random() * gh;
+          const lh = 2 + Math.random() * 4;
+          const color = glitchColors[i % glitchColors.length]!;
+          const line = this.add.rectangle(gw / 2, ly, gw, lh, color, 0.8).setDepth(190);
+          container.add(line);
+          this.tweens.add({
+            targets: line,
+            alpha: 0,
+            duration: 200,
+            delay: Math.random() * 100,
+            ease: 'Linear'
+          });
+        }
+        break;
+      }
     }
   }
 

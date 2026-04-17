@@ -25,18 +25,32 @@ export const BALANCE = {
   repairIntervalSec: 5,
   /** Minimum weapon cooldown floor in seconds. */
   minCooldownSec: 0.2,
-  /** Bare-fist fallback base cooldown (before attack speed). */
-  fistBaseCooldown: 2.0,
   /** Minimum HP floor. */
   hpFloor: 1,
 
   // ---------------------------------------------------------------------------
   // Ultimate Power Scaling (from equipped parts)
   // ---------------------------------------------------------------------------
+  //
+  // Expected combat flow (ultimate-only, no auto-attacks):
+  //   1. Player takes passive damage until gauge fills (gaugeFillRatio ~0.4 of maxHP).
+  //   2. Player fires ultimate burst (moduleCount strikes × ultDmgPerStrike).
+  //   3. Repeat until one side falls.
+  //
+  // Target kill times (reasonably equipped = 2 modules + 1 booster):
+  //   - Early enemies (tier 1-3, HP 30-65):  1 ultimate
+  //   - Mid enemies   (tier 4-6, HP 80-120): 1-2 ultimates
+  //   - Bosses        (HP 450-600, 15-25% DR): 2-3 ultimates (with late-game gear)
+  //
+  // Math for baseline (KNIGHT-01, 2× Phantom Limb avg 8 dmg, 1 booster):
+  //   gearMult = 1 + 1 × 0.25 = 1.25
+  //   perStrike = round(8 × 1.25 × 3.5) = 35
+  //   2 strikes = 70 total → one-shots tier 1-3 comfortably
+  //
   /** Per-gear damage multiplier added to ultimate (1 + gearCount * this). */
   gearUltimateMult: 0.25,
   /** Base ultimate damage multiplier (applied on top of weapon average). */
-  ultimateBaseMult: 2,
+  ultimateBaseMult: 3.5,
   /** Per-engine charge rate bonus (1 + engineCount * this). */
   engineChargeRate: 0.3,
 

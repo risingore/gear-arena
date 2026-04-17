@@ -41,7 +41,7 @@ export interface LoadoutStats {
   readonly shieldCharges: number;
   /** Evasion chance (0-0.3 cap). */
   readonly evasionChance: number;
-  /** Ultimate: total strike count (1 per weapon equipped, min 1). */
+  /** Ultimate: total strike count (1 per module equipped, 0 if none). */
   readonly ultimateStrikes: number;
   /** Ultimate: damage per strike (base weapon dmg + gear multiplier). */
   readonly ultimateDamagePerStrike: number;
@@ -204,20 +204,12 @@ export const computeLoadoutStats = (
     };
   });
 
-  // Bare-fist fallback: if no weapons equipped, the robot still punches for 1 damage.
-  if (weapons.length === 0) {
-    weapons.push({
-      slotId: '__fist',
-      partKey: 'weapon_blade' as PartKey,
-      name: 'Fist',
-      damage: 1,
-      cooldownSec: Math.max(BALANCE.minCooldownSec, BALANCE.fistBaseCooldown / robot.baseAttackSpeedMultiplier)
-    });
-  }
+  // No fist fallback — player has no auto-attacks. An empty loadout means
+  // zero strikes and the ultimate does nothing (correct penalty).
 
   // Ultimate calculation: every equipped part contributes to the big hit.
   // Weapons = strikes. Gears = damage mult. Engines = charge speed. Skills = bonuses.
-  const ultStrikes = Math.max(1, moduleCount) + skillUltExtraStrikes;
+  const ultStrikes = moduleCount + skillUltExtraStrikes;
   const gearMult = 1 + boosterCount * BALANCE.gearUltimateMult;
   const baseDmgPerStrike = weapons.reduce((sum, w) => sum + w.damage, 0) / Math.max(1, weapons.length);
   const ultDmgPerStrike = Math.round(baseDmgPerStrike * gearMult * BALANCE.ultimateBaseMult * (1 + skillUltDamagePct));

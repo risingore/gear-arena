@@ -11,22 +11,6 @@
 import type { ItemsRegistry } from './schema';
 
 export const ITEMS = {
-  item_repair_spray: {
-    id: 'item_repair_spray',
-    name: 'Repair Spray',
-    description: 'Restore 20 HP immediately.',
-    price: 3,
-    timing: 'immediate',
-    effect: { kind: 'heal', amount: 20 }
-  },
-  item_emergency_patch: {
-    id: 'item_emergency_patch',
-    name: 'Emergency Patch',
-    description: 'Restore 40 HP immediately.',
-    price: 6,
-    timing: 'immediate',
-    effect: { kind: 'heal', amount: 40 }
-  },
   item_adrenaline: {
     id: 'item_adrenaline',
     name: 'Adrenaline Shot',

@@ -23,26 +23,26 @@ export interface UltimateDef {
 /** Robot ultimates keyed by robot ID. */
 export const ROBOT_ULTIMATES: Record<string, UltimateDef> = {
   robot_knight: {
-    id: 'ult_blade_storm',
-    name: 'Blade Storm',
+    id: 'ult_iron_fist',
+    name: 'Iron Fist',
     gaugeFillRatio: 0.4,
     effect: { kind: 'multi_strike', damageMultiplier: 2 }
   },
   robot_goliath: {
-    id: 'ult_fortress_mode',
-    name: 'Fortress Mode',
+    id: 'ult_bulldoze',
+    name: 'Bulldoze',
     gaugeFillRatio: 0.35,
-    effect: { kind: 'fortress', healPct: 0.3, drBoost: 0.5, durationSec: 5 }
+    effect: { kind: 'multi_strike', damageMultiplier: 3 }
   },
   robot_striker: {
-    id: 'ult_overdrive_burst',
-    name: 'Overdrive Burst',
+    id: 'ult_thunder_kick',
+    name: 'Thunder Kick',
     gaugeFillRatio: 0.45,
-    effect: { kind: 'speed_burst', speedMultiplier: 3, durationSec: 3 }
+    effect: { kind: 'multi_strike', damageMultiplier: 2 }
   },
   robot_oracle: {
-    id: 'ult_system_hack',
-    name: 'System Hack',
+    id: 'ult_virus_burst',
+    name: 'Virus Burst',
     gaugeFillRatio: 0.4,
     effect: { kind: 'system_hack', damage: 40, disableSec: 2 }
   }

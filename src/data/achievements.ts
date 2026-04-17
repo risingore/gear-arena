@@ -19,7 +19,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
   { id: 'ach_10_wins',       name: 'War Machine',       description: 'Win 10 total runs.',                title: 'War Machine',        tier: 3 },
   { id: 'ach_all_robots',    name: 'Machine Master',    description: 'Clear with all 4 robots.',          title: 'Machine Master',     tier: 4 },
   { id: 'ach_all_parts',     name: 'Full Arsenal',      description: 'Use all 25 parts at least once.',   title: 'Chief Engineer',     tier: 3 },
-  { id: 'ach_all_weapons',   name: 'Weaponsmith',       description: 'Use all 5 weapon types.',           title: 'Weaponsmith',        tier: 2 },
+  { id: 'ach_all_weapons',   name: 'Weaponsmith',       description: 'Use all 5 weapon modules.',          title: 'Weaponsmith',        tier: 2 },
   { id: 'ach_all_enemies',   name: 'Hunter',            description: 'Defeat every enemy type.',          title: 'Apex Hunter',        tier: 4 },
   { id: 'ach_apex',          name: 'Apex Predator',     description: 'Defeat the APEX MACHINE.',          title: 'Apex Predator',      tier: 5 },
   { id: 'ach_round_5',       name: 'Halfway There',     description: 'Reach round 5.',                    title: 'Cadet',              tier: 1 },

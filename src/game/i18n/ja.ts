@@ -1,216 +1,248 @@
 /**
- * Japanese dictionary.
- *
- * Status: placeholder — every entry currently holds the English source verbatim.
- * Replace the right-hand side values with Japanese translations whenever you
- * want, one row at a time. Keys without a row here automatically fall back to
- * the English source, so partial coverage is always safe.
- *
- * Editor workflow:
- *   - Left side (key): English source exactly as it appears in game code / data.
- *   - Right side (value): translated string. Leave as English to keep the
- *     current behavior.
- *
- * To verify your translation shows up:
- *   1. Set locale to `ja` via localStorage key `gear-arena-locale` or by
- *      loading the page with browser language set to Japanese.
- *   2. Reload.
+ * Japanese dictionary — full coverage.
  */
 
 import type { LocaleDict } from './locales';
 
 export const ja: LocaleDict = {
-  // ---------------------------------------------------------------------------
   // Title / menus
-  // ---------------------------------------------------------------------------
-  'Slot-based Mecha Auto-Battler': 'Slot-based Mecha Auto-Battler',
-  'Press SPACE or click to start': 'Press SPACE or click to start',
-  'R = restart anytime': 'R = restart anytime',
-  'Gamedev.js Jam 2026 / theme: Machines': 'Gamedev.js Jam 2026 / theme: Machines',
+  'One Shot. One Kill. Build Your Ultimate.': '一撃必殺。必殺技を組み立てろ。',
+  'Slot-based Mecha Auto-Battler': 'スロット式メカ・オートバトラー',
+  'Press SPACE or click to start': 'SPACE またはクリックでスタート',
+  'R = restart anytime': 'R = いつでもリスタート',
+  'Gamedev.js Jam 2026 / theme: Machines': 'Gamedev.js Jam 2026 / テーマ: Machines',
+  '▶  START': '▶  スタート',
 
-  // ---------------------------------------------------------------------------
-  // Select scene
-  // ---------------------------------------------------------------------------
-  'SELECT YOUR MACHINE': 'SELECT YOUR MACHINE',
-  '← →  to browse    ENTER  to confirm': '← →  to browse    ENTER  to confirm',
+  // Select
+  'SELECT YOUR MACHINE': '機体を選択',
+  '← →  to browse    ENTER  to confirm': '← →  で選択    ENTER  で決定',
+  'Click a machine to deploy': 'クリックで出撃',
 
-  // ---------------------------------------------------------------------------
-  // Build scene
-  // ---------------------------------------------------------------------------
+  // Build
   'BUILD your machine — click shop or press 1-5 to buy, click slots to sell':
-    'BUILD your machine — click shop or press 1-5 to buy, click slots to sell',
-  SHOP: 'SHOP',
-  SOLD: 'SOLD',
-  REROLL: 'REROLL',
-  'READY  ▶': 'READY  ▶',
-  'MAX HP': 'MAX HP',
-  'DR flat': 'DR flat',
-  'DR pct': 'DR pct',
-  dmg: 'dmg',
-  WEAPONS: 'WEAPONS',
-  Weapons: 'Weapons',
-  '— no weapon equipped —': '— no weapon equipped —',
-  BLUEPRINT: 'BLUEPRINT',
-  PREVIEW: 'PREVIEW',
-  buy: 'buy',
-  '(stats unchanged)': '(stats unchanged)',
-  'no matching free slot': 'no matching free slot',
-  ROUND: 'ROUND',
+    '機体を組み立て — ショップをクリック or 1-5キーで購入、スロットクリックで売却',
+  'Click shop to buy · Click slots to sell · Drag to place':
+    'ショップをクリックで購入 · スロットをクリックで売却 · ドラッグで配置',
+  'Click shop to buy · Click slots to sell · Drag parts to specific slots':
+    'ショップをクリックで購入 · スロットをクリックで売却 · ドラッグで配置',
+  SHOP: 'ショップ',
+  SOLD: '売却済',
+  REROLL: 'リロール',
+  'READY  ▶': '出撃  ▶',
+  'MAX HP': '最大HP',
+  HP: 'HP',
+  'DR flat': 'DR固定',
+  'DR pct': 'DR%',
+  dmg: 'ダメ',
+  WEAPONS: '武器',
+  Weapons: '武器',
+  '— no weapon equipped —': '— 武器未装備 —',
+  BLUEPRINT: '設計図',
+  PREVIEW: 'プレビュー',
+  buy: '購入',
+  '(stats unchanged)': '(変化なし)',
+  'no matching free slot': '空きスロットなし',
+  ROUND: 'ラウンド',
+  UNDO: '取消',
+  'NEXT ENEMY': '次の敵',
+  SKILLS: 'スキル',
+  SKILL: 'スキル',
+  BUFFS: 'バフ',
+  BUFF: 'バフ',
+  USE: '使用',
+  ITEM: 'アイテム',
+  '(40% in auto-attack)': '(通常攻撃は40%)',
 
-  // ---------------------------------------------------------------------------
-  // Battle scene
-  // ---------------------------------------------------------------------------
-  BATTLE: 'BATTLE',
-  SPEED: 'SPEED',
-  '⚠  BOSS BATTLE  ⚠': '⚠  BOSS BATTLE  ⚠',
+  // Battle
+  BATTLE: 'バトル',
+  SPEED: '速度',
+  '⚠  BOSS BATTLE  ⚠': '⚠  ボス戦  ⚠',
   'Combat begins…  (SPACE: speed toggle x1 / x2 / x4)':
-    'Combat begins…  (SPACE: speed toggle x1 / x2 / x4)',
-  'OVERDRIVE!': 'OVERDRIVE!',
-  '⚡ TURBO COMBO ⚡': '⚡ TURBO COMBO ⚡',
-  '(no weapons)': '(no weapons)',
-  'Enemy Strike': 'Enemy Strike',
-  Round: 'Round',
-  'cleared.': 'cleared.',
-  'was destroyed.': 'was destroyed.',
-  'VICTORY!  All rounds cleared.': 'VICTORY!  All rounds cleared.',
+    'バトル開始…  (SPACE: 速度切替 x1 / x2 / x4)',
+  'SPACE / Click = ULTIMATE  |  S = speed toggle':
+    'SPACE / クリック = 必殺技  |  S = 速度切替',
+  'OVERDRIVE!': 'オーバードライブ!',
+  '⚡ TURBO COMBO ⚡': '⚡ ターボコンボ ⚡',
+  '(no weapons)': '(武器なし)',
+  'Enemy Strike': '敵の攻撃',
+  Round: 'ラウンド',
+  'cleared.': 'クリア。',
+  'was destroyed.': 'は破壊された。',
+  'VICTORY!  All rounds cleared.': '勝利！  全ラウンドクリア。',
+  Strike: '打撃',
+  Fist: '素手',
+  DODGE: '回避',
 
-  // ---------------------------------------------------------------------------
   // Result / GameOver
-  // ---------------------------------------------------------------------------
-  'ROUND CLEARED': 'ROUND CLEARED',
-  'DEFEATED': 'DEFEATED',
-  VICTORY: 'VICTORY',
-  'GAME OVER': 'GAME OVER',
+  'ROUND CLEARED': 'ラウンドクリア',
+  DEFEATED: '敗北',
+  VICTORY: '勝利',
+  'GAME OVER': 'ゲームオーバー',
   'Press SPACE to continue to next round   ·   R to quit':
-    'Press SPACE to continue to next round   ·   R to quit',
-  'Press SPACE to return to title': 'Press SPACE to return to title',
-  'Press SPACE or R to restart': 'Press SPACE or R to restart',
-  SETTINGS: 'SETTINGS',
-  'BGM Volume': 'BGM Volume',
-  'SFX Volume': 'SFX Volume',
-  Language: 'Language',
-  Fullscreen: 'Fullscreen',
-  'Battle Speed': 'Battle Speed',
-  'Debug Mode': 'Debug Mode',
-  'RESET ALL DATA': 'RESET ALL DATA',
-  'Click again to confirm': 'Click again to confirm',
-  'Data reset. Reloading...': 'Data reset. Reloading...',
-  COLLECTION: 'COLLECTION',
-  MACHINES: 'MACHINES',
-  PARTS: 'PARTS',
-  ENEMIES: 'ENEMIES',
-  'BACK TO TITLE': 'BACK TO TITLE',
-  unlocked: 'unlocked',
-  discovered: 'discovered',
-  defeated: 'defeated',
-  clears: 'clears',
-  'Earned gold — total now': 'Earned gold — total now',
-  All: 'All',
-  'rounds cleared. Final gold:': 'rounds cleared. Final gold:',
-  'Reached round': 'Reached round',
-  Your: 'Your',
-  contained: 'contained',
-  weapons: 'weapons',
-  armor: 'armor',
-  engines: 'engines',
-  gears: 'gears',
-  specials: 'specials',
+    'SPACE で次のラウンド   ·   R で終了',
+  'Press SPACE to return to title': 'SPACE でタイトルに戻る',
+  'Press SPACE or R to restart': 'SPACE または R でリスタート',
+  '▶  NEXT ROUND': '▶  次のラウンド',
+  'QUIT TO TITLE': 'タイトルに戻る',
+  '▶  RETURN TO TITLE': '▶  タイトルに戻る',
+  '▶  CONTINUE': '▶  続ける',
+  'Earned gold — total now': '獲得ゴールド — 合計',
+  earned: '獲得',
+  All: '全',
+  'rounds cleared. Final gold:': 'ラウンドクリア。最終ゴールド:',
+  'Reached round': '到達ラウンド',
+  Your: 'あなたの',
+  contained: 'の構成:',
+  weapons: '武器',
+  armor: '装甲',
+  engines: 'エンジン',
+  gears: 'ギア',
+  specials: '特殊',
+  'CHOOSE A SKILL': 'スキルを選択',
+  'Tip: You had no weapons. Buy a weapon first!': 'ヒント: 武器がありません。まず武器を購入しましょう！',
+  'Tip: Try filling more slots before fighting.': 'ヒント: 戦闘前にもっとスロットを埋めましょう。',
+  'Tip: Adding a second weapon doubles your DPS.': 'ヒント: 武器を2本にするとDPSが倍増します。',
+  'Tip: Try different part combinations or a different robot.': 'ヒント: 別のパーツ構成や別の機体を試しましょう。',
+  'Tip: Equip weapons to add strikes to your ultimate!': 'ヒント: 武器を装備して必殺技のストライクを増やそう！',
+  'Tip: Fill more slots to power up your ultimate.': 'ヒント: スロットを埋めて必殺技を強化しよう。',
+  'Tip: More weapons = more ultimate strikes!': 'ヒント: 武器が多い＝必殺技のストライクが増える！',
+  'Tip: Try different part combos to boost your ultimate damage.': 'ヒント: パーツの組み合わせで必殺技ダメージを上げよう。',
 
-  // ---------------------------------------------------------------------------
+  // Settings
+  SETTINGS: '設定',
+  'BGM Volume': 'BGM音量',
+  'SFX Volume': 'SE音量',
+  Language: '言語',
+  Fullscreen: 'フルスクリーン',
+  'Battle Speed': 'バトル速度',
+  'Debug Mode': 'デバッグモード',
+  Recommended: '推奨解像度',
+  'RESET ALL DATA': '全データリセット',
+  'Click again to confirm': 'もう一度クリックで確定',
+  'Data reset. Reloading...': 'データリセット完了。再読込中...',
+  '← BACK': '← 戻る',
+  'BACK TO TITLE': 'タイトルに戻る',
+  '← BACK TO TITLE': '← タイトルに戻る',
+
+  // Collection
+  COLLECTION: 'コレクション',
+  MACHINES: '機体',
+  PARTS: 'パーツ',
+  ENEMIES: '敵',
+  TITLES: '称号',
+  unlocked: '解放済',
+  discovered: '発見済',
+  defeated: '撃破済',
+  clears: 'クリア',
+  'SKILLS DISCOVERED': '発見したスキル',
+  skills: 'スキル',
+
+  // Robot names
+  'KNIGHT-01': 'KNIGHT-01',
+  'GOLIATH-02': 'GOLIATH-02',
+  'STRIKER-03': 'STRIKER-03',
+  'ORACLE-04': 'ORACLE-04',
+
+  // Robot descriptions
+  'Right arm carries a massive mechanical weapon. Balanced cyborg fighter.':
+    '右腕に巨大な機械兵器を装着。バランス型サイボーグ。',
+  'Massive build with reinforced body. Charges through enemies.':
+    '巨体に強化装甲。敵を突き破る。',
+  'Left leg houses a devastating mechanical kick weapon. Speed fighter.':
+    '左脚に破壊的な機械キック兵器。スピード型。',
+  'Status effect specialist. Back-mounted tech unleashes debilitating attacks.':
+    '状態異常の専門家。背面装備で敵を弱体化。',
+  'No passive — raw striking power.': 'パッシブなし — 純粋な打撃力。',
+  'Damage taken -10% / attack speed -20%.': '被ダメ-10% / 攻撃速度-20%。',
+  'Attack speed +30% / damage taken +10%.': '攻撃速度+30% / 被ダメ+10%。',
+  'Special effects +50% / weapon cooldown +15%.': '特殊効果+50% / 武器CD+15%。',
+
   // Part names
-  // ---------------------------------------------------------------------------
-  Chainblade: 'Chainblade',
-  'Rivet Cannon': 'Rivet Cannon',
-  'Pulse Laser': 'Pulse Laser',
-  'Steel Plate': 'Steel Plate',
-  'Composite Mesh': 'Composite Mesh',
-  'Kinetic Shield': 'Kinetic Shield',
-  'Basic Engine': 'Basic Engine',
-  'Turbo Engine': 'Turbo Engine',
-  'Reactor Core': 'Reactor Core',
-  'Small Gear': 'Small Gear',
-  'Heavy Gear': 'Heavy Gear',
-  'Chrono Gear': 'Chrono Gear',
-  'Overdrive Chip': 'Overdrive Chip',
-  'Repair Kit': 'Repair Kit',
-  'Gear Sync': 'Gear Sync',
+  Chainblade: 'チェインブレード',
+  'Rivet Cannon': 'リベットキャノン',
+  'Pulse Laser': 'パルスレーザー',
+  Railgun: 'レールガン',
+  Flamethrower: 'フレイムスロワー',
+  'Steel Plate': 'スチールプレート',
+  'Composite Mesh': 'コンポジットメッシュ',
+  'Kinetic Shield': 'キネティックシールド',
+  'Reactive Plating': 'リアクティブ装甲',
+  'Fortress Frame': 'フォートレスフレーム',
+  'Basic Engine': 'ベーシックエンジン',
+  'Turbo Engine': 'ターボエンジン',
+  'Reactor Core': 'リアクターコア',
+  'Striker Core': 'ストライカーコア',
+  'Regen Cell': 'リジェンセル',
+  'Small Gear': 'スモールギア',
+  'Heavy Gear': 'ヘビーギア',
+  'Chrono Gear': 'クロノギア',
+  'Micro Gear': 'マイクロギア',
+  'Overclock Gear': 'オーバークロックギア',
+  'Overdrive Chip': 'オーバードライブチップ',
+  'Repair Kit': 'リペアキット',
+  'Gear Sync': 'ギアシンク',
+  'Last Stand Module': 'ラストスタンド・モジュール',
+  'Vampiric Core': 'ヴァンパイリック・コア',
 
-  // ---------------------------------------------------------------------------
   // Part descriptions
-  // ---------------------------------------------------------------------------
-  'Lightweight melee blade. Fast hit rate.': 'Lightweight melee blade. Fast hit rate.',
-  'Long-range heavy hitter. Slow to cycle.': 'Long-range heavy hitter. Slow to cycle.',
-  'Piercing mid-range laser.': 'Piercing mid-range laser.',
-  'Flat -2 damage taken. Forgiving for new pilots.': 'Flat -2 damage taken. Forgiving for new pilots.',
-  '15% incoming damage reduction.': '15% incoming damage reduction.',
-  '+15 max HP and 5% damage reduction.': '+15 max HP and 5% damage reduction.',
-  '+20 max HP.': '+20 max HP.',
-  '+10 max HP and +2 to every weapon.': '+10 max HP and +2 to every weapon.',
-  '+40 max HP and 5% damage reduction.': '+40 max HP and 5% damage reduction.',
-  '-10% cooldown on every weapon.': '-10% cooldown on every weapon.',
-  '-20% cooldown, -5 max HP.': '-20% cooldown, -5 max HP.',
-  '-8% cooldown. Stacks for Gear Sync.': '-8% cooldown. Stacks for Gear Sync.',
-  '+50% attack speed below 30% HP.': '+50% attack speed below 30% HP.',
-  'Heal 3 HP every 5 seconds.': 'Heal 3 HP every 5 seconds.',
-  '+3 damage per equipped gear.': '+3 damage per equipped gear.',
+  'Lightweight melee blade. Fast hit rate.': '軽量近接ブレード。高速連撃。',
+  'Long-range heavy hitter. Slow to cycle.': '長距離重砲。回転は遅い。',
+  'Piercing mid-range laser.': '貫通型中距離レーザー。',
+  'Extreme damage, very slow. One-shot potential.': '極大ダメージ、非常に遅い。一撃必殺。',
+  'Rapid close-range burn. Low per-hit but fast.': '近距離連射。低威力だが高速。',
+  'Flat -2 damage taken. Forgiving for new pilots.': 'ダメージ-2。初心者向け。',
+  '15% incoming damage reduction.': '被ダメージ15%軽減。',
+  'Blocks the first hit completely, then +5% DR.': '最初の被弾を完全防御、以降DR+5%。',
+  'Flat -4 damage taken but -10 max HP.': 'ダメージ-4だが最大HP-10。',
+  '+30 max HP and 10% DR. Heavy but durable.': '最大HP+30、DR10%。重いが頑丈。',
+  '+20 max HP.': '最大HP+20。',
+  '+10 max HP and +2 to every weapon.': '最大HP+10、全武器ダメージ+2。',
+  '+40 max HP and 5% damage reduction.': '最大HP+40、ダメージ軽減5%。',
+  '+5 damage to all weapons. No HP bonus.': '全武器ダメージ+5。HP増加なし。',
+  '+15 max HP and 3% damage reduction.': '最大HP+15、ダメージ軽減3%。',
+  '-10% cooldown on every weapon.': '全武器クールダウン-10%。',
+  '-20% cooldown, -5 max HP.': 'クールダウン-20%、最大HP-5。',
+  '-8% cooldown. Stacks for Gear Sync.': 'クールダウン-8%。ギアシンク用。',
+  '-5% cooldown. Cheap filler.': 'クールダウン-5%。安価。',
+  '-25% cooldown, -10 max HP. Glass cannon.': 'クールダウン-25%、最大HP-10。',
+  '+50% attack speed below 30% HP.': 'HP30%以下で攻撃速度+50%。',
+  'Heal 3 HP every 5 seconds.': '5秒ごとにHP3回復。',
+  '+3 damage per equipped gear.': '装備ギア1個につきダメージ+3。',
+  'Survive one lethal hit with 1 HP (once per battle).': '致死ダメージを1回HP1で耐える。',
+  'Heal 2 HP on every weapon hit.': '武器命中ごとにHP2回復。',
+  '+15 max HP and 5% damage reduction.': '最大HP+15、ダメージ軽減5%。',
 
-  // ---------------------------------------------------------------------------
-  // Robot descriptions and passives
-  // ---------------------------------------------------------------------------
-  'Standard mass-production frame. Head, chest, arms, legs.':
-    'Standard mass-production frame. Head, chest, arms, legs.',
-  'Heavily armored siege frame. Dense slot layout on legs.':
-    'Heavily armored siege frame. Dense slot layout on legs.',
-  'Lean strike frame. Headless, dual weapons, gear leg.':
-    'Lean strike frame. Headless, dual weapons, gear leg.',
-  'Synergy-driven tech frame. Three special slots on the back.':
-    'Synergy-driven tech frame. Three special slots on the back.',
-  'No passive — straightforward power.': 'No passive — straightforward power.',
-  'Damage taken -10% / attack speed -20%.': 'Damage taken -10% / attack speed -20%.',
-  'Attack speed +30% / damage taken +10%.': 'Attack speed +30% / damage taken +10%.',
-  'Special effects +50% / weapon cooldown +15%.': 'Special effects +50% / weapon cooldown +15%.',
-
-  // ---------------------------------------------------------------------------
   // Item names and descriptions
-  // ---------------------------------------------------------------------------
-  'Repair Spray': 'リペアスプレー',
-  'Emergency Patch': '応急パッチ',
   'Adrenaline Shot': 'アドレナリン・ショット',
   'Hardened Coating': '硬化コーティング',
   'Recon Scan': '偵察スキャン',
-  'Restore 20 HP immediately.': '即座にHPを20回復。',
-  'Restore 40 HP immediately.': '即座にHPを40回復。',
   'Next battle: +30% attack speed.': '次の戦闘: 攻撃速度+30%。',
   'Next battle: +10% damage reduction.': '次の戦闘: ダメージ軽減+10%。',
   'Next battle: enemy takes +20% damage.': '次の戦闘: 敵の被ダメージ+20%。',
 
-  // ---------------------------------------------------------------------------
-  // Skill names and descriptions
-  // ---------------------------------------------------------------------------
+  // Skill names and descriptions (ultimate-focused)
+  'Impact Amp': 'インパクトアンプ',
+  'Ultimate damage +30%.': '必殺技ダメージ+30%。',
+  'Multi Loader': 'マルチローダー',
+  'Ultimate gains +1 strike.': '必殺技のストライク+1。',
+  'Rapid Charge': 'ラピッドチャージ',
+  'Ultimate gauge fills 40% faster.': '必殺ゲージ充填速度+40%。',
+  'Drain Strike': 'ドレインストライク',
+  'Ultimate heals 20% of damage dealt.': '必殺技ダメージの20%をHP回復。',
   'Iron Will': '鉄の意志',
-  '+15 max HP.': '最大HP+15。',
-  'Quick Draw': 'クイックドロー',
-  '-10% weapon cooldown.': '武器クールダウン-10%。',
-  'Hard Shell': '硬殻',
-  '+5% damage reduction.': 'ダメージ軽減+5%。',
-  'Power Surge': 'パワーサージ',
-  '+3 weapon damage.': '武器ダメージ+3。',
-  'Nano Repair': 'ナノリペア',
-  'Heal 2 HP every 5 seconds.': '5秒ごとにHP2回復。',
-  'Reflex Boost': 'リフレクスブースト',
-  '-15% weapon cooldown.': '武器クールダウン-15%。',
-  'Vital Core': 'バイタルコア',
-  '+30 max HP.': '最大HP+30。',
-  'Piercing Eye': 'ピアシングアイ',
-  '+6 weapon damage.': '武器ダメージ+6。',
-  'Titan Frame': 'タイタンフレーム',
-  '+8% damage reduction.': 'ダメージ軽減+8%。',
-  'Overdrive Protocol': 'オーバードライブ・プロトコル',
-  '+25% attack speed below 30% HP.': 'HP30%以下で攻撃速度+25%。',
+  '+20 max HP. Survive to fire.': '最大HP+20。撃つまで耐えろ。',
+  'Shield Breaker': 'シールドブレイカー',
+  'Ultimate ignores enemy DR.': '必殺技が敵のDRを無視。',
+  Overcharge: 'オーバーチャージ',
+  'Ultimate damage +60%.': '必殺技ダメージ+60%。',
+  'Barrage Module': 'バラージモジュール',
+  'Ultimate gains +2 strikes.': '必殺技のストライク+2。',
+  'Instant Charge': 'インスタントチャージ',
+  'Ultimate gauge fills 80% faster.': '必殺ゲージ充填速度+80%。',
+  Annihilate: 'アナイアレイト',
+  'Ultimate heals 40% of damage dealt.': '必殺技ダメージの40%をHP回復。',
 
-  // ---------------------------------------------------------------------------
   // Achievement names, descriptions, and titles
-  // ---------------------------------------------------------------------------
   'First Victory': '初勝利',
   'Clear any run.': '任意のランをクリア。',
   'Rookie Pilot': 'ルーキーパイロット',
@@ -226,6 +258,7 @@ export const ja: LocaleDict = {
   'Chief Engineer': 'チーフエンジニア',
   Weaponsmith: 'ウェポンスミス',
   'Use all 5 weapon types.': '全5種の武器を使用。',
+  'Use all 5 weapon modules.': '全5種の武器モジュールを使用。',
   Hunter: 'ハンター',
   'Defeat every enemy type.': '全敵タイプを撃破。',
   'Apex Hunter': 'エイペックスハンター',
@@ -237,64 +270,37 @@ export const ja: LocaleDict = {
   Collector: 'コレクター',
   'Defeat 10 different enemy types.': '10種類の敵を撃破。',
 
-  // ---------------------------------------------------------------------------
-  // UI strings
-  // ---------------------------------------------------------------------------
-  SKILLS: 'スキル',
-  SKILL: 'スキル',
-  BUFF: 'バフ',
-  USE: '使用',
-  ITEM: 'アイテム',
-  'CHOOSE A SKILL': 'スキルを選択',
-  CONFIRM: '確定',
-  '← BACK': '← 戻る',
-  TITLES: '称号',
-  'SKILLS DISCOVERED': '発見したスキル',
-  skills: 'スキル',
-  earned: '獲得',
-  BUFFS: 'バフ',
-  HP: 'HP',
-  Scrap: 'スクラップ',
-  'DAILY RUN': 'デイリーラン',
-  UNDO: '戻す',
-  'NEXT ENEMY': '次の敵',
-  '▶  NEXT ROUND': '▶  次のラウンド',
-  'QUIT TO TITLE': 'タイトルに戻る',
-  '▶  RETURN TO TITLE': '▶  タイトルに戻る',
-  '▶  CONTINUE': '▶  続ける',
-  'Click shop to buy · Click slots to sell · Drag parts to specific slots':
-    'ショップをクリックで購入 · スロットをクリックで売却 · ドラッグで配置',
+  // Ultimate names
+  'Iron Fist': 'アイアンフィスト',
+  Bulldoze: 'ブルドーズ',
+  'Thunder Kick': 'サンダーキック',
+  'Virus Burst': 'ウイルスバースト',
+  'Boss Rage': 'ボスレイジ',
+  'Titan Strike': 'タイタンストライク',
+  'Extinction Protocol': 'エクスティンクション・プロトコル',
 
-  // ---------------------------------------------------------------------------
+  // Synergy names (Gear Sync already in part names)
+  'Turbo Combo': 'ターボコンボ',
+  'Dual Wield': 'デュアルウィールド',
+  'Heavy Armor': 'ヘビーアーマー',
+  'Special Amp': 'スペシャルアンプ',
+  'Full Kit': 'フルキット',
+
   // Status effects
-  // ---------------------------------------------------------------------------
   BURN: '燃焼',
   FREEZE: '凍結',
   POISON: '毒',
-  DODGE: '回避',
 
-  // ---------------------------------------------------------------------------
-  // New part names and descriptions (v0.3 additions)
-  // ---------------------------------------------------------------------------
-  Railgun: 'レールガン',
-  'Extreme damage, very slow. One-shot potential.': '極大ダメージ、非常に遅い。一撃必殺。',
-  Flamethrower: 'フレイムスロワー',
-  'Rapid close-range burn. Low per-hit but fast.': '近距離連射。低威力だが高速。',
-  'Reactive Plating': 'リアクティブ装甲',
-  'Flat -4 damage taken but -10 max HP.': 'ダメージ-4だが最大HP-10。',
-  'Fortress Frame': 'フォートレスフレーム',
-  '+30 max HP and 10% DR. Heavy but durable.': '最大HP+30、DR10%。重いが頑丈。',
-  'Striker Core': 'ストライカーコア',
-  '+5 damage to all weapons. No HP bonus.': '全武器ダメージ+5。HP増加なし。',
-  'Regen Cell': 'リジェンセル',
-  '+15 max HP and 3% damage reduction.': '最大HP+15、ダメージ軽減3%。',
-  'Micro Gear': 'マイクロギア',
-  '-5% cooldown. Cheap filler.': 'クールダウン-5%。安価。',
-  'Overclock Gear': 'オーバークロックギア',
-  '-25% cooldown, -10 max HP. Glass cannon.': 'クールダウン-25%、最大HP-10。',
-  'Last Stand Module': 'ラストスタンド・モジュール',
-  'Survive one lethal hit with 1 HP (once per battle).': '致死ダメージを1回HP1で耐える。',
-  'Vampiric Core': 'ヴァンパイリック・コア',
-  'Heal 2 HP on every weapon hit.': '武器命中ごとにHP2回復。',
-  'Blocks the first hit completely, then +5% DR.': '最初の被弾を完全防御、以降DR+5%。'
+  // Misc
+  'DAILY RUN': 'デイリーラン',
+  CONFIRM: '確定',
+  Scrap: 'スクラップ',
+  '★ ULTIMATE ★': '★ 必殺技 ★',
+  DEFENSE: '防御',
+  'Survive until ULTIMATE is ready!': '必殺技が溜まるまで耐えろ！',
+  'Survive and charge your ULTIMATE! SPACE / Click to fire!': '耐えて必殺ゲージを溜めろ！ SPACE / クリック で発動！',
+  'READY!': 'READY!',
+  'Drag parts from shop to blueprint slots': 'ショップからパーツをドラッグして設計図に配置',
+  SELL: '売却',
+  STORAGE: '保管',
 };

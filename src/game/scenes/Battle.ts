@@ -13,6 +13,7 @@ import {
   type PartKey,
   type PartCategory
 } from '@/data';
+import { BALANCE } from '@/data/balance';
 import { getRunState, setRunState } from '../systems/runState';
 import { PALETTE, ROBOT_COLORS } from '../systems/palette';
 import { computeLoadoutStats } from '../systems/stats';
@@ -30,6 +31,18 @@ import { t } from '../systems/i18n';
 import { playMusic, MUSIC_KEYS, setMusicPlaybackRate } from '../systems/music';
 import { applyHiDpiToScene, TEXT_DPR, showDebugBadge } from '../helper/hiDpiText';
 import { isDebugEnabled } from '../systems/debug';
+import {
+  createSlotState,
+  tickSlotMachine,
+  resolveUltimatePress,
+  checkAuraAppear,
+  RUSH_CHARGE_MULT,
+  AURA_HEX,
+  AURA_CSS,
+  type SlotState
+} from '../systems/slotMachine';
+import { rollPrediction } from '@/data/predictions';
+import { SLOT_HIT_DAMAGE_MULT } from '@/data/slotConfig';
 
 const HP_BAR_W = 280;
 const HP_BAR_H = 20;
@@ -66,10 +79,22 @@ export class Battle extends Scene {
   private debugTimerText!: GameObjects.Text;
   private playerHpTrail!: GameObjects.Rectangle;
   private enemyHpTrail!: GameObjects.Rectangle;
+  private playerStatusTexts: GameObjects.Text[] = [];
+  private ultPercentText!: GameObjects.Text;
   /** Flag to pause combat during round-start intro animation. */
   private introActive = false;
   /** Tracks the last BGM rate so we only change it when crossing the threshold. */
   private lastBgmRate = 1;
+  /** Pachislot hit system state. */
+  private slotState!: SlotState;
+  /** Visual: aura ring around player (null = no aura). */
+  private auraRing: GameObjects.Arc | null = null;
+  /** Visual: aura color label. */
+  private auraLabel: GameObjects.Text | null = null;
+  /** Whether combat is frozen waiting for ultimate button press. */
+  private ultReady = false;
+  /** The big ULTIMATE button (shown during freeze). */
+  private ultButton: GameObjects.Container | null = null;
   /** Real seconds elapsed before auto fast-forward kicks in. */
   private static readonly AUTO_FF_SEC = 15;
   /** Speed multiplier applied after AUTO_FF_SEC elapses. */
@@ -95,6 +120,9 @@ export class Battle extends Scene {
     this.logLines = [];
     this.timeScale = 2;
     this.elapsedBattleSec = 0;
+    this.slotState = createSlotState();
+    this.auraRing = null;
+    this.auraLabel = null;
 
     const robot = ROBOTS[state.robotKey];
     this.playerRobotArchetypeLabel = robot.archetype.toUpperCase();
@@ -111,11 +139,7 @@ export class Battle extends Scene {
 
     const playerUlt = state.robotKey ? (ROBOT_ULTIMATES[state.robotKey] ?? null) : null;
     this.player = createPlayerCombatant(robot.name, stats, playerUlt);
-    // HP carry-over: previous battle's remaining HP carries into the next round.
-    // Round 1 starts at full HP (carryHp = 0 from initial state).
-    if (state.carryHp > 0) {
-      this.player.hp = Math.min(this.player.maxHp, state.carryHp);
-    }
+    // Every round starts at full HP.
 
     // Apply and consume next-battle item buffs.
     for (const itemKey of state.battleBuffs) {
@@ -182,7 +206,12 @@ export class Battle extends Scene {
       statusEffects: [],
       evasionChance: 0,
       comboCount: 0,
-      autoFireUltimate: true
+      autoFireUltimate: true,
+      ultimateStrikes: 1,
+      ultimateDmgPerStrike: 0,
+      ultimateChargeRate: 1,
+      ultimateLifesteal: 0,
+      ultimateArmorBreak: false
     };
 
     // Header
@@ -267,6 +296,9 @@ export class Battle extends Scene {
       .text(enemyX, hpBarY, '', textStyles.small)
       .setOrigin(0.5);
 
+    // Status effect indicators next to player HP bar
+    this.playerStatusTexts = [];
+
     // Ultimate gauge bars (thin bar below HP)
     const ultBarY = arenaY + SPRITE_H / 2 + 48;
     const ultBarH = 6;
@@ -279,6 +311,12 @@ export class Battle extends Scene {
       .rectangle(enemyX - HP_BAR_W / 2, ultBarY, 0, ultBarH, 0xff6a6a, 1)
       .setOrigin(0, 0.5);
 
+    // Ultimate gauge percentage text (rendered on top of the gauge bar)
+    this.ultPercentText = this.add
+      .text(playerX, ultBarY, '0%', textStyles.small)
+      .setOrigin(0.5)
+      .setDepth(10);
+
     // Ultimate name labels
     if (playerUlt) {
       this.add.text(playerX, ultBarY + 10, playerUlt.name, textStyles.small)
@@ -289,14 +327,12 @@ export class Battle extends Scene {
         .setOrigin(0.5).setAlpha(0.5);
     }
 
-    // Equipped parts summary under player HP bar
-    const weaponSummary =
-      this.player.weapons.length === 0
-        ? t('(no weapons)')
-        : this.player.weapons.map((w) => `${t(w.label)} ${w.damage}/${w.cooldownSec.toFixed(1)}s`).join('  ·  ');
+    // Ultimate stats under player HP bar
+    const ultSummary = `ULT: ${this.player.ultimateStrikes} strikes × ${this.player.ultimateDmgPerStrike} dmg = ${this.player.ultimateStrikes * this.player.ultimateDmgPerStrike}`;
     this.add
-      .text(playerX, arenaY + SPRITE_H / 2 + 62, weaponSummary, textStyles.small)
+      .text(playerX, arenaY + SPRITE_H / 2 + 62, ultSummary, textStyles.small)
       .setOrigin(0.5)
+      .setColor('#ffd94a')
       .setAlpha(0.85);
 
     // Active synergies: detect and show aura + labels
@@ -345,7 +381,7 @@ export class Battle extends Scene {
       .setAlpha(0.9);
 
     this.speedLabel = this.add
-      .text(gameWidth - 24, 24, `${t('SPEED')} x${this.timeScale}`, textStyles.body)
+      .text(gameWidth - 24, 24, `(S) ${t('SPEED')} x${this.timeScale}`, textStyles.body)
       .setOrigin(1, 0)
       .setAlpha(0.8);
 
@@ -356,13 +392,16 @@ export class Battle extends Scene {
       .setAlpha(0.6)
       .setVisible(isDebugEnabled());
 
-    this.pushLog(t('SPACE / Click = ULTIMATE  |  S = speed toggle'));
+    this.pushLog(t('Survive until ULTIMATE is ready!'));
 
     this.input.keyboard?.on('keydown-R', () => fadeToScene(this, 'Title'));
-    this.input.keyboard?.on('keydown-SPACE', () => this.triggerPlayerUltimate());
+    this.input.keyboard?.on('keydown-SPACE', () => {
+      if (this.ultReady) this.triggerPlayerUltimate();
+    });
     this.input.keyboard?.on('keydown-S', () => this.cycleSpeed());
-    // Click to trigger ultimate too
-    this.input.on('pointerdown', () => this.triggerPlayerUltimate());
+    this.input.on('pointerdown', () => {
+      if (this.ultReady) this.triggerPlayerUltimate();
+    });
 
     // Record best round reached (even if this battle is lost).
     recordRoundReached(state.currentRound);
@@ -415,7 +454,7 @@ export class Battle extends Scene {
     const sequence = [1, 2, 4, 6];
     const idx = sequence.indexOf(this.timeScale);
     this.timeScale = sequence[(idx + 1) % sequence.length]!;
-    this.speedLabel.setText(`${t('SPEED')} x${this.timeScale}`);
+    this.speedLabel.setText(`(S) ${t('SPEED')} x${this.timeScale}`);
     playSfx('click');
   }
 
@@ -427,16 +466,37 @@ export class Battle extends Scene {
     this.elapsedBattleSec += realDtSec;
     this.debugTimerText.setText(`${this.elapsedBattleSec.toFixed(1)}s`);
 
+    // Pachislot: tick hit determination + aura check
+    if (!this.finished && !this.introActive) {
+      const hitTriggered = tickSlotMachine(this.slotState, realDtSec);
+      if (hitTriggered) {
+        playSfx('combo');
+      }
+      // Check aura appearance at 70% gauge during rush
+      if (this.player.ultimate) {
+        const gaugeRatio = this.player.ultimateGauge / this.player.ultimate.gaugeFillRatio;
+        checkAuraAppear(this.slotState, gaugeRatio);
+      }
+      // Apply rush charge multiplier
+      if (this.slotState.inRush) {
+        this.player.ultimateChargeRate = RUSH_CHARGE_MULT;
+      }
+      this.updateAuraVisual();
+    }
+
     // Auto fast-forward after AUTO_FF_SEC of real time.
     if (
       this.elapsedBattleSec >= Battle.AUTO_FF_SEC &&
       this.timeScale < Battle.AUTO_FF_SPEED
     ) {
       this.timeScale = Battle.AUTO_FF_SPEED;
-      this.speedLabel.setText(`${t('SPEED')} x${this.timeScale}`);
+      this.speedLabel.setText(`(S) ${t('SPEED')} x${this.timeScale}`);
     }
 
     const dtSec = realDtSec * this.timeScale;
+
+    // Frozen: waiting for ultimate button press
+    if (this.ultReady) return;
 
     if (this.finished) {
       this.finishDelay -= realDtSec;
@@ -482,6 +542,12 @@ export class Battle extends Scene {
     }
 
     this.refreshHp();
+
+    // Check if ultimate gauge just filled → freeze and show button
+    if (!this.ultReady && !this.finished && this.player.ultimate &&
+        this.player.ultimateGauge >= this.player.ultimate.gaugeFillRatio) {
+      this.showUltimateButton();
+    }
   }
 
   private getActiveSynergies(equipped: Readonly<Record<string, PartKey>>): string[] {
@@ -730,11 +796,82 @@ export class Battle extends Scene {
       this.playerUltFill.setFillStyle(0xffd94a, 1);
     }
 
+    // Ultimate gauge percentage text
+    const pctValue = Math.min(100, Math.round(pUltRatio * 100));
+    if (ultReady) {
+      this.ultPercentText.setText(t('READY!'));
+      this.ultPercentText.setColor('#ffffff');
+      if (!this.ultPercentText.getData('pulsing')) {
+        this.ultPercentText.setData('pulsing', true);
+        this.tweens.add({
+          targets: this.ultPercentText,
+          alpha: { from: 0.6, to: 1 },
+          duration: 400,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut'
+        });
+      }
+    } else {
+      this.ultPercentText.setText(`${pctValue}%`);
+      this.ultPercentText.setColor('#ffd94a');
+      if (this.ultPercentText.getData('pulsing')) {
+        this.ultPercentText.setData('pulsing', false);
+        this.tweens.killTweensOf(this.ultPercentText);
+        this.ultPercentText.setAlpha(1);
+      }
+    }
+
+    // Player status effect indicators
+    this.refreshStatusIndicators();
+
     // BGM tempo: speed up when player HP is critical
-    const desiredRate = pRatio < 0.3 ? 1.15 : 1.0;
+    const desiredRate = pRatio < BALANCE.bgmUrgentHpRatio ? BALANCE.bgmUrgentRate : 1.0;
     if (desiredRate !== this.lastBgmRate) {
       this.lastBgmRate = desiredRate;
       setMusicPlaybackRate(desiredRate);
+    }
+  }
+
+  private refreshStatusIndicators(): void {
+    // Destroy previous indicators
+    for (const txt of this.playerStatusTexts) txt.destroy();
+    this.playerStatusTexts = [];
+
+    const STATUS_COLORS: Record<string, string> = {
+      burn: '#ff7a00',
+      freeze: '#3ab0ff',
+      poison: '#3aff7a'
+    };
+
+    const hpBarY = gameOptions.gameHeight * 0.44 + SPRITE_H / 2 + 32;
+    let offsetX = 0;
+    for (const se of this.player.statusEffects) {
+      const label = t(se.kind.toUpperCase());
+      const color = STATUS_COLORS[se.kind] ?? '#ffffff';
+      const indicator = this.add
+        .text(this.playerBaseX - HP_BAR_W / 2 + offsetX, hpBarY - 18, label, {
+          ...gameOptions.textStyles.small,
+          color,
+          fontStyle: 'bold'
+        })
+        .setOrigin(0, 0.5)
+        .setDepth(15);
+
+      // Pulsing effect for burn
+      if (se.kind === 'burn') {
+        this.tweens.add({
+          targets: indicator,
+          alpha: { from: 0.5, to: 1 },
+          duration: 300,
+          yoyo: true,
+          repeat: 0,
+          ease: 'Sine.easeInOut'
+        });
+      }
+
+      this.playerStatusTexts.push(indicator);
+      offsetX += indicator.width + 8;
     }
   }
 
@@ -765,7 +902,7 @@ export class Battle extends Scene {
       battleOutcome: finalOutcome,
       lastResultMessage: message,
       lastDefeatedEnemyId: outcome === 'win' && genRound ? genRound.enemyId : '',
-      carryHp: outcome === 'win' ? Math.max(1, this.player.hp) : 0,
+      carryHp: 0,
       runStats: updatedStats
     });
     this.pushLog(message);
@@ -802,112 +939,248 @@ export class Battle extends Scene {
     });
   }
 
-  private spawnUltimateFlash(x: number, y: number, name: string, fromPlayer: boolean): void {
+  private spawnUltimateFlash(_x: number, _y: number, name: string, fromPlayer: boolean, isCritical = false): void {
     const { gameWidth, gameHeight, textStyles } = gameOptions;
-    playSfx(fromPlayer ? 'victory' : 'lose');
-    this.cameras.main.shake(200, fromPlayer ? 0.01 : 0.015);
+    const D = 200; // depth base
 
     if (fromPlayer) {
-      // --- Cut-in: large robot portrait slides in from the left ---
-      const cutinDuration = 800;
-      const holdDuration = 500;
+      playSfx('ultimate');
+      const allParts: GameObjects.GameObject[] = [];
+      const destroy = () => allParts.forEach((p) => p.destroy());
 
-      // Darken background
+      // Color theme: normal = gold, critical = red-gold
+      const accentColor = isCritical ? 0xff2222 : 0xffd94a;
+      const accentHex = isCritical ? '#ff2222' : '#ffd94a';
+      const flashColor = isCritical ? 0xff0000 : 0xffffff;
+      const ringColor2 = isCritical ? 0xff4444 : 0xffffff;
+
+      // === Phase 0: Time freeze — zoom camera ===
+      this.cameras.main.zoomTo(isCritical ? 1.15 : 1.08, 200, 'Cubic.easeOut');
+
+      // === Phase 1: White flash → black overlay (0-150ms) ===
+      const whiteFlash = this.add
+        .rectangle(gameWidth / 2, gameHeight / 2, gameWidth, gameHeight, flashColor, isCritical ? 1 : 0.8)
+        .setDepth(D);
+      allParts.push(whiteFlash);
+      this.tweens.add({ targets: whiteFlash, alpha: 0, duration: 150 });
+
       const overlay = this.add
-        .rectangle(gameWidth / 2, gameHeight / 2, gameWidth, gameHeight, 0x000000, 0.6)
-        .setDepth(200);
+        .rectangle(gameWidth / 2, gameHeight / 2, gameWidth, gameHeight, 0x000000, 0)
+        .setDepth(D + 1);
+      allParts.push(overlay);
+      this.tweens.add({ targets: overlay, alpha: 0.75, duration: 200 });
 
-      // Diagonal slash lines
-      const slash1 = this.add
-        .rectangle(gameWidth / 2, gameHeight / 2, gameWidth * 2, 80, 0xffd94a, 0.15)
-        .setAngle(-15).setDepth(201);
-      const slash2 = this.add
-        .rectangle(gameWidth / 2, gameHeight / 2 + 60, gameWidth * 2, 40, 0xffd94a, 0.1)
-        .setAngle(-15).setDepth(201);
+      // === Phase 2: Diagonal slash lines sweep across (100-300ms) ===
+      const slashCount = 5;
+      for (let i = 0; i < slashCount; i += 1) {
+        const sy = gameHeight * 0.2 + (gameHeight * 0.6 / slashCount) * i;
+        const slash = this.add
+          .rectangle(-gameWidth, sy, gameWidth * 2.5, 3 + Math.random() * 6, accentColor, 0.6 + Math.random() * 0.3)
+          .setAngle(-12 + Math.random() * 4)
+          .setDepth(D + 2);
+        allParts.push(slash);
+        this.tweens.add({
+          targets: slash,
+          x: gameWidth * 1.5,
+          duration: 180,
+          delay: 80 + i * 40,
+          ease: 'Cubic.easeOut',
+          onComplete: () => this.tweens.add({ targets: slash, alpha: 0, duration: 200 })
+        });
+      }
 
-      // Robot portrait (large image or placeholder)
+      // === Phase 3: Screen split line — V-shape crack (200ms) ===
+      const splitL = this.add
+        .rectangle(gameWidth / 2, -50, 4, gameHeight + 100, 0xffffff, 0.9)
+        .setAngle(8).setDepth(D + 3).setAlpha(0);
+      const splitR = this.add
+        .rectangle(gameWidth / 2, -50, 4, gameHeight + 100, 0xffffff, 0.9)
+        .setAngle(-8).setDepth(D + 3).setAlpha(0);
+      allParts.push(splitL, splitR);
+      this.time.delayedCall(200, () => {
+        this.tweens.add({ targets: splitL, alpha: 0.9, duration: 80, yoyo: true, hold: 100 });
+        this.tweens.add({ targets: splitR, alpha: 0.9, duration: 80, yoyo: true, hold: 100 });
+        this.cameras.main.shake(100, 0.008);
+      });
+
+      // === Phase 4: Character portrait slides in (250-500ms) ===
       const state = getRunState(this);
       const robot = state.robotKey ? ROBOTS[state.robotKey] : null;
       const battleKey = robot?.battleAssetKey ?? '';
-      let cutinVisual: GameObjects.Image | GameObjects.Rectangle;
+      let portrait: GameObjects.Image | GameObjects.Rectangle;
 
       if (this.textures.exists(battleKey)) {
-        cutinVisual = this.add.image(-400, gameHeight / 2, battleKey)
-          .setScale(0.8).setDepth(210);
+        portrait = this.add.image(-500, gameHeight / 2, battleKey)
+          .setScale(1.0).setDepth(D + 10);
       } else {
-        cutinVisual = this.add
-          .rectangle(-400, gameHeight / 2, 400, 500,
+        portrait = this.add
+          .rectangle(-500, gameHeight / 2, 420, 540,
             robot ? ROBOT_COLORS[robot.archetype] : 0x9bbdff, 1)
-          .setStrokeStyle(4, 0xffffff).setDepth(210);
+          .setStrokeStyle(4, 0xffffff).setDepth(D + 10);
       }
-
-      // Slide in from left
+      allParts.push(portrait);
       this.tweens.add({
-        targets: cutinVisual,
-        x: gameWidth * 0.35,
-        duration: cutinDuration * 0.4,
+        targets: portrait,
+        x: gameWidth * 0.32,
+        duration: 300,
+        delay: 250,
         ease: 'Back.easeOut'
       });
 
-      // Ultimate name text (right side)
-      const ultText = this.add
-        .text(gameWidth + 200, gameHeight / 2 - 40, `★ ${name} ★`, {
-          ...textStyles.title,
-          color: '#ffd94a',
-          fontStyle: 'bold'
+      // === Phase 5: Ultimate name — big text from right (350-600ms) ===
+      const displayName = isCritical ? `CRITICAL ${name.toUpperCase()}` : name.toUpperCase();
+      const ultName = this.add
+        .text(gameWidth + 300, gameHeight * 0.38, displayName, {
+          ...textStyles.title, fontSize: isCritical ? '80px' : '72px', color: accentHex, fontStyle: 'bold'
         })
-        .setOrigin(0.5).setDepth(211).setResolution(TEXT_DPR);
-
-      const robotNameText = this.add
-        .text(gameWidth + 200, gameHeight / 2 + 30, robot ? t(robot.name) : '', textStyles.body)
-        .setOrigin(0.5).setDepth(211).setAlpha(0.8).setResolution(TEXT_DPR);
-
-      // Slide text in from right
-      this.tweens.add({
-        targets: [ultText, robotNameText],
-        x: gameWidth * 0.7,
-        duration: cutinDuration * 0.4,
-        ease: 'Cubic.easeOut'
+        .setOrigin(0.5).setDepth(D + 11).setResolution(TEXT_DPR).setAlpha(0);
+      allParts.push(ultName);
+      this.time.delayedCall(350, () => {
+        ultName.setAlpha(1);
+        this.tweens.add({
+          targets: ultName,
+          x: gameWidth * 0.68,
+          duration: 250,
+          ease: 'Back.easeOut'
+        });
       });
 
-      // Hold, then dismiss everything
-      this.time.delayedCall(cutinDuration + holdDuration, () => {
+      // Robot name below
+      const robotLabel = this.add
+        .text(gameWidth + 300, gameHeight * 0.52, robot ? t(robot.name) : '', {
+          ...textStyles.body, color: '#ffffff'
+        })
+        .setOrigin(0.5).setDepth(D + 11).setResolution(TEXT_DPR).setAlpha(0);
+      allParts.push(robotLabel);
+      this.time.delayedCall(420, () => {
+        robotLabel.setAlpha(0.8);
         this.tweens.add({
-          targets: [cutinVisual, ultText, robotNameText],
-          alpha: 0,
-          duration: 300,
-          onComplete: () => {
-            cutinVisual.destroy();
-            ultText.destroy();
-            robotNameText.destroy();
+          targets: robotLabel,
+          x: gameWidth * 0.68,
+          duration: 250,
+          ease: 'Cubic.easeOut'
+        });
+      });
+
+      // === Phase 6: Strike count — "3... 2... 1..." countdown (600-900ms) ===
+      const strikes = this.player.ultimateStrikes;
+      for (let i = 0; i < Math.min(strikes, 5); i += 1) {
+        this.time.delayedCall(650 + i * 80, () => {
+          const num = this.add
+            .text(gameWidth * 0.68, gameHeight * 0.65 + i * 30, `${i + 1} HIT`, {
+              ...textStyles.body, color: '#ff7a00', fontStyle: 'bold'
+            })
+            .setOrigin(0.5).setDepth(D + 12).setScale(0.5).setResolution(TEXT_DPR);
+          allParts.push(num);
+          this.tweens.add({
+            targets: num,
+            scale: 1.2,
+            duration: 100,
+            yoyo: true,
+            ease: 'Back.easeOut',
+            onComplete: () => num.setScale(1)
+          });
+        });
+      }
+
+      // === Phase 7: Shockwave ring at hold point (1000ms) ===
+      this.time.delayedCall(1000, () => {
+        const ring = this.add
+          .circle(gameWidth / 2, gameHeight / 2, 10, accentColor, 0)
+          .setStrokeStyle(isCritical ? 10 : 6, accentColor)
+          .setDepth(D + 15);
+        allParts.push(ring);
+        this.tweens.add({
+          targets: ring,
+          scale: 15,
+          alpha: { from: 0.8, to: 0 },
+          duration: 400,
+          ease: 'Cubic.easeOut'
+        });
+        // Second shockwave
+        const ring2 = this.add
+          .circle(gameWidth / 2, gameHeight / 2, 10, ringColor2, 0)
+          .setStrokeStyle(isCritical ? 6 : 3, ringColor2)
+          .setDepth(D + 15);
+        allParts.push(ring2);
+        this.tweens.add({
+          targets: ring2,
+          scale: 20,
+          alpha: { from: 0.5, to: 0 },
+          duration: 500,
+          delay: 80,
+          ease: 'Cubic.easeOut'
+        });
+        this.cameras.main.shake(isCritical ? 400 : 200, isCritical ? 0.025 : 0.015);
+
+        // Critical-only: massive pulsing text
+        if (isCritical) {
+          const critText = this.add
+            .text(gameWidth / 2, gameHeight / 2, 'CRITICAL!', {
+              ...textStyles.title, fontSize: '100px', color: '#ff0000', fontStyle: 'bold'
+            })
+            .setOrigin(0.5).setDepth(D + 20).setResolution(TEXT_DPR).setScale(0.3);
+          allParts.push(critText);
+          this.tweens.add({
+            targets: critText,
+            scale: { from: 0.3, to: 2.0 },
+            alpha: { from: 1, to: 0 },
+            angle: { from: -5, to: 5 },
+            duration: 600,
+            ease: 'Cubic.easeOut'
+          });
+          // Extra shockwaves for critical
+          for (let i = 0; i < 3; i += 1) {
+            const extraRing = this.add
+              .circle(gameWidth / 2, gameHeight / 2, 10, 0xff0000, 0)
+              .setStrokeStyle(4, 0xff4444)
+              .setDepth(D + 16);
+            allParts.push(extraRing);
+            this.tweens.add({
+              targets: extraRing,
+              scale: 25,
+              alpha: { from: 0.6, to: 0 },
+              duration: 500,
+              delay: i * 120,
+              ease: 'Cubic.easeOut'
+            });
           }
-        });
+        }
+      });
+
+      // === Phase 8: Dismiss everything + camera restore (1400ms) ===
+      this.time.delayedCall(1400, () => {
+        this.cameras.main.zoomTo(1, 300, 'Cubic.easeOut');
         this.tweens.add({
-          targets: [overlay, slash1, slash2],
+          targets: allParts.filter((p) => p.active),
           alpha: 0,
-          duration: 300,
-          onComplete: () => { overlay.destroy(); slash1.destroy(); slash2.destroy(); }
+          duration: 250,
+          onComplete: destroy
         });
       });
+
     } else {
-      // Enemy ultimate: simpler flash
+      // === Enemy ultimate: aggressive red flash ===
+      playSfx('lose');
+      this.cameras.main.shake(200, 0.015);
+
       const flash = this.add
-        .rectangle(gameWidth / 2, gameHeight / 2, gameWidth, gameHeight, 0xff4444, 0.3)
-        .setDepth(140);
-      this.tweens.add({
-        targets: flash, alpha: 0, duration: 400,
-        onComplete: () => flash.destroy()
-      });
+        .rectangle(gameWidth / 2, gameHeight / 2, gameWidth, gameHeight, 0xff0000, 0.4)
+        .setDepth(D);
+      this.tweens.add({ targets: flash, alpha: 0, duration: 400, onComplete: () => flash.destroy() });
 
       const label = this.add
-        .text(x, y - 60, `★ ${name} ★`, {
-          ...textStyles.body, color: '#ff6a6a', fontStyle: 'bold'
+        .text(gameWidth / 2, gameHeight * 0.3, `★ ${name} ★`, {
+          ...textStyles.title, fontSize: '48px', color: '#ff4444', fontStyle: 'bold'
         })
-        .setOrigin(0.5).setDepth(150).setResolution(TEXT_DPR);
+        .setOrigin(0.5).setDepth(D + 1).setResolution(TEXT_DPR).setScale(0.3);
       this.tweens.add({
         targets: label,
-        scale: { from: 0.5, to: 1.5 }, alpha: { from: 1, to: 0 }, y: y - 120,
-        duration: 1200, ease: 'Cubic.easeOut',
+        scale: 1.5,
+        alpha: { from: 1, to: 0 },
+        y: gameHeight * 0.25,
+        duration: 1000,
+        ease: 'Cubic.easeOut',
         onComplete: () => label.destroy()
       });
     }
@@ -943,20 +1216,207 @@ export class Battle extends Scene {
     }
   }
 
+  private updateAuraVisual(): void {
+    const aura = this.slotState.aura;
+    if (aura) {
+      // Create or update aura ring
+      if (!this.auraRing) {
+        this.auraRing = this.add
+          .circle(this.playerBaseX, gameOptions.gameHeight * 0.44, SPRITE_W * 0.55, AURA_HEX[aura], 0)
+          .setStrokeStyle(4, AURA_HEX[aura])
+          .setDepth(5);
+        this.tweens.add({
+          targets: this.auraRing,
+          alpha: { from: 0.1, to: 0.5 },
+          scale: { from: 0.95, to: 1.1 },
+          duration: 600,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut'
+        });
+        this.auraLabel = this.add
+          .text(this.playerBaseX, gameOptions.gameHeight * 0.44 + SPRITE_H / 2 + 100,
+            `${aura.toUpperCase()} AURA`, {
+              ...gameOptions.textStyles.small, color: AURA_CSS[aura], fontStyle: 'bold'
+            })
+          .setOrigin(0.5).setDepth(5);
+        playSfx('skill_acquire');
+      } else {
+        this.auraRing.setStrokeStyle(4, AURA_HEX[aura]);
+        this.auraLabel?.setText(`${aura.toUpperCase()} AURA`).setColor(AURA_CSS[aura]);
+      }
+    } else if (!this.slotState.inRush && this.auraRing) {
+      // Rush ended, remove aura
+      this.auraRing.destroy();
+      this.auraRing = null;
+      this.auraLabel?.destroy();
+      this.auraLabel = null;
+    }
+
+    // Show "RUSH" indicator during rush mode (even before aura appears)
+    if (this.slotState.inRush && !this.auraRing) {
+      // Gauge bar pulses during rush (visual cue)
+      this.playerUltFill.setFillStyle(0xff7a00, 1);
+    }
+  }
+
+  private showUltimateButton(): void {
+    this.ultReady = true;
+    const { gameWidth, gameHeight, textStyles } = gameOptions;
+
+    // Darken + freeze feel
+    const container = this.add.container(0, 0).setDepth(180);
+
+    const overlay = this.add.rectangle(gameWidth / 2, gameHeight / 2, gameWidth, gameHeight, 0x000000, 0.4);
+    container.add(overlay);
+    this.tweens.add({ targets: overlay, alpha: { from: 0, to: 0.4 }, duration: 200 });
+
+    // Big pulsing ULTIMATE button
+    const btnY = gameHeight / 2;
+    const btnBg = this.add
+      .rectangle(gameWidth / 2, btnY, 360, 100, 0xffd94a, 1)
+      .setStrokeStyle(4, 0xffffff);
+    container.add(btnBg);
+
+    const btnText = this.add
+      .text(gameWidth / 2, btnY, 'ULTIMATE', { ...textStyles.title, fontSize: '56px', color: '#0a0a10', fontStyle: 'bold' })
+      .setOrigin(0.5);
+    container.add(btnText);
+
+    // Pulsing animation
+    this.tweens.add({
+      targets: [btnBg, btnText],
+      scale: { from: 0.8, to: 1.05 },
+      duration: 400,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+
+    // "PRESS SPACE" hint
+    const hint = this.add
+      .text(gameWidth / 2, btnY + 70, 'PRESS SPACE or CLICK', textStyles.small)
+      .setOrigin(0.5).setAlpha(0.6);
+    container.add(hint);
+    this.tweens.add({ targets: hint, alpha: { from: 0.3, to: 0.8 }, duration: 500, yoyo: true, repeat: -1 });
+
+    // Aura color indicator if in rush
+    if (this.slotState.aura) {
+      const auraHint = this.add
+        .text(gameWidth / 2, btnY - 70, `${this.slotState.aura.toUpperCase()} AURA`, {
+          ...textStyles.body, color: AURA_CSS[this.slotState.aura], fontStyle: 'bold'
+        })
+        .setOrigin(0.5);
+      container.add(auraHint);
+      this.tweens.add({ targets: auraHint, scale: { from: 1, to: 1.15 }, duration: 300, yoyo: true, repeat: -1 });
+
+      // Color the button to match aura
+      btnBg.setFillStyle(AURA_HEX[this.slotState.aura], 1);
+    }
+
+    // Prediction effect: randomly chosen when a hit is flagged (not always shown)
+    if (this.slotState.nextIsHit || (this.slotState.inRush && this.slotState.aura)) {
+      this.spawnPrediction(container, gameWidth, gameHeight, btnBg);
+    }
+
+    this.ultButton = container;
+    playSfx('shield_block');
+  }
+
+  /**
+   * Spawn a prediction effect on the ultimate button screen.
+   * Prediction data comes from src/data/predictions.ts.
+   */
+  private spawnPrediction(
+    container: GameObjects.Container,
+    gw: number,
+    gh: number,
+    btnBg: GameObjects.Rectangle
+  ): void {
+    const { textStyles } = gameOptions;
+    const isActualHit = this.slotState.nextIsHit || (this.slotState.inRush && !!this.slotState.aura);
+    const pred = rollPrediction(isActualHit);
+
+    switch (pred.id) {
+      case 'rainbow_btn': {
+        const colors = [0xff0000, 0xff7a00, 0xffd94a, 0x3aff7a, 0x3ab0ff, 0xcc66ff];
+        let ci = 0;
+        const timer = this.time.addEvent({
+          delay: 120, loop: true,
+          callback: () => { btnBg.setFillStyle(colors[ci % colors.length]!, 1); ci++; }
+        });
+        container.once('destroy', () => timer.destroy());
+        const txt = this.add.text(gw / 2, gh / 2 - 90, '★ RAINBOW ★', {
+          ...textStyles.body, color: '#ff00ff', fontStyle: 'bold'
+        }).setOrigin(0.5);
+        container.add(txt);
+        this.tweens.add({ targets: txt, scale: { from: 1, to: 1.3 }, duration: 300, yoyo: true, repeat: -1 });
+        break;
+      }
+      case 'fish': {
+        for (let i = 0; i < 8; i++) {
+          const fish = this.add.text(-60, gh * 0.3 + i * 25 + Math.random() * 20, '🐟', { fontSize: '24px' });
+          container.add(fish);
+          this.tweens.add({ targets: fish, x: gw + 60, duration: 1500 + Math.random() * 500, delay: i * 100, ease: 'Linear' });
+        }
+        break;
+      }
+      case 'red_flash': {
+        const flash = this.add.rectangle(gw / 2, gh / 2, gw, gh, 0xff0000, 0);
+        container.add(flash);
+        this.tweens.add({ targets: flash, alpha: { from: 0, to: 0.3 }, duration: 200, yoyo: true, repeat: 2 });
+        break;
+      }
+      case 'exclaim': {
+        const ex = this.add.text(gw / 2, gh / 2 - 120, '! !', {
+          ...textStyles.title, fontSize: '80px', color: '#ff7a00', fontStyle: 'bold'
+        }).setOrigin(0.5).setAlpha(0);
+        container.add(ex);
+        this.tweens.add({ targets: ex, alpha: 1, scale: { from: 2, to: 1 }, duration: 300, ease: 'Back.easeOut' });
+        break;
+      }
+    }
+  }
+
   private triggerPlayerUltimate(): void {
-    if (this.finished || this.introActive) return;
-    if (!this.player.ultimate || this.player.ultimateUsed) return;
-    if (this.player.ultimateGauge < this.player.ultimate.gaugeFillRatio) return;
+    if (!this.ultReady) return;
+    if (!this.player.ultimate) return;
+
+    // Dismiss button but keep frozen (ultReady stays true until演出 ends)
+    if (this.ultButton) {
+      this.ultButton.destroy();
+      this.ultButton = null;
+    }
+
+    // Pachislot hit resolution
+    const isHit = resolveUltimatePress(this.slotState);
+    const isCritical = isHit;
+    const origDmg = this.player.ultimateDmgPerStrike;
+    if (isHit) {
+      this.player.ultimateDmgPerStrike = Math.round(origDmg * SLOT_HIT_DAMAGE_MULT);
+    }
 
     const attacks: AttackEvent[] = [];
     fireUltimate(this.player, this.enemy, attacks);
-    attacks.forEach((e) => this.onAttack(e, this.enemySprite, true));
-    this.spawnUltimateFlash(this.playerSprite.x, this.playerSprite.y, this.player.ultimate.name, true);
 
-    if (this.enemy.hp <= 0) {
-      this.finishBattle('win');
-    }
-    this.refreshHp();
+    // Restore original damage
+    this.player.ultimateDmgPerStrike = origDmg;
+
+    // Play cut-in animation (combat stays frozen during this)
+    this.spawnUltimateFlash(this.playerSprite.x, this.playerSprite.y, this.player.ultimate.name, true, isCritical);
+
+    // After full animation: apply damage, then unfreeze combat
+    this.time.delayedCall(1800, () => {
+      attacks.forEach((e) => this.onAttack(e, this.enemySprite, true));
+      this.refreshHp();
+
+      if (this.enemy.hp <= 0) {
+        this.finishBattle('win');
+      } else {
+        // Unfreeze — combat resumes
+        this.ultReady = false;
+      }
+    });
   }
 
   private goToResult(): void {

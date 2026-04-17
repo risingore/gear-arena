@@ -22,9 +22,8 @@ import {
   type EnemyDef
 } from '@/data/enemies';
 import type { EnemyData } from '@/data/schema';
+import { BALANCE } from '@/data/balance';
 
-/** Stat variance range for normal enemies (±10%). */
-const VARIANCE = 0.10;
 
 /**
  * Simple seeded PRNG (mulberry32).
@@ -72,13 +71,13 @@ const pickRandom = <T>(arr: readonly T[]): T =>
 
 const defToEnemy = (def: EnemyDef, applyVariance: boolean): EnemyData => ({
   name: def.name,
-  hp: applyVariance ? vary(def.baseHp, VARIANCE) : def.baseHp,
-  damage: applyVariance ? vary(def.baseDamage, VARIANCE) : def.baseDamage,
+  hp: applyVariance ? vary(def.baseHp, BALANCE.normalEnemyVariance) : def.baseHp,
+  damage: applyVariance ? vary(def.baseDamage, BALANCE.normalEnemyVariance) : def.baseDamage,
   cooldownSec: applyVariance
-    ? +(def.baseCooldownSec * (1 + (rng() * 2 - 1) * VARIANCE)).toFixed(2)
+    ? +(def.baseCooldownSec * (1 + (rng() * 2 - 1) * BALANCE.normalEnemyVariance)).toFixed(2)
     : def.baseCooldownSec,
   damageReductionPct: applyVariance
-    ? varyPct(def.baseDamageReductionPct, VARIANCE)
+    ? varyPct(def.baseDamageReductionPct, BALANCE.normalEnemyVariance)
     : def.baseDamageReductionPct,
   assetKey: def.assetKey
 });
@@ -102,9 +101,9 @@ export function generateRunEnemies(_superBossUnlocked: boolean, seed?: number, s
   const rounds: GeneratedRound[] = [];
 
   const sortedNormals = [...NORMAL_ENEMIES].sort((a, b) => a.tier - b.tier);
-  const easyPool = sortedNormals.filter((e) => e.tier <= 5);
-  const midPool = sortedNormals.filter((e) => e.tier >= 4 && e.tier <= 7);
-  const hardPool = sortedNormals.filter((e) => e.tier >= 6);
+  const easyPool = sortedNormals.filter((e) => e.tier <= BALANCE.easyTierMax);
+  const midPool = sortedNormals.filter((e) => e.tier >= BALANCE.midTierMin && e.tier <= BALANCE.midTierMax);
+  const hardPool = sortedNormals.filter((e) => e.tier >= BALANCE.hardTierMin);
 
   if (shortRun) {
     // 5-round intro run: R1-R2 normal, R3 mid-boss, R4 hard, R5 big boss

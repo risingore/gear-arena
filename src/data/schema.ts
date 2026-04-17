@@ -158,6 +158,8 @@ export interface RobotData {
   readonly blueprintAssetKey: string;
   /** Asset key for the Battle scene's color side-view sprite. */
   readonly battleAssetKey: string;
+  /** Number of buff item slots at the bottom of the blueprint (0-3). */
+  readonly buffSlots: number;
 }
 
 // =============================================================================

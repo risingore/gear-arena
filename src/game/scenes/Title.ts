@@ -64,7 +64,7 @@ export class Title extends Scene {
 
     // Subtitle
     const subText = this.add
-      .text(gameWidth / 2, gameHeight * 0.40, t('Slot-based Mecha Auto-Battler'), textStyles.body)
+      .text(gameWidth / 2, gameHeight * 0.40, t('One Shot. One Kill. Build Your Ultimate.'), textStyles.body)
       .setOrigin(0.5)
       .setAlpha(0);
     this.tweens.add({ targets: subText, alpha: 0.7, duration: 600, delay: 300 });

@@ -44,6 +44,10 @@ export interface RunState {
   acquiredSkills: string[];
   /** Pending skill choices offered after boss fight (skill IDs; empty = none). */
   pendingSkillChoices: string[];
+  /** Parts removed from blueprint and stored in the basket (persist between rounds). */
+  storedParts: PartKey[];
+  /** Buff items equipped in the blueprint's buff slots (consumed on battle start). */
+  equippedBuffs: ItemKey[];
   /** Accumulated statistics for the current run. */
   runStats: RunStats;
 }
@@ -63,6 +67,8 @@ export const createInitialRunState = (): RunState => ({
   battleBuffs: [],
   acquiredSkills: [],
   pendingSkillChoices: [],
+  storedParts: [],
+  equippedBuffs: [],
   runStats: createEmptyRunStats()
 });
 

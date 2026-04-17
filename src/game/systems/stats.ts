@@ -15,6 +15,7 @@ import {
   type PartData,
   type RobotData
 } from '@/data';
+import { BALANCE } from '@/data/balance';
 
 export interface WeaponInstance {
   readonly slotId: string;
@@ -40,15 +41,20 @@ export interface LoadoutStats {
   readonly shieldCharges: number;
   /** Evasion chance (0-0.3 cap). */
   readonly evasionChance: number;
+  /** Ultimate: total strike count (1 per weapon equipped, min 1). */
+  readonly ultimateStrikes: number;
+  /** Ultimate: damage per strike (base weapon dmg + gear multiplier). */
+  readonly ultimateDamagePerStrike: number;
+  /** Ultimate: total burst damage (strikes × per-strike). */
+  readonly ultimateTotalDamage: number;
+  /** Ultimate: gauge fill speed multiplier from engines (higher = faster). */
+  readonly ultimateChargeRate: number;
+  /** Ultimate: fraction of damage healed back (0 = no lifesteal). */
+  readonly ultimateLifesteal: number;
+  /** Ultimate: if true, ignores enemy DR. */
+  readonly ultimateArmorBreak: boolean;
 }
 
-const HP_FLOOR = 1;
-const DR_PCT_CAP = 0.8;
-const EVASION_CAP = 0.3;
-/** HP ratio at which Overdrive triggers (balance knob). */
-const OVERDRIVE_HP_RATIO = 0.3;
-/** Repair Kit interval (seconds). */
-const REPAIR_INTERVAL_SEC = 5;
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.max(min, Math.min(max, value));
@@ -160,35 +166,30 @@ export const computeLoadoutStats = (
   repairMagnitude *= magnitudeMult;
   gearSynergyMagnitude *= magnitudeMult;
 
-  // Apply permanent skill bonuses.
+  // Apply permanent skill bonuses (mostly ultimate-focused).
   let skillBonusHp = 0;
-  let skillBonusDamage = 0;
-  let skillCooldownMult = 1;
-  let skillDrPct = 0;
-  let skillRepairAmount = 0;
-  let skillOverdriveBoost = 0;
+  let skillUltDamagePct = 0;
+  let skillUltExtraStrikes = 0;
+  let skillUltChargeBonus = 0;
+  let skillUltLifesteal = 0;
+  let skillUltArmorBreak = false;
   for (const skillId of acquiredSkills) {
     const skill = findSkillDef(skillId);
     if (!skill) continue;
     switch (skill.effectKind) {
       case 'bonus_hp': skillBonusHp += skill.magnitude; break;
-      case 'bonus_damage': skillBonusDamage += skill.magnitude; break;
-      case 'cooldown_mult': skillCooldownMult *= skill.magnitude; break;
-      case 'damage_reduction_pct': skillDrPct += skill.magnitude; break;
-      case 'repair': skillRepairAmount += skill.magnitude; break;
-      case 'overdrive_boost': skillOverdriveBoost += skill.magnitude; break;
+      case 'ult_damage': skillUltDamagePct += skill.magnitude; break;
+      case 'ult_strikes': skillUltExtraStrikes += skill.magnitude; break;
+      case 'ult_charge': skillUltChargeBonus += skill.magnitude; break;
+      case 'ult_lifesteal': skillUltLifesteal += skill.magnitude; break;
+      case 'ult_armor_break': skillUltArmorBreak = true; break;
     }
   }
 
   bonusHp += skillBonusHp;
-  bonusDamage += skillBonusDamage;
-  cooldownMult *= skillCooldownMult;
-  pctReduction += skillDrPct;
-  repairMagnitude += skillRepairAmount;
-  overdriveMagnitude += skillOverdriveBoost;
 
-  const maxHp = Math.max(HP_FLOOR, robot.baseHp + bonusHp - hpPenalty);
-  const damageReductionPct = clamp(pctReduction, 0, DR_PCT_CAP);
+  const maxHp = Math.max(BALANCE.hpFloor, robot.baseHp + bonusHp - hpPenalty);
+  const damageReductionPct = clamp(pctReduction, 0, BALANCE.damageReductionCap);
 
   const weapons: WeaponInstance[] = weaponParts.map(({ slotId, key, part }) => {
     const baseDmg = part.damage + bonusDamage + gearSynergyMagnitude * gearCount;
@@ -199,7 +200,7 @@ export const computeLoadoutStats = (
       partKey: key,
       name: part.name,
       damage: effectiveDamage,
-      cooldownSec: Math.max(0.2, effectiveCooldown)
+      cooldownSec: Math.max(BALANCE.minCooldownSec, effectiveCooldown)
     };
   });
 
@@ -210,9 +211,17 @@ export const computeLoadoutStats = (
       partKey: 'weapon_blade' as PartKey,
       name: 'Fist',
       damage: 1,
-      cooldownSec: Math.max(0.2, 2.0 / robot.baseAttackSpeedMultiplier)
+      cooldownSec: Math.max(BALANCE.minCooldownSec, BALANCE.fistBaseCooldown / robot.baseAttackSpeedMultiplier)
     });
   }
+
+  // Ultimate calculation: every equipped part contributes to the big hit.
+  // Weapons = strikes. Gears = damage mult. Engines = charge speed. Skills = bonuses.
+  const ultStrikes = Math.max(1, weaponCount) + skillUltExtraStrikes;
+  const gearMult = 1 + gearCount * BALANCE.gearUltimateMult;
+  const baseDmgPerStrike = weapons.reduce((sum, w) => sum + w.damage, 0) / Math.max(1, weapons.length);
+  const ultDmgPerStrike = Math.round(baseDmgPerStrike * gearMult * BALANCE.ultimateBaseMult * (1 + skillUltDamagePct));
+  const ultChargeRate = 1 + engineCount * BALANCE.engineChargeRate + skillUltChargeBonus;
 
   return {
     maxHp,
@@ -221,13 +230,19 @@ export const computeLoadoutStats = (
     weapons,
     attackSpeedMultiplier: robot.baseAttackSpeedMultiplier,
     cooldownMultiplier: cooldownMult,
-    overdriveThresholdHp: Math.floor(maxHp * OVERDRIVE_HP_RATIO),
+    overdriveThresholdHp: Math.floor(maxHp * BALANCE.overdriveTriggerRatio),
     overdriveMultiplier: overdriveMagnitude,
-    repairIntervalSec: REPAIR_INTERVAL_SEC,
+    repairIntervalSec: BALANCE.repairIntervalSec,
     repairAmount: repairMagnitude,
     equippedGearCount: gearCount,
     shieldCharges: shieldCount,
-    evasionChance: clamp(robot.baseEvasion ?? 0, 0, EVASION_CAP)
+    evasionChance: clamp(robot.baseEvasion ?? 0, 0, BALANCE.evasionCap),
+    ultimateStrikes: ultStrikes,
+    ultimateDamagePerStrike: ultDmgPerStrike,
+    ultimateTotalDamage: ultStrikes * ultDmgPerStrike,
+    ultimateChargeRate: ultChargeRate,
+    ultimateLifesteal: skillUltLifesteal,
+    ultimateArmorBreak: skillUltArmorBreak
   };
 };
 

@@ -2,6 +2,7 @@ import { Scene } from 'phaser';
 
 import gameOptions from '../helper/gameOptions';
 import { PARTS, ROBOTS, rollSkillChoices, type PartCategory, type PartKey } from '@/data';
+import { BALANCE } from '@/data/balance';
 import type { SkillDef } from '@/data/skills';
 import { getRunState, setRunState } from '../systems/runState';
 import { PALETTE } from '../systems/palette';
@@ -115,7 +116,7 @@ export class Result extends Scene {
     } else if (outcome === 'victory') {
       if (state.robotKey) recordVictory(state.robotKey);
       // Convert remaining gold to scrap.
-      const scrapEarned = Math.floor(state.gold * 0.5);
+      const scrapEarned = Math.floor(state.gold * BALANCE.scrapConversionRate);
       if (scrapEarned > 0) recordScrap(scrapEarned);
 
       const totalRounds = state.generatedRounds.length;

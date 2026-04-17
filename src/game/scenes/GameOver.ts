@@ -63,10 +63,10 @@ export class GameOver extends Scene {
     const partCount = Object.keys(equipped).length;
     const weaponCount = Object.values(equipped).filter((k) => k && String(k).startsWith('weapon_')).length;
     let hint = '';
-    if (weaponCount === 0) hint = t('Tip: You had no weapons. Buy a weapon first!');
-    else if (partCount <= 2) hint = t('Tip: Try filling more slots before fighting.');
-    else if (weaponCount === 1) hint = t('Tip: Adding a second weapon doubles your DPS.');
-    else hint = t('Tip: Try different part combinations or a different robot.');
+    if (weaponCount === 0) hint = t('Tip: Equip weapons to add strikes to your ultimate!');
+    else if (partCount <= 2) hint = t('Tip: Fill more slots to power up your ultimate.');
+    else if (weaponCount === 1) hint = t('Tip: More weapons = more ultimate strikes!');
+    else hint = t('Tip: Try different part combos to boost your ultimate damage.');
     this.add
       .text(gameWidth / 2, gameHeight * 0.59, hint, textStyles.small)
       .setOrigin(0.5)

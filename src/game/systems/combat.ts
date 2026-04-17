@@ -10,6 +10,7 @@
  */
 
 import { PARTS, type RoundData, type UltimateDef, type StatusEffectKind, type PartKey } from '@/data';
+import { BALANCE } from '@/data/balance';
 import { applyDefense, type LoadoutStats } from './stats';
 
 export interface StatusEffect {
@@ -62,6 +63,16 @@ export interface Combatant {
   weaponDisableTimer: number;
   /** If true, ultimate fires automatically when gauge is full (enemies). Player = false. */
   autoFireUltimate: boolean;
+  /** Number of strikes in the ultimate burst (from equipped weapons). */
+  ultimateStrikes: number;
+  /** Damage per ultimate strike (computed from loadout). */
+  ultimateDmgPerStrike: number;
+  /** Gauge charge rate multiplier (from engines). */
+  ultimateChargeRate: number;
+  /** Fraction of ultimate damage healed back. */
+  ultimateLifesteal: number;
+  /** If true, ultimate ignores enemy DR. */
+  ultimateArmorBreak: boolean;
   /** Active status effects on this combatant. */
   statusEffects: StatusEffect[];
   /** Evasion chance (0-0.3). */
@@ -97,6 +108,7 @@ export const createPlayerCombatant = (
   hp: stats.maxHp,
   damageReductionFlat: stats.damageReductionFlat,
   damageReductionPct: stats.damageReductionPct,
+  // Player has no auto-attacks. Weapons data is used for ultimate calculation only.
   weapons: stats.weapons.map((w) => ({
     label: w.name,
     damage: w.damage,
@@ -121,7 +133,12 @@ export const createPlayerCombatant = (
   statusEffects: [],
   evasionChance: stats.evasionChance,
   comboCount: 0,
-  autoFireUltimate: false
+  autoFireUltimate: false,
+  ultimateStrikes: stats.ultimateStrikes,
+  ultimateDmgPerStrike: stats.ultimateDamagePerStrike,
+  ultimateChargeRate: stats.ultimateChargeRate,
+  ultimateLifesteal: stats.ultimateLifesteal,
+  ultimateArmorBreak: stats.ultimateArmorBreak
 });
 
 export const createEnemyCombatant = (
@@ -158,13 +175,14 @@ export const createEnemyCombatant = (
   statusEffects: [],
   evasionChance: 0,
   comboCount: 0,
-  autoFireUltimate: true
+  autoFireUltimate: true,
+  ultimateStrikes: 1,
+  ultimateDmgPerStrike: 0,
+  ultimateChargeRate: 1,
+  ultimateLifesteal: 0,
+  ultimateArmorBreak: false
 });
 
-/** Maximum combo damage bonus (20%). */
-const COMBO_BONUS_CAP = 0.2;
-/** Damage increase per combo hit (1%). */
-const COMBO_BONUS_PER_HIT = 0.01;
 
 /** Roll for and apply a weapon's status effect on the defender. */
 const tryApplyStatusEffect = (weapon: CombatWeapon, defender: Combatant): void => {
@@ -206,15 +224,15 @@ const dealDamage = (
     return false;
   }
   // Combo bonus.
-  const comboBonus = 1 + Math.min(attacker.comboCount * COMBO_BONUS_PER_HIT, COMBO_BONUS_CAP);
+  const comboBonus = 1 + Math.min(attacker.comboCount * BALANCE.comboBonusPerHit, BALANCE.comboBonusCap);
   const raw = Math.round(weapon.damage * damageMultiplier * comboBonus);
   // Freeze speed reduction is handled in tick; here we only compute damage.
   const effectiveDr = defender.damageReductionPct + defender.tempDrBoost;
-  const finalDamage = applyDefense(raw, defender.damageReductionFlat, Math.min(effectiveDr, 0.9));
+  const finalDamage = applyDefense(raw, defender.damageReductionFlat, Math.min(effectiveDr, BALANCE.damageReductionCapInFormula));
   defender.hp = Math.max(0, defender.hp - finalDamage);
   // Fill defender's ultimate gauge based on damage taken.
   if (defender.ultimate && !defender.ultimateUsed) {
-    defender.ultimateGauge += finalDamage / defender.maxHp;
+    defender.ultimateGauge += (finalDamage / defender.maxHp) * defender.ultimateChargeRate;
   }
   attacker.comboCount += 1;
   // Roll for status effect.
@@ -231,9 +249,45 @@ export const fireUltimate = (
   attacks: AttackEvent[]
 ): void => {
   const ult = attacker.ultimate!;
-  attacker.ultimateUsed = true;
+  attacker.ultimateUsed = false; // Can fire again once gauge refills
   attacker.ultimateGauge = 0;
 
+  // Player ultimate: burst of strikes computed from equipped parts.
+  if (!attacker.autoFireUltimate && attacker.ultimateStrikes > 0 && attacker.ultimateDmgPerStrike > 0) {
+    // Temporarily remove defender DR if armor break is active.
+    const savedDr = defender.damageReductionPct;
+    const savedFlat = defender.damageReductionFlat;
+    if (attacker.ultimateArmorBreak) {
+      defender.damageReductionPct = 0;
+      defender.damageReductionFlat = 0;
+    }
+    let totalDealt = 0;
+    for (let i = 0; i < attacker.ultimateStrikes; i += 1) {
+      const strikeWeapon: CombatWeapon = {
+        label: i < attacker.weapons.length ? attacker.weapons[i]!.label : ult.name,
+        damage: attacker.ultimateDmgPerStrike,
+        cooldownSec: 999,
+        timer: 999
+      };
+      const hpBefore = defender.hp;
+      dealDamage(attacker, defender, strikeWeapon, attacks);
+      totalDealt += hpBefore - defender.hp;
+      if (defender.hp <= 0) break;
+    }
+    // Restore defender DR.
+    if (attacker.ultimateArmorBreak) {
+      defender.damageReductionPct = savedDr;
+      defender.damageReductionFlat = savedFlat;
+    }
+    // Lifesteal: heal attacker based on damage dealt.
+    if (attacker.ultimateLifesteal > 0 && totalDealt > 0) {
+      const heal = Math.floor(totalDealt * attacker.ultimateLifesteal);
+      attacker.hp = Math.min(attacker.maxHp, attacker.hp + heal);
+    }
+    return;
+  }
+
+  // Enemy ultimates: use the effect-based system.
   switch (ult.effect.kind) {
     case 'multi_strike':
       for (const w of attacker.weapons) {
@@ -352,15 +406,19 @@ export const tickCombatant = (
     }
   }
 
+  // Player has no normal attacks — only the ultimate.
+  // Enemies auto-attack normally.
   let attackedThisTick = false;
-  for (let i = 0; i < attacker.weapons.length; i += 1) {
-    const w = attacker.weapons[i]!;
-    w.timer -= effectiveDt;
-    while (w.timer <= 0) {
-      attackedThisTick = true;
-      const killed = dealDamage(attacker, defender, w, attacks);
-      w.timer += w.cooldownSec;
-      if (killed) return { attacks, healed, overdriveTriggered, ultimateFired };
+  if (attacker.autoFireUltimate) {
+    for (let i = 0; i < attacker.weapons.length; i += 1) {
+      const w = attacker.weapons[i]!;
+      w.timer -= effectiveDt;
+      while (w.timer <= 0) {
+        attackedThisTick = true;
+        const killed = dealDamage(attacker, defender, w, attacks);
+        w.timer += w.cooldownSec;
+        if (killed) return { attacks, healed, overdriveTriggered, ultimateFired };
+      }
     }
   }
   // Reset combo if no attack fired this tick.

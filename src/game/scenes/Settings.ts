@@ -1,6 +1,7 @@
 import { Scene } from 'phaser';
 
 import gameOptions from '../helper/gameOptions';
+import { createButton, createPanel, createDivider } from '../helper/uiFactory';
 import { PALETTE } from '../systems/palette';
 import { playSfx } from '../systems/audio';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
@@ -9,6 +10,7 @@ import { setLocale, getLocale, type Locale } from '../systems/i18n';
 import { loadSettings, updateSetting } from '../systems/settings';
 import { resetAllData } from '../systems/savedata';
 import { applyHiDpiToScene, showDebugBadge } from '../helper/hiDpiText';
+import { runVisualChecks } from '../systems/visualDebugger';
 import { isDebugEnabled, toggleDebug } from '../systems/debug';
 import { setMusicMuted } from '../systems/music';
 import { setSfxMuted } from '../systems/audio';
@@ -26,6 +28,9 @@ export class Settings extends Scene {
     const { gameWidth, gameHeight, textStyles } = gameOptions;
     this.cameras.main.setBackgroundColor(PALETTE.bg);
     fadeInCurrent(this);
+
+    // Page background panel
+    createPanel(this, gameWidth / 2, gameHeight / 2, 600, gameHeight - 60, { fillAlpha: 0.4, depth: 0 });
 
     this.add
       .text(gameWidth / 2, 40, t('SETTINGS'), textStyles.title)
@@ -100,9 +105,7 @@ export class Settings extends Scene {
 
     // --- Separator ---
     y += 10;
-    this.add
-      .rectangle(gameWidth / 2, y, 500, 2, PALETTE.cardStroke, 0.5)
-      .setOrigin(0.5);
+    createDivider(this, gameWidth / 2, y, 500);
     y += 20;
 
     // --- Debug Mode ---
@@ -114,59 +117,44 @@ export class Settings extends Scene {
 
     // --- Separator ---
     y += 10;
-    this.add
-      .rectangle(gameWidth / 2, y, 500, 2, PALETTE.danger, 0.5)
-      .setOrigin(0.5);
+    createDivider(this, gameWidth / 2, y, 500);
     y += 24;
 
     // --- Reset All Data ---
-    const resetLabel = this.add
-      .text(gameWidth / 2, y, t('RESET ALL DATA'), textStyles.body)
-      .setOrigin(0.5)
-      .setColor('#ff4444')
-      .setInteractive({ useHandCursor: true });
-    resetLabel.on('pointerover', () => resetLabel.setScale(1.05));
-    resetLabel.on('pointerout', () => resetLabel.setScale(1));
-
     let confirmPending = false;
-    resetLabel.on('pointerdown', () => {
+    const resetBtn = createButton(this, gameWidth / 2, y, 280, 44, t('RESET ALL DATA'), () => {
       if (!confirmPending) {
         confirmPending = true;
-        resetLabel.setText(t('Click again to confirm'));
-        resetLabel.setColor('#ff8800');
+        resetBtn.text.setText(t('Click again to confirm'));
+        resetBtn.text.setColor('#ff8800');
         playSfx('click');
-        // Auto-cancel after 3 seconds.
         this.time.delayedCall(3000, () => {
           confirmPending = false;
-          resetLabel.setText(t('RESET ALL DATA'));
-          resetLabel.setColor('#ff4444');
+          resetBtn.text.setText(t('RESET ALL DATA'));
+          resetBtn.text.setColor('#ff4444');
         });
       } else {
         resetAllData();
         playSfx('lose');
-        resetLabel.setText(t('Data reset. Reloading...'));
-        resetLabel.setColor('#ffffff');
+        resetBtn.text.setText(t('Data reset. Reloading...'));
+        resetBtn.text.setColor('#ffffff');
         this.time.delayedCall(1000, () => {
           window.location.reload();
         });
       }
-    });
+    }, { variant: 'danger' });
 
     // --- Back to Title ---
-    const backBtn = this.add
-      .text(80, gameHeight - 28, t('← BACK'), textStyles.body)
-      .setOrigin(0.5)
-      .setAlpha(0.7)
-      .setInteractive({ useHandCursor: true });
-    backBtn.on('pointerdown', () => { playSfx('click'); fadeToScene(this, 'Title'); });
-    backBtn.on('pointerover', () => { backBtn.setAlpha(1); backBtn.setScale(1.05); });
-    backBtn.on('pointerout', () => { backBtn.setAlpha(0.7); backBtn.setScale(1); });
+    createButton(this, 80, gameHeight - 28, 120, 36, t('BACK'), () => {
+      playSfx('click'); fadeToScene(this, 'Title');
+    });
 
     this.input.keyboard?.on('keydown-ESC', () => fadeToScene(this, 'Title'));
     this.input.keyboard?.on('keydown-R', () => fadeToScene(this, 'Title'));
 
     applyHiDpiToScene(this);
     showDebugBadge(this, isDebugEnabled());
+    runVisualChecks(this);
   }
 
   private drawRow(
@@ -180,22 +168,11 @@ export class Settings extends Scene {
       .text(LABEL_X, y, label, textStyles.body)
       .setOrigin(0, 0.5);
 
-    const valueBg = this.add
-      .rectangle(VALUE_X, y, 160, 36, PALETTE.buttonBg, 1)
-      .setStrokeStyle(2, PALETTE.cardStroke)
-      .setInteractive({ useHandCursor: true });
-
-    const valueText = this.add
-      .text(VALUE_X, y, initialValue, textStyles.body)
-      .setOrigin(0.5);
-
-    valueBg.on('pointerdown', () => {
+    const btn = createButton(this, VALUE_X, y, 160, 36, initialValue, () => {
       const next = onCycle();
-      valueText.setText(next);
+      btn.text.setText(next);
       playSfx('click');
     });
-    valueBg.on('pointerover', () => valueBg.setFillStyle(PALETTE.buttonBgHover, 1));
-    valueBg.on('pointerout', () => valueBg.setFillStyle(PALETTE.buttonBg, 1));
   }
 
   private cycleVolume(current: number): number {

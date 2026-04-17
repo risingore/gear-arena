@@ -1,6 +1,7 @@
 import { Scene } from 'phaser';
 
 import gameOptions from '../helper/gameOptions';
+import { createButton, createPanel } from '../helper/uiFactory';
 import { getRunState } from '../systems/runState';
 import { PALETTE } from '../systems/palette';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
@@ -8,6 +9,7 @@ import { playSfx } from '../systems/audio';
 import { recordScrap } from '../systems/savedata';
 import { t } from '../systems/i18n';
 import { applyHiDpiToScene, showDebugBadge } from '../helper/hiDpiText';
+import { runVisualChecks } from '../systems/visualDebugger';
 import { isDebugEnabled } from '../systems/debug';
 
 export class GameOver extends Scene {
@@ -67,29 +69,23 @@ export class GameOver extends Scene {
     else if (partCount <= 2) hint = t('Tip: Fill more slots to power up your ultimate.');
     else if (weaponCount === 1) hint = t('Tip: More weapons = more ultimate strikes!');
     else hint = t('Tip: Try different part combos to boost your ultimate damage.');
+    createPanel(this, gameWidth / 2, gameHeight * 0.59, 520, 36, { fillAlpha: 0.5, depth: 0 });
     this.add
       .text(gameWidth / 2, gameHeight * 0.59, hint, textStyles.small)
       .setOrigin(0.5)
       .setAlpha(0.7);
-
-    const restartBtn = this.add
-      .text(gameWidth / 2, gameHeight * 0.69, t('▶  RETURN TO TITLE'), textStyles.body)
-      .setOrigin(0.5)
-      .setAlpha(0.8)
-      .setInteractive({ useHandCursor: true });
 
     const restart = (): void => {
       playSfx('click');
       fadeToScene(this, 'Title');
     };
 
-    restartBtn.on('pointerover', () => { restartBtn.setAlpha(1); restartBtn.setScale(1.08); });
-    restartBtn.on('pointerout', () => { restartBtn.setAlpha(0.8); restartBtn.setScale(1); });
-    restartBtn.on('pointerdown', restart);
+    createButton(this, gameWidth / 2, gameHeight * 0.69, 280, 48, t('RETURN TO TITLE'), restart);
     this.input.keyboard?.once('keydown-SPACE', restart);
     this.input.keyboard?.once('keydown-R', restart);
 
     applyHiDpiToScene(this);
     showDebugBadge(this, isDebugEnabled());
+    runVisualChecks(this);
   }
 }

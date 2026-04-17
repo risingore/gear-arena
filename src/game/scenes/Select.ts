@@ -2,6 +2,7 @@ import { Scene } from 'phaser';
 import type { GameObjects } from 'phaser';
 
 import gameOptions from '../helper/gameOptions';
+import { createButton, createPanel } from '../helper/uiFactory';
 import { ROBOTS, ALL_ROBOT_KEYS, ROBOT_ULTIMATES, type RobotKey } from '@/data';
 import { getRunState, setRunState, resetRunState } from '../systems/runState';
 import { PALETTE, ROBOT_COLORS } from '../systems/palette';
@@ -12,19 +13,13 @@ import { playSfx } from '../systems/audio';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { t } from '../systems/i18n';
 import { applyHiDpiToScene, showDebugBadge } from '../helper/hiDpiText';
+import { runVisualChecks } from '../systems/visualDebugger';
 import { isDebugEnabled } from '../systems/debug';
-import { CATEGORY_COLORS } from '../systems/palette';
-
-const CARD_WIDTH = 200;
-const CARD_HEIGHT = 360;
-const CARD_GAP = 40;
-const CARD_STROKE = 3;
 
 export class Select extends Scene {
   private selectedIndex = 0;
-  private cards: GameObjects.Rectangle[] = [];
-  private detailText!: GameObjects.Text;
   private readonly keys = ALL_ROBOT_KEYS;
+  private contentGroup: GameObjects.GameObject[] = [];
 
   constructor() {
     super('Select');
@@ -34,163 +29,229 @@ export class Select extends Scene {
     const { gameWidth, gameHeight, textStyles } = gameOptions;
     this.cameras.main.setBackgroundColor(PALETTE.bg);
     fadeInCurrent(this);
+    this.contentGroup = [];
 
-    this.add
-      .text(gameWidth / 2, 48, t('SELECT YOUR MACHINE'), textStyles.title)
-      .setOrigin(0.5);
-
-    this.add
-      .text(gameWidth / 2, 100, t('Click a machine to deploy'), textStyles.small)
+    // Left arrow
+    const arrowL = this.add
+      .text(40, gameHeight / 2, '◀', { ...textStyles.title, fontSize: '48px' })
       .setOrigin(0.5)
-      .setAlpha(0.5);
+      .setAlpha(0.5)
+      .setInteractive({ useHandCursor: true });
+    arrowL.on('pointerdown', () => this.navigate(-1));
+    arrowL.on('pointerover', () => { arrowL.setAlpha(1); arrowL.setScale(1.2); });
+    arrowL.on('pointerout', () => { arrowL.setAlpha(0.5); arrowL.setScale(1); });
 
-    const totalWidth = this.keys.length * CARD_WIDTH + (this.keys.length - 1) * CARD_GAP;
-    const startX = gameWidth / 2 - totalWidth / 2 + CARD_WIDTH / 2;
-    const cardY = gameHeight / 2 - 20;
-
-    this.keys.forEach((key, i) => {
-      const robot = ROBOTS[key];
-      const x = startX + i * (CARD_WIDTH + CARD_GAP);
-
-      const card = this.add
-        .rectangle(x, cardY, CARD_WIDTH, CARD_HEIGHT, PALETTE.cardBg, 1)
-        .setStrokeStyle(CARD_STROKE, PALETTE.cardStroke);
-      card.setInteractive({ useHandCursor: true });
-      card.on('pointerdown', () => {
-        if (this.selectedIndex === i) {
-          // Second click on same card confirms immediately.
-          this.confirm();
-        } else {
-          this.selectedIndex = i;
-          playSfx('click');
-          this.refresh();
-        }
-      });
-      card.on('pointerover', () => {
-        if (this.selectedIndex !== i) {
-          this.selectedIndex = i;
-          this.refresh();
-        }
-      });
-      this.cards.push(card);
-
-      // Robot preview: blueprint slot layout (shows slot positions in miniature)
-      // or archetype-colored silhouette as fallback.
-      const previewCx = x;
-      const previewCy = cardY - 40;
-      const previewW = CARD_WIDTH * 0.45;
-      const previewH = CARD_HEIGHT * 0.45;
-
-      if (isDebugEnabled() || true) {
-        // Mini blueprint: dark bg + slot circles scaled to fit the preview area
-        this.add
-          .rectangle(previewCx, previewCy, previewW, previewH, PALETTE.blueprintBg, 1)
-          .setStrokeStyle(2, PALETTE.blueprintLine);
-        const virtualW = 192;
-        const virtualH = 220;
-        const scale = Math.min(previewW * 0.85 / virtualW, previewH * 0.85 / virtualH);
-        const ox = previewCx - (virtualW * scale) / 2;
-        const oy = previewCy - (virtualH * scale) / 2;
-        const miniRadius = Math.max(4, Math.round(8 * scale));
-        for (const slot of robot.slots) {
-          const sx = ox + slot.x * scale;
-          const sy = oy + slot.y * scale;
-          this.add
-            .circle(sx, sy, miniRadius, CATEGORY_COLORS[slot.accepts], 1)
-            .setStrokeStyle(1, PALETTE.blueprintLine);
-        }
-      } else {
-        const silhouetteColor = ROBOT_COLORS[robot.archetype];
-        this.add
-          .rectangle(previewCx, previewCy, previewW, previewH, silhouetteColor, 1)
-          .setStrokeStyle(2, PALETTE.textPrimary);
-      }
-
-      this.add
-        .text(x, cardY + 80, t(robot.name), textStyles.body)
-        .setOrigin(0.5)
-        .setColor('#ffffff');
-
-      this.add
-        .text(x, cardY + 108, robot.archetype.toUpperCase(), textStyles.small)
-        .setOrigin(0.5);
-
-      this.add
-        .text(x, cardY + 132, `HP ${robot.baseHp}  |  Slots ${robot.slots.length}`, textStyles.small)
-        .setOrigin(0.5);
-
-      // Ultimate ability name
-      const ult = ROBOT_ULTIMATES[key];
-      if (ult) {
-        this.add
-          .text(x, cardY + 152, `ULT: ${ult.name}`, textStyles.small)
-          .setOrigin(0.5)
-          .setColor('#ffd94a')
-          .setAlpha(0.7);
-      }
-
-      // Lock overlay for unearned robots
-      if (!isRobotUnlocked(key)) {
-        this.add.rectangle(x, cardY, CARD_WIDTH, CARD_HEIGHT, 0x000000, 0.7);
-        this.add
-          .text(x, cardY, 'LOCKED', textStyles.body)
-          .setOrigin(0.5)
-          .setColor('#ff4444');
-      }
-    });
-
-    this.detailText = this.add
-      .text(gameWidth / 2, gameHeight - 64, '', textStyles.small)
+    // Right arrow
+    const arrowR = this.add
+      .text(gameWidth - 40, gameHeight / 2, '▶', { ...textStyles.title, fontSize: '48px' })
       .setOrigin(0.5)
-      .setAlpha(0.8);
+      .setAlpha(0.5)
+      .setInteractive({ useHandCursor: true });
+    arrowR.on('pointerdown', () => this.navigate(1));
+    arrowR.on('pointerover', () => { arrowR.setAlpha(1); arrowR.setScale(1.2); });
+    arrowR.on('pointerout', () => { arrowR.setAlpha(0.5); arrowR.setScale(1); });
 
-    this.refresh();
+    // Back button (bottom-left)
+    createButton(this, 80, gameHeight - 28, 120, 36, t('BACK'), () => {
+      playSfx('click'); fadeToScene(this, 'Title');
+    });
 
-    this.input.keyboard?.on('keydown-LEFT', () => {
-      this.selectedIndex = (this.selectedIndex - 1 + this.keys.length) % this.keys.length;
-      playSfx('click');
-      this.refresh();
-    });
-    this.input.keyboard?.on('keydown-RIGHT', () => {
-      this.selectedIndex = (this.selectedIndex + 1) % this.keys.length;
-      playSfx('click');
-      this.refresh();
-    });
+    // Keyboard
+    this.input.keyboard?.on('keydown-LEFT', () => this.navigate(-1));
+    this.input.keyboard?.on('keydown-RIGHT', () => this.navigate(1));
     this.input.keyboard?.on('keydown-ENTER', () => this.confirm());
     this.input.keyboard?.on('keydown-SPACE', () => this.confirm());
     this.input.keyboard?.on('keydown-R', () => fadeToScene(this, 'Title'));
 
-    // BACK button
-    const backText = this.add
-      .text(80, gameHeight - 28, t('← BACK'), textStyles.body)
-      .setOrigin(0.5)
-      .setAlpha(0.7)
-      .setInteractive({ useHandCursor: true });
-    backText.on('pointerover', () => { backText.setAlpha(1); backText.setScale(1.05); });
-    backText.on('pointerout', () => { backText.setAlpha(0.7); backText.setScale(1); });
-    backText.on('pointerdown', () => { playSfx('click'); fadeToScene(this, 'Title'); });
-
+    this.drawCharacter();
     applyHiDpiToScene(this);
     showDebugBadge(this, isDebugEnabled());
+    runVisualChecks(this);
   }
 
-  private refresh(): void {
-    this.cards.forEach((card, i) => {
-      card.setStrokeStyle(
-        CARD_STROKE,
-        i === this.selectedIndex ? PALETTE.cardStrokeSelected : PALETTE.cardStroke
+  private navigate(dir: number): void {
+    this.selectedIndex = (this.selectedIndex + dir + this.keys.length) % this.keys.length;
+    playSfx('click');
+    this.drawCharacter();
+  }
+
+  private drawCharacter(): void {
+    // Clear previous
+    for (const obj of this.contentGroup) obj.destroy();
+    this.contentGroup = [];
+
+    const { gameWidth, gameHeight, textStyles } = gameOptions;
+    const key = this.keys[this.selectedIndex]!;
+    const robot = ROBOTS[key];
+    const ult = ROBOT_ULTIMATES[key];
+    const locked = !isRobotUnlocked(key);
+    const color = ROBOT_COLORS[robot.archetype];
+
+    // --- Background color wash (character theme color) ---
+    const bgWash = this.add
+      .rectangle(gameWidth * 0.65, gameHeight / 2, gameWidth * 0.7, gameHeight, color, 0.08);
+    this.contentGroup.push(bgWash);
+
+    // --- Character portrait (right side, large) ---
+    const portraitX = gameWidth * 0.72;
+    const portraitY = gameHeight * 0.48;
+    const battleKey = robot.battleAssetKey;
+
+    if (this.textures.exists(battleKey)) {
+      const img = this.add.image(portraitX, portraitY, battleKey)
+        .setScale(1.2)
+        .setAlpha(locked ? 0.3 : 0.9);
+      this.contentGroup.push(img);
+    } else {
+      // Placeholder silhouette
+      const sil = this.add
+        .rectangle(portraitX, portraitY, 320, 440, color, locked ? 0.15 : 0.3)
+        .setStrokeStyle(3, color);
+      this.contentGroup.push(sil);
+    }
+
+    // --- Info panel (left side) ---
+    const infoX = 120;
+    const infoPanelBg = createPanel(this, infoX + 200, gameHeight / 2 - 20, 440, 400, { fillAlpha: 0.5, depth: 0 });
+    this.contentGroup.push(infoPanelBg);
+
+    // Character selector icons (bottom center)
+    const iconSize = 56;
+    const iconGap = 16;
+    const totalIconW = this.keys.length * iconSize + (this.keys.length - 1) * iconGap;
+    const iconStartX = gameWidth / 2 - totalIconW / 2 + iconSize / 2;
+    const iconY = gameHeight - 50;
+
+    for (let i = 0; i < this.keys.length; i++) {
+      const k = this.keys[i]!;
+      const r = ROBOTS[k];
+      const c = ROBOT_COLORS[r.archetype];
+      const isCurrent = i === this.selectedIndex;
+      const isUnlocked = isRobotUnlocked(k);
+      const ix = iconStartX + i * (iconSize + iconGap);
+
+      // Icon background
+      const iconBg = createPanel(this, ix, iconY, iconSize, iconSize, {
+        fillColor: isCurrent ? c : 0x1a1a28,
+        borderColor: isCurrent ? 0xffffff : 0x444455,
+        borderWidth: isCurrent ? 3 : 2,
+        depth: 2
+      });
+      iconBg.setInteractive({ useHandCursor: true });
+      this.contentGroup.push(iconBg);
+
+      // Face placeholder (first letter of name)
+      const iconLabel = this.add
+        .text(ix, iconY, isUnlocked ? r.name.charAt(0) : '?', {
+          ...textStyles.body,
+          fontSize: isCurrent ? '28px' : '22px',
+          fontStyle: 'bold'
+        })
+        .setOrigin(0.5)
+        .setColor(isCurrent ? '#0a0a10' : (isUnlocked ? '#888899' : '#333344'));
+      this.contentGroup.push(iconLabel);
+
+      // Click to switch
+      iconBg.on('pointerdown', () => {
+        if (this.selectedIndex !== i) {
+          this.selectedIndex = i;
+          playSfx('click');
+          this.drawCharacter();
+        } else {
+          this.confirm();
+        }
+      });
+      iconBg.on('pointerover', () => {
+        if (!isCurrent) iconBg.setStrokeStyle(2, 0xaaaaaa);
+      });
+      iconBg.on('pointerout', () => {
+        if (!isCurrent) iconBg.setStrokeStyle(2, 0x444455);
+      });
+    }
+
+    // Name (large)
+    const nameText = this.add
+      .text(infoX, 120, t(robot.name), { ...textStyles.title, fontSize: '56px' })
+      .setOrigin(0, 0)
+      .setColor(locked ? '#555555' : '#ffffff');
+    this.contentGroup.push(nameText);
+
+    // Archetype badge
+    const archText = this.add
+      .text(infoX, 185, robot.archetype.toUpperCase(), textStyles.body)
+      .setOrigin(0, 0)
+      .setAlpha(0.6);
+    this.contentGroup.push(archText);
+
+    // Accent line under name
+    const line = this.add
+      .rectangle(infoX + 120, 210, 240, 3, color, 0.8)
+      .setOrigin(0.5, 0);
+    this.contentGroup.push(line);
+
+    // Description
+    const descText = this.add
+      .text(infoX, 230, t(robot.description), { ...textStyles.body, wordWrap: { width: 450 } })
+      .setOrigin(0, 0)
+      .setAlpha(0.85);
+    this.contentGroup.push(descText);
+
+    // Passive
+    const passiveText = this.add
+      .text(infoX, 290, t(robot.passiveText), textStyles.small)
+      .setOrigin(0, 0)
+      .setAlpha(0.6);
+    this.contentGroup.push(passiveText);
+
+    // Stats
+    const statsY = 340;
+    const statsLines = [
+      `HP  ${robot.baseHp}`,
+      `Slots  ${robot.slots.length}`,
+      `Buff Slots  ${robot.buffSlots}`,
+    ];
+    const statsText = this.add
+      .text(infoX, statsY, statsLines.join('    '), textStyles.body)
+      .setOrigin(0, 0)
+      .setAlpha(0.7);
+    this.contentGroup.push(statsText);
+
+    // Ultimate name
+    if (ult) {
+      const ultText = this.add
+        .text(infoX, statsY + 40, `ULT: ${ult.name}`, textStyles.body)
+        .setOrigin(0, 0)
+        .setColor('#ffd94a');
+      this.contentGroup.push(ultText);
+    }
+
+    // --- EMBARK button or LOCKED ---
+    if (locked) {
+      const lockText = this.add
+        .text(infoX, gameHeight - 120, 'LOCKED', { ...textStyles.title, fontSize: '40px' })
+        .setOrigin(0, 0.5)
+        .setColor('#ff4444')
+        .setAlpha(0.8);
+      this.contentGroup.push(lockText);
+
+      const lockHint = this.add
+        .text(infoX, gameHeight - 80, t('Clear the previous character to unlock'), textStyles.small)
+        .setOrigin(0, 0.5)
+        .setAlpha(0.4);
+      this.contentGroup.push(lockHint);
+    } else {
+      const embark = createButton(this, infoX + 120, gameHeight - 100, 280, 56,
+        t('EMBARK'), () => this.confirm(),
+        { variant: 'accent', accentColor: color }
       );
-      card.setFillStyle(i === this.selectedIndex ? PALETTE.cardBgHover : PALETTE.cardBg);
-    });
-    const robot = ROBOTS[this.keys[this.selectedIndex]!];
-    this.detailText.setText(`${t(robot.name)}  —  ${t(robot.description)}\n${t(robot.passiveText)}`);
+      this.contentGroup.push(embark.bg);
+      this.contentGroup.push(embark.text);
+    }
+
+    applyHiDpiToScene(this);
   }
 
   private confirm(): void {
-    this.startRun();
-  }
-
-  private startRun(seed?: number): void {
     const robotKey: RobotKey = this.keys[this.selectedIndex]!;
     if (!isRobotUnlocked(robotKey)) {
       playSfx('click');
@@ -198,10 +259,9 @@ export class Select extends Scene {
     }
     playSfx('buy');
     const fresh = resetRunState(this);
-    // KNIGHT first clear = short 5-round intro. All others = full 10 rounds.
     const save = loadSaveData();
     const isKnightFirstRun = robotKey === 'robot_knight' && (save.perRobotClears[robotKey] ?? 0) === 0;
-    const generatedRounds = generateRunEnemies(isSuperBossUnlocked(), seed, isKnightFirstRun);
+    const generatedRounds = generateRunEnemies(isSuperBossUnlocked(), undefined, isKnightFirstRun);
     const debugGold = isDebugEnabled() ? 100000 : fresh.gold;
     const next = { ...fresh, robotKey, gold: debugGold, shopOffer: generateShopOffer(), generatedRounds };
     setRunState(this, next);

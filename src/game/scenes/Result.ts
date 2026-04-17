@@ -1,6 +1,7 @@
 import { Scene } from 'phaser';
 
 import gameOptions from '../helper/gameOptions';
+import { createButton, createPanel } from '../helper/uiFactory';
 import { PARTS, ROBOTS, rollSkillChoices, type PartCategory, type PartKey } from '@/data';
 import { BALANCE } from '@/data/balance';
 import type { SkillDef } from '@/data/skills';
@@ -14,6 +15,7 @@ import { recordVictory, recordDefeatedEnemy, recordUsedPart, recordAcquiredSkill
 import { t } from '../systems/i18n';
 import { playMusic, MUSIC_KEYS } from '../systems/music';
 import { applyHiDpiToScene, showDebugBadge } from '../helper/hiDpiText';
+import { runVisualChecks } from '../systems/visualDebugger';
 import { isDebugEnabled } from '../systems/debug';
 
 export class Result extends Scene {
@@ -75,6 +77,7 @@ export class Result extends Scene {
       // Gold count-up animation
       const goldEarned = advanced.gold - state.gold;
       const goldCounter = { value: state.gold };
+      createPanel(this, gameWidth / 2, gameHeight * 0.55, 300, 80, { fillAlpha: 0.5, depth: 0 });
       const goldText = this.add
         .text(gameWidth / 2, gameHeight * 0.52, `${state.gold}g`, { ...textStyles.title, fontSize: '48px' })
         .setOrigin(0.5)
@@ -157,20 +160,20 @@ export class Result extends Scene {
           .setAlpha(0.85);
       }
 
-      this.makeClickButton(gameWidth / 2, gameHeight * 0.78, t('▶  RETURN TO TITLE'), () => {
+      createButton(this, gameWidth / 2, gameHeight * 0.78, 280, 48, t('RETURN TO TITLE'), () => {
         playSfx('click');
         fadeToScene(this, 'Title');
       });
       this.input.keyboard?.once('keydown-SPACE', () => fadeToScene(this, 'Title'));
     } else if (outcome === 'lose') {
-      this.makeClickButton(gameWidth / 2, gameHeight * 0.70, t('▶  CONTINUE'), () => {
+      createButton(this, gameWidth / 2, gameHeight * 0.70, 240, 48, t('CONTINUE'), () => {
         playSfx('click');
         fadeToScene(this, 'GameOver');
       });
       this.input.keyboard?.once('keydown-SPACE', () => fadeToScene(this, 'GameOver'));
       this.time.delayedCall(2500, () => fadeToScene(this, 'GameOver'));
     } else {
-      this.makeClickButton(gameWidth / 2, gameHeight * 0.70, t('▶  RETURN TO TITLE'), () => {
+      createButton(this, gameWidth / 2, gameHeight * 0.70, 280, 48, t('RETURN TO TITLE'), () => {
         playSfx('click');
         fadeToScene(this, 'Title');
       });
@@ -179,6 +182,7 @@ export class Result extends Scene {
 
     applyHiDpiToScene(this);
     showDebugBadge(this, isDebugEnabled());
+    runVisualChecks(this);
   }
 
   private showAcquiredLabel(skillName: string): void {
@@ -191,14 +195,14 @@ export class Result extends Scene {
 
   private showContinueButtons(): void {
     const { gameWidth, gameHeight } = gameOptions;
-    this.makeClickButton(gameWidth / 2, gameHeight * 0.70, t('▶  NEXT ROUND'), () => {
+    createButton(this, gameWidth / 2, gameHeight * 0.70, 260, 48, t('NEXT ROUND'), () => {
       playSfx('click');
       fadeToScene(this, 'Build');
-    });
-    this.makeClickButton(gameWidth / 2, gameHeight * 0.78, t('QUIT TO TITLE'), () => {
+    }, { variant: 'accent', accentColor: 0x3aff7a });
+    createButton(this, gameWidth / 2, gameHeight * 0.78, 240, 44, t('QUIT TO TITLE'), () => {
       playSfx('click');
       fadeToScene(this, 'Title');
-    }, 0.5);
+    });
     this.input.keyboard?.once('keydown-SPACE', () => { playSfx('click'); fadeToScene(this, 'Build'); });
     applyHiDpiToScene(this);
   }
@@ -220,10 +224,11 @@ export class Result extends Scene {
 
     choices.forEach((skill, i) => {
       const x = startX + i * (cardW + gap);
-      const bg = this.add
-        .rectangle(x, cardY, cardW, cardH, PALETTE.cardBg, 1)
-        .setStrokeStyle(2, PALETTE.cardStroke)
-        .setInteractive({ useHandCursor: true });
+      const bg = createPanel(this, x, cardY, cardW, cardH, {
+        fillColor: PALETTE.cardBg,
+        borderColor: PALETTE.cardStroke
+      });
+      bg.setInteractive({ useHandCursor: true });
 
       this.add.text(x, cardY - 28, t(skill.name), textStyles.body).setOrigin(0.5).setColor('#ffd94a');
       this.add.text(x, cardY + 8, t(skill.description), textStyles.small).setOrigin(0.5);
@@ -247,23 +252,6 @@ export class Result extends Scene {
     showDebugBadge(this, isDebugEnabled());
   }
 
-  private makeClickButton(
-    x: number,
-    y: number,
-    label: string,
-    onClick: () => void,
-    baseAlpha = 0.8
-  ): void {
-    const btn = this.add
-      .text(x, y, label, gameOptions.textStyles.body)
-      .setOrigin(0.5)
-      .setAlpha(baseAlpha)
-      .setInteractive({ useHandCursor: true });
-    btn.on('pointerover', () => { btn.setAlpha(1); btn.setScale(1.08); });
-    btn.on('pointerout', () => { btn.setAlpha(baseAlpha); btn.setScale(1); });
-    btn.on('pointerdown', onClick);
-  }
-
   /**
    * Reinforce the "Machines" theme on the victory screen by describing the
    * assembled loadout: "Your KNIGHT-01 contained 2 weapons, 3 gears, 1 engine".
@@ -275,11 +263,11 @@ export class Result extends Scene {
     if (!robotKey || !(robotKey in ROBOTS)) return '';
     const robot = ROBOTS[robotKey as keyof typeof ROBOTS];
     const counts: Record<PartCategory, number> = {
-      weapon: 0,
-      armor: 0,
-      engine: 0,
-      gear: 0,
-      special: 0
+      module: 0,
+      implant: 0,
+      charger: 0,
+      booster: 0,
+      soul: 0
     };
     for (const slotId of Object.keys(equipped)) {
       const key = equipped[slotId];
@@ -289,11 +277,11 @@ export class Result extends Scene {
       counts[part.category] += 1;
     }
     const parts: string[] = [];
-    if (counts.weapon > 0) parts.push(`${counts.weapon} ${t('weapons')}`);
-    if (counts.armor > 0) parts.push(`${counts.armor} ${t('armor')}`);
-    if (counts.engine > 0) parts.push(`${counts.engine} ${t('engines')}`);
-    if (counts.gear > 0) parts.push(`${counts.gear} ${t('gears')}`);
-    if (counts.special > 0) parts.push(`${counts.special} ${t('specials')}`);
+    if (counts.module > 0) parts.push(`${counts.module} ${t('modules')}`);
+    if (counts.implant > 0) parts.push(`${counts.implant} ${t('implants')}`);
+    if (counts.charger > 0) parts.push(`${counts.charger} ${t('chargers')}`);
+    if (counts.booster > 0) parts.push(`${counts.booster} ${t('boosters')}`);
+    if (counts.soul > 0) parts.push(`${counts.soul} ${t('souls')}`);
     if (parts.length === 0) return '';
     return `${t('Your')} ${t(robot.name)} ${t('contained')}: ${parts.join(', ')}`;
   }

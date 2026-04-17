@@ -52,7 +52,7 @@ export type SlotType =
   | 'legs_r'
   | 'back';
 
-export type PartCategory = 'weapon' | 'armor' | 'engine' | 'gear' | 'special';
+export type PartCategory = 'module' | 'implant' | 'charger' | 'booster' | 'soul';
 
 export type RobotArchetype = 'balanced' | 'heavy' | 'speed' | 'tech';
 
@@ -86,7 +86,7 @@ export interface StatusEffectDef {
 }
 
 export interface WeaponPart extends PartBase {
-  readonly category: 'weapon';
+  readonly category: 'module';
   readonly cooldownSec: number;
   readonly damage: number;
   readonly range: WeaponRange;
@@ -94,7 +94,7 @@ export interface WeaponPart extends PartBase {
 }
 
 export interface ArmorPart extends PartBase {
-  readonly category: 'armor';
+  readonly category: 'implant';
   /** Flat reduction applied before the percentage reduction. */
   readonly damageReduction: number;
   /** Percentage reduction in [0, 1]. */
@@ -103,22 +103,22 @@ export interface ArmorPart extends PartBase {
 }
 
 export interface EnginePart extends PartBase {
-  readonly category: 'engine';
+  readonly category: 'charger';
   readonly bonusHp: number;
   readonly bonusDamage: number;
   readonly bonusDamageReductionPct: number;
 }
 
 export interface GearPart extends PartBase {
-  readonly category: 'gear';
+  readonly category: 'booster';
   /** Multiplier applied to every weapon cooldown (0.9 = 10% faster). */
   readonly cooldownMultiplier: number;
   readonly hpPenalty: number;
 }
 
 export interface SpecialPart extends PartBase {
-  readonly category: 'special';
-  readonly effectKind: 'overdrive' | 'repair' | 'synergy_gear';
+  readonly category: 'soul';
+  readonly effectKind: 'overdrive' | 'repair' | 'synergy_booster';
   readonly magnitude: number;
 }
 
@@ -201,11 +201,11 @@ export interface EconomyData {
 // =============================================================================
 
 export type SynergyTrigger =
-  | { readonly kind: 'gear_count'; readonly threshold: number }
+  | { readonly kind: 'booster_count'; readonly threshold: number }
   | { readonly kind: 'category_pair'; readonly a: PartCategory; readonly b: PartCategory }
-  | { readonly kind: 'weapon_count'; readonly threshold: number }
-  | { readonly kind: 'armor_count'; readonly threshold: number }
-  | { readonly kind: 'special_count'; readonly threshold: number }
+  | { readonly kind: 'module_count'; readonly threshold: number }
+  | { readonly kind: 'implant_count'; readonly threshold: number }
+  | { readonly kind: 'soul_count'; readonly threshold: number }
   | { readonly kind: 'all_categories' };
 
 export type SynergyEffect =

@@ -188,7 +188,7 @@ export const createEnemyCombatant = (
 const tryApplyStatusEffect = (weapon: CombatWeapon, defender: Combatant): void => {
   if (!weapon.partKey) return;
   const partDef = PARTS[weapon.partKey];
-  if (!partDef || partDef.category !== 'weapon') return;
+  if (!partDef || partDef.category !== 'module') return;
   const weaponDef = partDef as import('@/data').WeaponPart;
   if (!weaponDef.statusEffect) return;
   const se = weaponDef.statusEffect;

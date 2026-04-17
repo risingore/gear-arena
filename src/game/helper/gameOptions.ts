@@ -41,20 +41,21 @@ const gameOptions: GameOptions = {
   backgroundColor: '#0a0a10',
   textStyles: {
     title: {
-      fontFamily: 'system-ui, sans-serif',
+      fontFamily: '"Bebas Neue", system-ui, sans-serif',
       fontSize: '64px',
       color: '#ffffff',
       fontStyle: 'bold',
       resolution: TEXT_RESOLUTION
     },
     body: {
-      fontFamily: 'system-ui, sans-serif',
+      fontFamily: '"Rajdhani", system-ui, sans-serif',
       fontSize: '24px',
       color: '#ffffff',
+      fontStyle: '600',
       resolution: TEXT_RESOLUTION
     },
     small: {
-      fontFamily: 'system-ui, sans-serif',
+      fontFamily: '"Rajdhani", system-ui, sans-serif',
       fontSize: '16px',
       color: '#888899',
       resolution: TEXT_RESOLUTION

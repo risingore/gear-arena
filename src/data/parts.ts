@@ -1,24 +1,24 @@
 /**
- * GEAR ARENA — canonical parts data (v0.3, 2026-04-16).
+ * GEAR ARENA — canonical parts data (v0.4, 2026-04-16).
  *
  * Heika is free to edit numbers, names, descriptions, and allowedSlots.
  * Kima must NOT overwrite without explicit instruction.
  *
- * v0.3: expanded from 15 to 25 parts (5 categories × 5 each) to give
- * the Build phase enough variety for meaningful decisions across 10 rounds.
+ * v0.4: cyberpunk rename — 5 categories (module/implant/charger/booster/soul)
+ * × 5 each. All stat numbers, prices, and effects are preserved exactly.
  */
 
 import type { PartsRegistry } from './schema';
 
 export const PARTS = {
   // ============================================================
-  // Weapons x5
+  // Modules x5 (was Weapons)
   // ============================================================
   weapon_blade: {
     id: 'weapon_blade',
-    name: 'Chainblade',
-    description: 'Lightweight melee blade. Fast hit rate.',
-    category: 'weapon',
+    name: 'Phantom Limb',
+    description: "Lost arm's memory strikes through the ultimate.",
+    category: 'module',
     allowedSlots: ['arm_l', 'arm_r'],
     price: 3,
     rarity: 'common',
@@ -28,9 +28,9 @@ export const PARTS = {
   },
   weapon_cannon: {
     id: 'weapon_cannon',
-    name: 'Rivet Cannon',
-    description: 'Long-range heavy hitter. Slow to cycle.',
-    category: 'weapon',
+    name: 'Junk Pile Driver',
+    description: 'Compressed scrap fired at terminal velocity.',
+    category: 'module',
     allowedSlots: ['arm_l', 'arm_r'],
     price: 5,
     rarity: 'rare',
@@ -40,9 +40,9 @@ export const PARTS = {
   },
   weapon_laser: {
     id: 'weapon_laser',
-    name: 'Pulse Laser',
-    description: 'Piercing mid-range laser. May freeze targets.',
-    category: 'weapon',
+    name: 'Nerve Hijacker',
+    description: 'Seizes enemy control circuits. Chance to freeze.',
+    category: 'module',
     allowedSlots: ['arm_l', 'arm_r'],
     price: 7,
     rarity: 'rare',
@@ -53,9 +53,9 @@ export const PARTS = {
   },
   weapon_railgun: {
     id: 'weapon_railgun',
-    name: 'Railgun',
-    description: 'Extreme damage, very slow. One-shot potential.',
-    category: 'weapon',
+    name: 'ATMAN Breaker',
+    description: 'Forbidden tech. Extreme damage, slow charge.',
+    category: 'module',
     allowedSlots: ['arm_l', 'arm_r'],
     price: 9,
     rarity: 'epic',
@@ -65,9 +65,9 @@ export const PARTS = {
   },
   weapon_flamethrower: {
     id: 'weapon_flamethrower',
-    name: 'Flamethrower',
-    description: 'Rapid close-range burn. May ignite targets.',
-    category: 'weapon',
+    name: 'Rage Burner',
+    description: 'Channeled fury ignites everything nearby.',
+    category: 'module',
     allowedSlots: ['arm_l', 'arm_r'],
     price: 6,
     rarity: 'rare',
@@ -78,13 +78,13 @@ export const PARTS = {
   },
 
   // ============================================================
-  // Armor x5
+  // Implants x5 (was Armor)
   // ============================================================
   armor_plate: {
     id: 'armor_plate',
-    name: 'Steel Plate',
-    description: 'Flat -2 damage taken. Forgiving for new pilots.',
-    category: 'armor',
+    name: 'Blackmarket Plating',
+    description: 'Flat damage reduction. No questions asked.',
+    category: 'implant',
     allowedSlots: ['head', 'chest', 'arm_l', 'arm_r', 'legs_l', 'legs_r'],
     price: 3,
     rarity: 'common',
@@ -94,9 +94,9 @@ export const PARTS = {
   },
   armor_mesh: {
     id: 'armor_mesh',
-    name: 'Composite Mesh',
-    description: '15% incoming damage reduction.',
-    category: 'armor',
+    name: 'Scar Tissue Mesh',
+    description: '15% damage reduction. Your scars are your armor.',
+    category: 'implant',
     allowedSlots: ['chest', 'arm_l', 'arm_r', 'legs_l', 'legs_r'],
     price: 5,
     rarity: 'rare',
@@ -106,9 +106,9 @@ export const PARTS = {
   },
   armor_shield: {
     id: 'armor_shield',
-    name: 'Kinetic Shield',
-    description: 'Blocks the first hit completely, then +5% DR.',
-    category: 'armor',
+    name: 'Stolen Aegis',
+    description: 'Blocks first hit. Stolen from corporate elite.',
+    category: 'implant',
     allowedSlots: ['chest', 'arm_l', 'arm_r'],
     price: 7,
     rarity: 'rare',
@@ -118,9 +118,9 @@ export const PARTS = {
   },
   armor_reactive: {
     id: 'armor_reactive',
-    name: 'Reactive Plating',
-    description: 'Flat -4 damage taken but -10 max HP.',
-    category: 'armor',
+    name: "Dead Man's Vest",
+    description: "DR+4 but HP-10. A fallen comrade's last gift.",
+    category: 'implant',
     allowedSlots: ['chest', 'arm_l', 'arm_r', 'legs_l', 'legs_r'],
     price: 4,
     rarity: 'rare',
@@ -130,9 +130,9 @@ export const PARTS = {
   },
   armor_fortress: {
     id: 'armor_fortress',
-    name: 'Fortress Frame',
-    description: '+30 max HP and 10% DR. Heavy but durable.',
-    category: 'armor',
+    name: 'Jury-Rigged Exoframe',
+    description: 'HP+30, DR 10%. Held together with wire and will.',
+    category: 'implant',
     allowedSlots: ['chest'],
     price: 8,
     rarity: 'epic',
@@ -142,13 +142,13 @@ export const PARTS = {
   },
 
   // ============================================================
-  // Engines x5
+  // Chargers x5 (was Engines)
   // ============================================================
   engine_basic: {
     id: 'engine_basic',
-    name: 'Basic Engine',
-    description: '+20 max HP.',
-    category: 'engine',
+    name: 'Salvage Reactor',
+    description: 'Pulls power from scrap. HP+20.',
+    category: 'charger',
     allowedSlots: ['chest', 'back'],
     price: 4,
     rarity: 'common',
@@ -158,9 +158,9 @@ export const PARTS = {
   },
   engine_turbo: {
     id: 'engine_turbo',
-    name: 'Turbo Engine',
-    description: '+10 max HP and +2 to every weapon.',
-    category: 'engine',
+    name: 'Overclocked Heart',
+    description: 'Pushed past limits. HP+10, DMG+2.',
+    category: 'charger',
     allowedSlots: ['chest', 'back'],
     price: 6,
     rarity: 'rare',
@@ -170,9 +170,9 @@ export const PARTS = {
   },
   engine_core: {
     id: 'engine_core',
-    name: 'Reactor Core',
-    description: '+40 max HP and 5% damage reduction.',
-    category: 'engine',
+    name: 'Stolen Core',
+    description: 'Corporate power plant. HP+40, DR 5%.',
+    category: 'charger',
     allowedSlots: ['chest'],
     price: 8,
     rarity: 'epic',
@@ -182,9 +182,9 @@ export const PARTS = {
   },
   engine_striker: {
     id: 'engine_striker',
-    name: 'Striker Core',
-    description: '+5 damage to all weapons. No HP bonus.',
-    category: 'engine',
+    name: 'Adrenaline Pump',
+    description: 'Pure chemical boost. DMG+5.',
+    category: 'charger',
     allowedSlots: ['chest', 'back'],
     price: 7,
     rarity: 'epic',
@@ -194,9 +194,9 @@ export const PARTS = {
   },
   engine_regen: {
     id: 'engine_regen',
-    name: 'Regen Cell',
-    description: '+15 max HP and 3% damage reduction.',
-    category: 'engine',
+    name: 'Parasite Cell',
+    description: 'Feeds on damage. HP+15, DR 3%.',
+    category: 'charger',
     allowedSlots: ['back'],
     price: 5,
     rarity: 'rare',
@@ -206,13 +206,13 @@ export const PARTS = {
   },
 
   // ============================================================
-  // Gears x5
+  // Boosters x5 (was Gears)
   // ============================================================
   gear_small: {
     id: 'gear_small',
-    name: 'Small Gear',
-    description: '-10% cooldown on every weapon.',
-    category: 'gear',
+    name: 'Feedback Loop',
+    description: 'Recycles combat data. -10% cooldown.',
+    category: 'booster',
     allowedSlots: ['head', 'chest', 'arm_l', 'arm_r', 'legs_l', 'legs_r', 'back'],
     price: 3,
     rarity: 'common',
@@ -221,9 +221,9 @@ export const PARTS = {
   },
   gear_heavy: {
     id: 'gear_heavy',
-    name: 'Heavy Gear',
-    description: '-20% cooldown, -5 max HP.',
-    category: 'gear',
+    name: 'Rage Amplifier',
+    description: 'Converts anger to power. -20% CD, HP-5.',
+    category: 'booster',
     allowedSlots: ['head', 'chest', 'arm_l', 'arm_r', 'legs_l', 'legs_r', 'back'],
     price: 5,
     rarity: 'rare',
@@ -232,9 +232,9 @@ export const PARTS = {
   },
   gear_chrono: {
     id: 'gear_chrono',
-    name: 'Chrono Gear',
-    description: '-8% cooldown. Stacks for Gear Sync.',
-    category: 'gear',
+    name: 'Chrono Splice',
+    description: 'Time-shifted circuits. -8% cooldown.',
+    category: 'booster',
     allowedSlots: ['head', 'chest', 'arm_l', 'arm_r', 'legs_l', 'legs_r', 'back'],
     price: 7,
     rarity: 'rare',
@@ -243,9 +243,9 @@ export const PARTS = {
   },
   gear_micro: {
     id: 'gear_micro',
-    name: 'Micro Gear',
-    description: '-5% cooldown. Cheap filler.',
-    category: 'gear',
+    name: 'Junk Capacitor',
+    description: 'Cheap but works. -5% cooldown.',
+    category: 'booster',
     allowedSlots: ['head', 'chest', 'arm_l', 'arm_r', 'legs_l', 'legs_r', 'back'],
     price: 2,
     rarity: 'common',
@@ -254,9 +254,9 @@ export const PARTS = {
   },
   gear_overclock: {
     id: 'gear_overclock',
-    name: 'Overclock Gear',
-    description: '-25% cooldown, -10 max HP. Glass cannon.',
-    category: 'gear',
+    name: 'Overdrive Injector',
+    description: '-25% CD, HP-10. Glass cannon.',
+    category: 'booster',
     allowedSlots: ['head', 'chest', 'arm_l', 'arm_r', 'legs_l', 'legs_r', 'back'],
     price: 6,
     rarity: 'epic',
@@ -265,13 +265,13 @@ export const PARTS = {
   },
 
   // ============================================================
-  // Specials x5
+  // Souls x5 (was Specials)
   // ============================================================
   spec_overdrive: {
     id: 'spec_overdrive',
-    name: 'Overdrive Chip',
-    description: '+50% attack speed below 30% HP.',
-    category: 'special',
+    name: 'Mandala Chip',
+    description: 'Soul resonance amplifies at low HP. +50% speed below 30%.',
+    category: 'soul',
     allowedSlots: ['back'],
     price: 6,
     rarity: 'rare',
@@ -280,9 +280,9 @@ export const PARTS = {
   },
   spec_repair: {
     id: 'spec_repair',
-    name: 'Repair Kit',
-    description: 'Heal 3 HP every 5 seconds.',
-    category: 'special',
+    name: 'Karma Circuit',
+    description: 'The cycle heals. 3 HP every 5 seconds.',
+    category: 'soul',
     allowedSlots: ['back'],
     price: 5,
     rarity: 'rare',
@@ -291,20 +291,20 @@ export const PARTS = {
   },
   spec_synergy: {
     id: 'spec_synergy',
-    name: 'Gear Sync',
-    description: '+3 damage per equipped gear.',
-    category: 'special',
+    name: 'Samsara Link',
+    description: 'Each booster echoes through the soul. +3 DMG per booster.',
+    category: 'soul',
     allowedSlots: ['back'],
     price: 8,
     rarity: 'rare',
-    effectKind: 'synergy_gear',
+    effectKind: 'synergy_booster',
     magnitude: 3
   },
   spec_laststand: {
     id: 'spec_laststand',
-    name: 'Last Stand Module',
-    description: 'Survive one lethal hit with 1 HP (once per battle).',
-    category: 'special',
+    name: 'Last Wish',
+    description: 'One chance to defy death. Survive lethal hit at 1 HP.',
+    category: 'soul',
     allowedSlots: ['back'],
     price: 9,
     rarity: 'epic',
@@ -313,9 +313,9 @@ export const PARTS = {
   },
   spec_vampiric: {
     id: 'spec_vampiric',
-    name: 'Vampiric Core',
-    description: 'Heal 2 HP on every weapon hit.',
-    category: 'special',
+    name: 'Soul Drain',
+    description: 'Every strike feeds the spirit. Heal 2 HP on hit.',
+    category: 'soul',
     allowedSlots: ['back'],
     price: 7,
     rarity: 'epic',

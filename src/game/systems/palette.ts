@@ -34,9 +34,9 @@ export const PALETTE = {
   accentGreen: 0x3aff7a,
   accentRed: 0xff3a3a,
   danger: 0xff4444,
-  itemCardBg: 0x2a1a3a,
-  itemBar: 0xcc66ff,
-  itemText: '#cc88ff'
+  itemCardBg: 0x1a2a1a,
+  itemBar: 0x88ff44,
+  itemText: '#88ff44'
 } as const;
 
 export const ROBOT_COLORS: Record<RobotArchetype, number> = {
@@ -47,17 +47,17 @@ export const ROBOT_COLORS: Record<RobotArchetype, number> = {
 };
 
 export const CATEGORY_COLORS: Record<PartCategory, number> = {
-  weapon:  0xff5a5a,
-  armor:   0x5aaaff,
-  engine:  0xffaa3a,
-  gear:    0xc0c0c0,
-  special: 0xc49bff
+  module:  0xff5a5a,
+  implant: 0x5aaaff,
+  charger: 0xffaa3a,
+  booster: 0xc0c0c0,
+  soul:    0xc49bff
 };
 
 export const CATEGORY_LABEL: Record<PartCategory, string> = {
-  weapon:  'WPN',
-  armor:   'ARM',
-  engine:  'ENG',
-  gear:    'GER',
-  special: 'SPC'
+  module:  'MOD',
+  implant: 'IMP',
+  charger: 'CHG',
+  booster: 'BST',
+  soul:    'SOL'
 };

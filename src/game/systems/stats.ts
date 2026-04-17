@@ -81,14 +81,14 @@ export const computeLoadoutStats = (
   let overdriveMagnitude = 0;
   let repairMagnitude = 0;
   let gearSynergyMagnitude = 0;
-  let gearCount = 0;
+  let boosterCount = 0;
   let shieldCount = 0;
-  let weaponCount = 0;
-  let armorCount = 0;
-  let specialCount = 0;
-  let engineCount = 0;
+  let moduleCount = 0;
+  let implantCount = 0;
+  let soulCount = 0;
+  let chargerCount = 0;
 
-  const weaponParts: { slotId: string; key: PartKey; part: Extract<PartData, { category: 'weapon' }> }[] = [];
+  const moduleParts: { slotId: string; key: PartKey; part: Extract<PartData, { category: 'module' }> }[] = [];
 
   for (const slotId of Object.keys(equipped)) {
     const key = equipped[slotId];
@@ -97,33 +97,33 @@ export const computeLoadoutStats = (
     if (!part) continue;
 
     switch (part.category) {
-      case 'weapon':
-        weaponParts.push({ slotId, key, part });
-        weaponCount += 1;
+      case 'module':
+        moduleParts.push({ slotId, key, part });
+        moduleCount += 1;
         break;
-      case 'armor':
+      case 'implant':
         bonusHp += part.bonusHp;
         flatReduction += part.damageReduction;
         pctReduction += part.damageReductionPct;
         if (key === 'armor_shield') shieldCount += 1;
-        armorCount += 1;
+        implantCount += 1;
         break;
-      case 'engine':
+      case 'charger':
         bonusHp += part.bonusHp;
         bonusDamage += part.bonusDamage;
         pctReduction += part.bonusDamageReductionPct;
-        engineCount += 1;
+        chargerCount += 1;
         break;
-      case 'gear':
+      case 'booster':
         cooldownMult *= part.cooldownMultiplier;
         hpPenalty += part.hpPenalty;
-        gearCount += 1;
+        boosterCount += 1;
         break;
-      case 'special':
+      case 'soul':
         if (part.effectKind === 'overdrive') overdriveMagnitude = Math.max(overdriveMagnitude, part.magnitude);
         else if (part.effectKind === 'repair') repairMagnitude = Math.max(repairMagnitude, part.magnitude);
-        else if (part.effectKind === 'synergy_gear') gearSynergyMagnitude = Math.max(gearSynergyMagnitude, part.magnitude);
-        specialCount += 1;
+        else if (part.effectKind === 'synergy_booster') gearSynergyMagnitude = Math.max(gearSynergyMagnitude, part.magnitude);
+        soulCount += 1;
         break;
     }
   }
@@ -131,15 +131,15 @@ export const computeLoadoutStats = (
   // Evaluate all synergies generically.
   let synergyDamagePct = 0;
   let magnitudeMult = 1;
-  const hasAllCategories = weaponCount > 0 && armorCount > 0 && engineCount > 0 && gearCount > 0 && specialCount > 0;
+  const hasAllCategories = moduleCount > 0 && implantCount > 0 && chargerCount > 0 && boosterCount > 0 && soulCount > 0;
   for (const synKey of Object.keys(SYNERGIES) as (keyof typeof SYNERGIES)[]) {
     const syn = SYNERGIES[synKey];
     let triggered = false;
     switch (syn.trigger.kind) {
-      case 'gear_count':     triggered = gearCount >= syn.trigger.threshold; break;
-      case 'weapon_count':   triggered = weaponCount >= syn.trigger.threshold; break;
-      case 'armor_count':    triggered = armorCount >= syn.trigger.threshold; break;
-      case 'special_count':  triggered = specialCount >= syn.trigger.threshold; break;
+      case 'booster_count':  triggered = boosterCount >= syn.trigger.threshold; break;
+      case 'module_count':   triggered = moduleCount >= syn.trigger.threshold; break;
+      case 'implant_count':  triggered = implantCount >= syn.trigger.threshold; break;
+      case 'soul_count':     triggered = soulCount >= syn.trigger.threshold; break;
       case 'all_categories': triggered = hasAllCategories; break;
       case 'category_pair': {
         let hasA = false;
@@ -191,8 +191,8 @@ export const computeLoadoutStats = (
   const maxHp = Math.max(BALANCE.hpFloor, robot.baseHp + bonusHp - hpPenalty);
   const damageReductionPct = clamp(pctReduction, 0, BALANCE.damageReductionCap);
 
-  const weapons: WeaponInstance[] = weaponParts.map(({ slotId, key, part }) => {
-    const baseDmg = part.damage + bonusDamage + gearSynergyMagnitude * gearCount;
+  const weapons: WeaponInstance[] = moduleParts.map(({ slotId, key, part }) => {
+    const baseDmg = part.damage + bonusDamage + gearSynergyMagnitude * boosterCount;
     const effectiveDamage = Math.round(baseDmg * (1 + synergyDamagePct));
     const effectiveCooldown = (part.cooldownSec * cooldownMult) / robot.baseAttackSpeedMultiplier;
     return {
@@ -217,11 +217,11 @@ export const computeLoadoutStats = (
 
   // Ultimate calculation: every equipped part contributes to the big hit.
   // Weapons = strikes. Gears = damage mult. Engines = charge speed. Skills = bonuses.
-  const ultStrikes = Math.max(1, weaponCount) + skillUltExtraStrikes;
-  const gearMult = 1 + gearCount * BALANCE.gearUltimateMult;
+  const ultStrikes = Math.max(1, moduleCount) + skillUltExtraStrikes;
+  const gearMult = 1 + boosterCount * BALANCE.gearUltimateMult;
   const baseDmgPerStrike = weapons.reduce((sum, w) => sum + w.damage, 0) / Math.max(1, weapons.length);
   const ultDmgPerStrike = Math.round(baseDmgPerStrike * gearMult * BALANCE.ultimateBaseMult * (1 + skillUltDamagePct));
-  const ultChargeRate = 1 + engineCount * BALANCE.engineChargeRate + skillUltChargeBonus;
+  const ultChargeRate = 1 + chargerCount * BALANCE.engineChargeRate + skillUltChargeBonus;
 
   return {
     maxHp,
@@ -234,7 +234,7 @@ export const computeLoadoutStats = (
     overdriveMultiplier: overdriveMagnitude,
     repairIntervalSec: BALANCE.repairIntervalSec,
     repairAmount: repairMagnitude,
-    equippedGearCount: gearCount,
+    equippedGearCount: boosterCount,
     shieldCharges: shieldCount,
     evasionChance: clamp(robot.baseEvasion ?? 0, 0, BALANCE.evasionCap),
     ultimateStrikes: ultStrikes,

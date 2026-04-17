@@ -1,7 +1,7 @@
 import { Scene } from 'phaser';
-import type { GameObjects } from 'phaser';
 
 import gameOptions from '../helper/gameOptions';
+import { createButton, createPanel } from '../helper/uiFactory';
 import { resetRunState } from '../systems/runState';
 import { PALETTE } from '../systems/palette';
 import { playSfx } from '../systems/audio';
@@ -11,6 +11,7 @@ import { getPlayerTitle } from '../systems/achievements';
 import { t } from '../systems/i18n';
 import { playMusic, MUSIC_KEYS } from '../systems/music';
 import { applyHiDpiToScene, showDebugBadge } from '../helper/hiDpiText';
+import { runVisualChecks } from '../systems/visualDebugger';
 import { isDebugEnabled, toggleDebug } from '../systems/debug';
 
 export class Title extends Scene {
@@ -78,6 +79,7 @@ export class Title extends Scene {
     const save = loadSaveData();
     if (save.bestRound > 0 || save.totalClears > 0) {
       const statLine = `Best Round: ${save.bestRound}   ·   Victories: ${save.totalClears}   ·   Scrap: ${save.scrap}`;
+      createPanel(this, gameWidth / 2, gameHeight * 0.83, 500, 64, { fillAlpha: 0.6, depth: 0 });
       this.add
         .text(gameWidth / 2, gameHeight * 0.80, statLine, textStyles.small)
         .setOrigin(0.5)
@@ -99,19 +101,15 @@ export class Title extends Scene {
     this.input.keyboard?.once('keydown-SPACE', start);
 
     // Clickable start button
-    this.makeMenuButton(
-      gameWidth / 2, gameHeight * 0.56, t('▶  START'), start
-    );
+    createButton(this, gameWidth / 2, gameHeight * 0.56, 260, 48, t('START'), start);
 
     // Collection button
-    this.makeMenuButton(
-      gameWidth / 2, gameHeight * 0.63, t('COLLECTION'),
+    createButton(this, gameWidth / 2, gameHeight * 0.63, 260, 44, t('COLLECTION'),
       () => { playSfx('click'); fadeToScene(this, 'Collection'); }
     );
 
     // Settings button
-    this.makeMenuButton(
-      gameWidth / 2, gameHeight * 0.69, t('SETTINGS'),
+    createButton(this, gameWidth / 2, gameHeight * 0.69, 260, 44, t('SETTINGS'),
       () => { playSfx('click'); fadeToScene(this, 'Settings'); }
     );
 
@@ -132,24 +130,7 @@ export class Title extends Scene {
 
     applyHiDpiToScene(this);
     showDebugBadge(this, isDebugEnabled());
-  }
-
-  private makeMenuButton(
-    x: number,
-    y: number,
-    label: string,
-    onClick: () => void
-  ): GameObjects.Text {
-    const { textStyles } = gameOptions;
-    const btn = this.add
-      .text(x, y, label, textStyles.body)
-      .setOrigin(0.5)
-      .setAlpha(0.8)
-      .setInteractive({ useHandCursor: true });
-    btn.on('pointerover', () => { btn.setAlpha(1); btn.setScale(1.08); });
-    btn.on('pointerout', () => { btn.setAlpha(0.8); btn.setScale(1); });
-    btn.on('pointerdown', onClick);
-    return btn;
+    runVisualChecks(this);
   }
 
   private drawBackgroundGear(

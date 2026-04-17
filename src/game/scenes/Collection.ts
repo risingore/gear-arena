@@ -2,6 +2,7 @@ import { Scene } from 'phaser';
 import type { GameObjects } from 'phaser';
 
 import gameOptions from '../helper/gameOptions';
+import { createButton, createPanel } from '../helper/uiFactory';
 import { ROBOTS, ALL_ROBOT_KEYS, PARTS, ALL_PART_KEYS } from '@/data';
 import {
   NORMAL_ENEMIES,
@@ -19,6 +20,7 @@ import { getEarnedAchievements } from '../systems/achievements';
 import { ACHIEVEMENTS } from '@/data/achievements';
 import { SKILLS } from '@/data';
 import { applyHiDpiToScene, showDebugBadge } from '../helper/hiDpiText';
+import { runVisualChecks } from '../systems/visualDebugger';
 import { isDebugEnabled } from '../systems/debug';
 
 type TabName = 'machines' | 'parts' | 'enemies' | 'titles';
@@ -71,25 +73,13 @@ export class Collection extends Scene {
 
     this.tabButtons = tabs.map((def, i) => {
       const x = tabStartX + i * (tabW + tabGap);
-      const bg = this.add
-        .rectangle(x, tabY, tabW, tabH, PALETTE.buttonBg, 1)
-        .setStrokeStyle(2, PALETTE.cardStroke)
-        .setInteractive({ useHandCursor: true });
-      const label = this.add
-        .text(x, tabY, def.label, textStyles.small).setOrigin(0.5).setColor('#ffffff');
-      bg.on('pointerdown', () => {
+      const btn = createButton(this, x, tabY, tabW, tabH, def.label, () => {
         this.activeTab = def.tab;
         playSfx('click');
         this.refreshTabs();
         this.drawContent();
-      });
-      bg.on('pointerover', () => {
-        if (def.tab !== this.activeTab) bg.setFillStyle(PALETTE.buttonBgHover, 1);
-      });
-      bg.on('pointerout', () => {
-        bg.setFillStyle(def.tab === this.activeTab ? PALETTE.buttonBgHover : PALETTE.buttonBg, 1);
-      });
-      return { tab: def.tab, bg, label };
+      }, { fontSize: '16px' });
+      return { tab: def.tab, bg: btn.bg, label: btn.text };
     });
 
     // Count text (fixed, between tabs and scroll area)
@@ -98,13 +88,10 @@ export class Collection extends Scene {
       .setOrigin(0.5).setAlpha(0.7);
 
     // Back button (bottom-left)
-    const backBtn = this.add
-      .text(80, gameHeight - 28, t('← BACK'), textStyles.body)
-      .setOrigin(0.5).setAlpha(0.7)
-      .setInteractive({ useHandCursor: true });
-    backBtn.on('pointerdown', () => { playSfx('click'); fadeToScene(this, 'Title'); });
-    backBtn.on('pointerover', () => { backBtn.setAlpha(1); backBtn.setScale(1.05); });
-    backBtn.on('pointerout', () => { backBtn.setAlpha(0.7); backBtn.setScale(1); });
+    const backBtnResult = createButton(this, 80, gameHeight - 28, 120, 36, t('BACK'), () => {
+      playSfx('click'); fadeToScene(this, 'Title');
+    });
+    const backBtn = backBtnResult.bg;
 
     this.input.keyboard?.on('keydown-ESC', () => fadeToScene(this, 'Title'));
     this.input.keyboard?.on('keydown-R', () => fadeToScene(this, 'Title'));
@@ -123,17 +110,19 @@ export class Collection extends Scene {
     this.tabButtons.forEach(({ bg, label }) => { bg.setDepth(51); label.setDepth(51); });
     this.countText.setDepth(51);
     backBtn.setDepth(51);
+    backBtnResult.text.setDepth(51);
 
     this.refreshTabs();
     this.drawContent();
     applyHiDpiToScene(this);
     showDebugBadge(this, isDebugEnabled());
+    runVisualChecks(this);
   }
 
   private refreshTabs(): void {
     this.tabButtons.forEach(({ tab, bg }) => {
-      bg.setFillStyle(tab === this.activeTab ? PALETTE.buttonBgHover : PALETTE.buttonBg, 1);
-      bg.setStrokeStyle(2, tab === this.activeTab ? PALETTE.accentOrange : PALETTE.cardStroke);
+      bg.setFillStyle(tab === this.activeTab ? 0x2a3a55 : 0x1a2a44, 1);
+      bg.setStrokeStyle(2, tab === this.activeTab ? PALETTE.accentOrange : 0x4466aa);
     });
   }
 
@@ -192,8 +181,10 @@ export class Collection extends Scene {
       const y = baseY + CARD_H / 2;
 
       this.addScrollable(
-        this.add.rectangle(x, y, CARD_W, CARD_H, isUnlocked ? PALETTE.cardBg : 0x111118, 1)
-          .setStrokeStyle(2, isUnlocked ? ROBOT_COLORS[robot.archetype] : PALETTE.cardStroke)
+        createPanel(this, x, y, CARD_W, CARD_H, {
+          fillColor: isUnlocked ? PALETTE.cardBg : 0x111118,
+          borderColor: isUnlocked ? ROBOT_COLORS[robot.archetype] : PALETTE.cardStroke
+        })
       );
       if (isUnlocked) {
         const clears = save.perRobotClears[key] ?? 0;
@@ -234,13 +225,15 @@ export class Collection extends Scene {
       const y = baseY + row * (CARD_H + CARD_GAP) + CARD_H / 2;
 
       this.addScrollable(
-        this.add.rectangle(x, y, CARD_W, CARD_H, isUsed ? PALETTE.cardBg : 0x111118, 1)
-          .setStrokeStyle(2, isUsed ? CATEGORY_COLORS[part.category] : PALETTE.cardStroke)
+        createPanel(this, x, y, CARD_W, CARD_H, {
+          fillColor: isUsed ? PALETTE.cardBg : 0x111118,
+          borderColor: isUsed ? CATEGORY_COLORS[part.category] : PALETTE.cardStroke
+        })
       );
       if (isUsed) {
-        this.addScrollable(this.add.text(x, y - 24, CATEGORY_LABEL[part.category], textStyles.small).setOrigin(0.5).setColor('#aaaabb'));
-        this.addScrollable(this.add.text(x, y + 2, t(part.name), textStyles.body).setOrigin(0.5));
-        this.addScrollable(this.add.text(x, y + 28, `${part.price}g`, textStyles.small).setOrigin(0.5).setColor('#ffd94a'));
+        this.addScrollable(this.add.text(x, y - 30, CATEGORY_LABEL[part.category], textStyles.small).setOrigin(0.5).setColor('#aaaabb'));
+        this.addScrollable(this.add.text(x, y + 2, t(part.name), { ...textStyles.small, color: '#ffffff', wordWrap: { width: CARD_W - 16 } }).setOrigin(0.5));
+        this.addScrollable(this.add.text(x, y + 36, `${part.price}g`, textStyles.small).setOrigin(0.5).setColor('#ffd94a'));
       } else {
         this.addScrollable(this.add.text(x, y, '???', textStyles.body).setOrigin(0.5).setAlpha(0.3));
       }
@@ -279,8 +272,10 @@ export class Collection extends Scene {
         : PALETTE.cardStroke;
 
       this.addScrollable(
-        this.add.rectangle(x, y, CARD_W, CARD_H, isDefeated ? PALETTE.cardBg : 0x111118, 1)
-          .setStrokeStyle(2, isDefeated ? borderColor : PALETTE.cardStroke)
+        createPanel(this, x, y, CARD_W, CARD_H, {
+          fillColor: isDefeated ? PALETTE.cardBg : 0x111118,
+          borderColor: isDefeated ? borderColor : PALETTE.cardStroke
+        })
       );
       if (isDefeated) {
         const categoryLabel = enemy.category === 'super' ? 'SUPER BOSS'
@@ -314,8 +309,10 @@ export class Collection extends Scene {
     ACHIEVEMENTS.forEach((ach) => {
       const isEarned = earnedIds.has(ach.id);
       this.addScrollable(
-        this.add.rectangle(gameWidth / 2, y, 700, 48, isEarned ? PALETTE.cardBg : 0x111118, 1)
-          .setStrokeStyle(2, isEarned ? PALETTE.accentOrange : PALETTE.cardStroke)
+        createPanel(this, gameWidth / 2, y, 700, 48, {
+          fillColor: isEarned ? PALETTE.cardBg : 0x111118,
+          borderColor: isEarned ? PALETTE.accentOrange : PALETTE.cardStroke
+        })
       );
       if (isEarned) {
         this.addScrollable(this.add.text(gameWidth / 2 - 320, y, `★  ${ach.name}`, textStyles.body).setOrigin(0, 0.5).setColor('#ffd94a'));
@@ -342,8 +339,10 @@ export class Collection extends Scene {
       const isAcquired = acquiredSkills.has(skill.id);
       if (isAcquired) skillCount += 1;
       this.addScrollable(
-        this.add.rectangle(gameWidth / 2, y, 700, 44, isAcquired ? PALETTE.cardBg : 0x111118, 1)
-          .setStrokeStyle(2, isAcquired ? PALETTE.accentBlue : PALETTE.cardStroke)
+        createPanel(this, gameWidth / 2, y, 700, 44, {
+          fillColor: isAcquired ? PALETTE.cardBg : 0x111118,
+          borderColor: isAcquired ? PALETTE.accentBlue : PALETTE.cardStroke
+        })
       );
       if (isAcquired) {
         this.addScrollable(this.add.text(gameWidth / 2 - 320, y, t(skill.name), textStyles.body).setOrigin(0, 0.5).setColor('#3ab0ff'));

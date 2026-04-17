@@ -2,6 +2,7 @@ import { Scene } from 'phaser';
 import type { GameObjects } from 'phaser';
 
 import gameOptions from '../helper/gameOptions';
+import { createButton, createPanel } from '../helper/uiFactory';
 import {
   PARTS,
   ROBOTS,
@@ -9,7 +10,6 @@ import {
   ITEMS,
   isItemKey,
   findSkillDef,
-  findEnemyDef,
   type PartKey,
   type RobotKey,
   type ItemKey,
@@ -25,6 +25,7 @@ import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { t } from '../systems/i18n';
 import { playMusic, MUSIC_KEYS } from '../systems/music';
 import { applyHiDpiToScene, showDebugBadge } from '../helper/hiDpiText';
+import { runVisualChecks } from '../systems/visualDebugger';
 import { isDebugEnabled } from '../systems/debug';
 
 // ---------------------------------------------------------------------------
@@ -158,7 +159,9 @@ export class Build extends Scene {
     // Trash & basket below blueprint
     this.drawTrashAndBasket();
 
-    // Right column — gold + stats + preview
+    // Right column — stats panel background + gold + stats + preview
+    createPanel(this, STATS_X + STATS_W / 2, 350, STATS_W + 16, 540, { fillAlpha: 0.5, depth: 0 });
+
     this.goldText = this.add
       .text(STATS_X, 72, '', textStyles.body)
       .setOrigin(0, 0)
@@ -176,7 +179,7 @@ export class Build extends Scene {
     // Buttons
     const btnX = STATS_X + STATS_W / 2;
     const rerollCost = getRerollCost(getRunState(this));
-    this.drawButton(btnX, 560, 200, 44, `${t('REROLL')} (${rerollCost}g)`, () => {
+    const rerollBtn = createButton(this, btnX, 560, 200, 44, `${t('REROLL')} (${rerollCost}g)`, () => {
       const s = getRunState(this);
       const rerolled = attemptReroll(s, generateShopOffer(s.currentRound));
       if (rerolled) {
@@ -188,12 +191,12 @@ export class Build extends Scene {
         playSfx('click');
       }
     });
-    this.rerollBtnText = this.children.list[this.children.list.length - 1] as GameObjects.Text;
+    this.rerollBtnText = rerollBtn.text;
 
-    this.drawButton(btnX, 620, 200, 50, t('READY  \u25b6'), () => {
+    createButton(this, btnX, 620, 200, 50, t('READY'), () => {
       playSfx('click');
       fadeToScene(this, 'Battle');
-    });
+    }, { variant: 'accent', accentColor: 0x3aff7a });
 
     // Shop grid
     this.drawShopArea();
@@ -234,6 +237,7 @@ export class Build extends Scene {
 
     applyHiDpiToScene(this);
     showDebugBadge(this, isDebugEnabled());
+    runVisualChecks(this);
   }
 
   // ==========================================================================
@@ -542,7 +546,7 @@ export class Build extends Scene {
             .setColor(PALETTE.itemText)
         );
         container.add(
-          this.add.text(0, 2, t(item.name), textStyles.body).setOrigin(0.5)
+          this.add.text(0, 2, t(item.name), { ...textStyles.small, color: '#ffffff', wordWrap: { width: SHOP_CARD_W - 12 } }).setOrigin(0.5)
         );
         container.add(
           this.add
@@ -565,7 +569,7 @@ export class Build extends Scene {
           .setColor('#aaaabb')
       );
       container.add(
-        this.add.text(0, 2, t(part.name), textStyles.body).setOrigin(0.5)
+        this.add.text(0, 2, t(part.name), { ...textStyles.small, color: '#ffffff', wordWrap: { width: SHOP_CARD_W - 12 } }).setOrigin(0.5)
       );
       container.add(
         this.add
@@ -609,18 +613,8 @@ export class Build extends Scene {
     this.highlightTrashAndBasket();
   }
 
-  private startDragFromBuffSlot(buffIndex: number): void {
-    const state = getRunState(this);
-    const itemKey = state.equippedBuffs[buffIndex];
-    if (!itemKey) return;
-    const item = ITEMS[itemKey as keyof typeof ITEMS];
-    if (!item) return;
-
-    this.dragSource = DragSource.BuffSlot;
-    this.dragBuffIndex = buffIndex;
-    const ptr = this.input.activePointer;
-    this.createGhost(ptr.x, ptr.y, PALETTE.itemBar, item.name);
-    this.highlightTrashOnly();
+  private startDragFromBuffSlot(_buffIndex: number): void {
+    // Buffs cannot be removed once equipped. Block drag.
   }
 
   private startDragFromBasket(basketIndex: number): void {
@@ -711,12 +705,8 @@ export class Build extends Scene {
     // Dropped nowhere valid -> snap back (no-op)
   }
 
-  private dropFromBuffSlot(buffIndex: number, x: number, y: number): void {
-    // Buff items can only be sold (trash). No basket storage for buffs.
-    if (this.isInsideRect(x, y, this.trashZone)) {
-      this.executeSellBuff(buffIndex);
-      return;
-    }
+  private dropFromBuffSlot(_buffIndex: number, _x: number, _y: number): void {
+    // Buffs cannot be removed once equipped. No-op.
   }
 
   private dropFromBasket(basketIndex: number, x: number, y: number): void {
@@ -751,16 +741,11 @@ export class Build extends Scene {
     const robot = ROBOTS[state.robotKey];
     const slot = robot.slots.find((s) => s.id === slotId);
     if (!slot) { playSfx('click'); return; }
-    if (!part.allowedSlots.some((s) => s === slot.slotType)) { playSfx('click'); return; }
+    if (part.category !== slot.accepts) { playSfx('click'); return; }
 
-    // If slot is occupied, store the existing part first
+    // Slot must be empty — reject if occupied
+    if (state.equipped[slotId]) { playSfx('click'); return; }
     let next: RunState = state;
-    if (next.equipped[slotId]) {
-      const existingPart = next.equipped[slotId]!;
-      const nextEquipped = { ...next.equipped };
-      delete nextEquipped[slotId];
-      next = { ...next, equipped: nextEquipped, storedParts: [...next.storedParts, existingPart] };
-    }
 
     const nextEquipped = { ...next.equipped, [slotId]: partKey };
     const nextOffer = [...next.shopOffer];
@@ -805,25 +790,6 @@ export class Build extends Scene {
     this.flashSlot(slotId);
   }
 
-  private executeSellBuff(buffIndex: number): void {
-    const state = getRunState(this);
-    const itemKey = state.equippedBuffs[buffIndex];
-    if (!itemKey) return;
-    const item = ITEMS[itemKey as keyof typeof ITEMS];
-    if (!item) return;
-    const refund = Math.floor(item.price * ECONOMY.sellRefundRatio);
-    const nextBuffs = [...state.equippedBuffs];
-    nextBuffs.splice(buffIndex, 1);
-    const next: RunState = {
-      ...state,
-      gold: state.gold + refund,
-      equippedBuffs: nextBuffs,
-    };
-    setRunState(this, next);
-    this.refreshAll();
-    playSfx('sell');
-  }
-
   private executeStore(slotId: string): void {
     const state = getRunState(this);
     const partKey = state.equipped[slotId];
@@ -848,20 +814,15 @@ export class Build extends Scene {
     const robot = ROBOTS[state.robotKey];
     const slot = robot.slots.find((s) => s.id === slotId);
     if (!slot) { playSfx('click'); return; }
-    if (!part.allowedSlots.some((s) => s === slot.slotType)) { playSfx('click'); return; }
+    if (part.category !== slot.accepts) { playSfx('click'); return; }
 
-    // If slot is occupied, swap: the existing part goes to basket
-    let next: RunState = state;
-    const nextStored = [...next.storedParts];
+    // Slot must be empty
+    if (state.equipped[slotId]) { playSfx('click'); return; }
+
+    const nextStored = [...state.storedParts];
     nextStored.splice(basketIndex, 1);
-
-    if (next.equipped[slotId]) {
-      const displaced = next.equipped[slotId]!;
-      nextStored.push(displaced);
-    }
-
-    const nextEquipped = { ...next.equipped, [slotId]: partKey };
-    next = { ...next, equipped: nextEquipped, storedParts: nextStored };
+    const nextEquipped = { ...state.equipped, [slotId]: partKey };
+    const next: RunState = { ...state, equipped: nextEquipped, storedParts: nextStored };
 
     setRunState(this, next);
     this.refreshAll();
@@ -924,7 +885,7 @@ export class Build extends Scene {
     const part = PARTS[partKey];
     for (const slot of robot.slots) {
       if (equipped[slot.id]) continue;
-      if (!part.allowedSlots.some((s) => s === slot.slotType)) continue;
+      if (part.category !== slot.accepts) continue;
       return slot.id;
     }
     return null;
@@ -954,7 +915,7 @@ export class Build extends Scene {
     const part = PARTS[partKey];
     if (!part) return;
     this.slotVisuals.forEach((sv) => {
-      const valid = part.allowedSlots.some((s) => s === sv.slot.slotType);
+      const valid = part.category === sv.slot.accepts;
       if (valid) {
         sv.circle.setStrokeStyle(3, PALETTE.accentGreen);
       }
@@ -964,10 +925,6 @@ export class Build extends Scene {
   private highlightTrashAndBasket(): void {
     this.trashZone.setStrokeStyle(3, 0xffffff);
     this.basketZone.setStrokeStyle(3, 0xffffff);
-  }
-
-  private highlightTrashOnly(): void {
-    this.trashZone.setStrokeStyle(3, 0xffffff);
   }
 
   private cancelDrag(): void {
@@ -1007,11 +964,11 @@ export class Build extends Scene {
     if (!part) return;
     const lines = [`${t(part.name)} (${CATEGORY_LABEL[part.category]})`];
     lines.push(t(part.description));
-    if (part.category === 'weapon') {
+    if (part.category === 'module') {
       const w = part as import('@/data').WeaponPart;
       lines.push(`DMG ${w.damage}  |  CD ${w.cooldownSec}s  |  ${w.range}`);
     }
-    if (part.category === 'armor') {
+    if (part.category === 'implant') {
       const a = part as import('@/data').ArmorPart;
       if (a.bonusHp) lines.push(`HP +${a.bonusHp}`);
       if (a.damageReduction) lines.push(`DR flat +${a.damageReduction}`);
@@ -1115,25 +1072,6 @@ export class Build extends Scene {
   // Buttons & HUD
   // ==========================================================================
 
-  private drawButton(
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    label: string,
-    onClick: () => void
-  ): GameObjects.Rectangle {
-    const bg = this.add
-      .rectangle(x, y, w, h, PALETTE.buttonBg, 1)
-      .setStrokeStyle(2, PALETTE.cardStroke);
-    bg.setInteractive({ useHandCursor: true });
-    bg.on('pointerover', () => bg.setFillStyle(PALETTE.buttonBgHover, 1));
-    bg.on('pointerout', () => bg.setFillStyle(PALETTE.buttonBg, 1));
-    bg.on('pointerdown', onClick);
-    this.add.text(x, y, label, gameOptions.textStyles.body).setOrigin(0.5);
-    return bg;
-  }
-
   private refreshHud(): void {
     const state = getRunState(this);
     const totalRounds = state.generatedRounds?.length || 10;
@@ -1183,23 +1121,6 @@ export class Build extends Scene {
         ...buffLines,
       ].join('\n')
     );
-
-    // Next enemy preview
-    const nextRound = state.generatedRounds[state.currentRound - 1];
-    if (nextRound) {
-      const enemy = nextRound.enemy;
-      const originalDef = findEnemyDef(nextRound.enemyId);
-      const specials: string[] = [];
-      if (originalDef?.shieldCharges) specials.push(`Shield x${originalDef.shieldCharges}`);
-      if (originalDef?.repairAmount) specials.push(`Heal ${originalDef.repairAmount}/s`);
-      if (originalDef?.extraWeapons?.length) specials.push(`${1 + originalDef.extraWeapons.length} weapons`);
-      const specialLine = specials.length > 0 ? `  ${specials.join(' \u00b7 ')}` : '';
-      const bossTag = nextRound.isBoss ? ' [BOSS]' : '';
-      this.statsText.setText(
-        this.statsText.text +
-          `\n\n${t('NEXT ENEMY')}${bossTag}\n${t(enemy.name)}\nHP ${enemy.hp}  |  DMG ${enemy.damage}${specialLine}`
-      );
-    }
 
     // Hover preview
     if (this.hoverShopIndex !== null) {

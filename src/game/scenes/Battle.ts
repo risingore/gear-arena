@@ -2,6 +2,7 @@ import { Scene } from 'phaser';
 import type { GameObjects } from 'phaser';
 
 import gameOptions from '../helper/gameOptions';
+import { createLabel } from '../helper/uiFactory';
 import {
   ROBOTS,
   ITEMS,
@@ -30,6 +31,7 @@ import { recordRoundReached } from '../systems/savedata';
 import { t } from '../systems/i18n';
 import { playMusic, MUSIC_KEYS, setMusicPlaybackRate } from '../systems/music';
 import { applyHiDpiToScene, TEXT_DPR, showDebugBadge } from '../helper/hiDpiText';
+import { runVisualChecks } from '../systems/visualDebugger';
 import { isDebugEnabled } from '../systems/debug';
 import {
   createSlotState,
@@ -123,6 +125,8 @@ export class Battle extends Scene {
     this.slotState = createSlotState();
     this.auraRing = null;
     this.auraLabel = null;
+    this.ultFiring = false;
+    this.ultReady = false;
 
     const robot = ROBOTS[state.robotKey];
     this.playerRobotArchetypeLabel = robot.archetype.toUpperCase();
@@ -141,8 +145,14 @@ export class Battle extends Scene {
     this.player = createPlayerCombatant(robot.name, stats, playerUlt);
     // Every round starts at full HP.
 
-    // Apply and consume next-battle item buffs.
-    for (const itemKey of state.battleBuffs) {
+    // Merge equippedBuffs (from blueprint buff slots) into battleBuffs, then clear both.
+    const allBuffs = [...state.battleBuffs, ...state.equippedBuffs];
+    if (allBuffs.length > 0 || state.equippedBuffs.length > 0) {
+      setRunState(this, { ...state, battleBuffs: [], equippedBuffs: [] });
+    }
+
+    // Apply and consume all buff items.
+    for (const itemKey of allBuffs) {
       const item = ITEMS[itemKey as keyof typeof ITEMS];
       if (!item) continue;
       switch (item.effect.kind) {
@@ -164,10 +174,6 @@ export class Battle extends Scene {
           }
           break;
       }
-    }
-    // Clear consumed buffs from run state.
-    if (state.battleBuffs.length > 0) {
-      setRunState(this, { ...state, battleBuffs: [] });
     }
 
     // Build enemy weapons list: primary + any extra weapons from EnemyDef.
@@ -380,8 +386,7 @@ export class Battle extends Scene {
       .setOrigin(0.5, 0)
       .setAlpha(0.9);
 
-    this.speedLabel = this.add
-      .text(gameWidth - 24, 24, `(S) ${t('SPEED')} x${this.timeScale}`, textStyles.body)
+    this.speedLabel = createLabel(this, gameWidth - 24, 24, `(S) ${t('SPEED')} x${this.timeScale}`, 'body')
       .setOrigin(1, 0)
       .setAlpha(0.8);
 
@@ -448,6 +453,7 @@ export class Battle extends Scene {
 
     applyHiDpiToScene(this);
     showDebugBadge(this, isDebugEnabled());
+    runVisualChecks(this);
   }
 
   private cycleSpeed(): void {
@@ -551,7 +557,7 @@ export class Battle extends Scene {
   }
 
   private getActiveSynergies(equipped: Readonly<Record<string, PartKey>>): string[] {
-    const counts: Record<PartCategory, number> = { weapon: 0, armor: 0, engine: 0, gear: 0, special: 0 };
+    const counts: Record<PartCategory, number> = { module: 0, implant: 0, charger: 0, booster: 0, soul: 0 };
     const categories = new Set<PartCategory>();
     for (const key of Object.values(equipped)) {
       if (!key) continue;
@@ -566,10 +572,10 @@ export class Battle extends Scene {
       const syn = SYNERGIES[synKey];
       let triggered = false;
       switch (syn.trigger.kind) {
-        case 'gear_count':     triggered = counts.gear >= syn.trigger.threshold; break;
-        case 'weapon_count':   triggered = counts.weapon >= syn.trigger.threshold; break;
-        case 'armor_count':    triggered = counts.armor >= syn.trigger.threshold; break;
-        case 'special_count':  triggered = counts.special >= syn.trigger.threshold; break;
+        case 'booster_count':  triggered = counts.booster >= syn.trigger.threshold; break;
+        case 'module_count':   triggered = counts.module >= syn.trigger.threshold; break;
+        case 'implant_count':  triggered = counts.implant >= syn.trigger.threshold; break;
+        case 'soul_count':     triggered = counts.soul >= syn.trigger.threshold; break;
         case 'all_categories': triggered = hasAll; break;
         case 'category_pair': {
           let a = false, b = false;
@@ -1378,11 +1384,16 @@ export class Battle extends Scene {
     }
   }
 
+  private ultFiring = false;
+
   private triggerPlayerUltimate(): void {
     if (!this.ultReady) return;
+    if (this.ultFiring) return;
     if (!this.player.ultimate) return;
 
-    // Dismiss button but keep frozen (ultReady stays true until演出 ends)
+    this.ultFiring = true;
+
+    // Dismiss button but keep frozen
     if (this.ultButton) {
       this.ultButton.destroy();
       this.ultButton = null;
@@ -1410,11 +1421,12 @@ export class Battle extends Scene {
       attacks.forEach((e) => this.onAttack(e, this.enemySprite, true));
       this.refreshHp();
 
+      // Unfreeze
+      this.ultReady = false;
+      this.ultFiring = false;
+
       if (this.enemy.hp <= 0) {
         this.finishBattle('win');
-      } else {
-        // Unfreeze — combat resumes
-        this.ultReady = false;
       }
     });
   }

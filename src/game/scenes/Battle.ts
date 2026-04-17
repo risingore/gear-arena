@@ -5,10 +5,13 @@ import gameOptions from '../helper/gameOptions';
 import {
   ROBOTS,
   ITEMS,
+  PARTS,
+  SYNERGIES,
   findEnemyDef,
   ROBOT_ULTIMATES,
   ENEMY_ULTIMATES,
-  type PartKey
+  type PartKey,
+  type PartCategory
 } from '@/data';
 import { getRunState, setRunState } from '../systems/runState';
 import { PALETTE, ROBOT_COLORS } from '../systems/palette';
@@ -296,18 +299,33 @@ export class Battle extends Scene {
       .setOrigin(0.5)
       .setAlpha(0.85);
 
-    // Turbo Combo detection (engine_turbo + weapon_laser both equipped).
-    // Solo combat currently has no target to pierce through, so the indicator
-    // is visual-only until schema gets a damage_flat effect variant.
-    if (this.hasTurboCombo(state.equipped)) {
+    // Active synergies: detect and show aura + labels
+    const activeSynergies = this.getActiveSynergies(state.equipped);
+    if (activeSynergies.length > 0) {
+      // Pulsing aura ring around the player
+      const aura = this.add
+        .circle(playerX, arenaY, SPRITE_W * 0.6, 0xffd94a, 0)
+        .setStrokeStyle(3, 0xffd94a)
+        .setAlpha(0);
+      this.tweens.add({
+        targets: aura,
+        alpha: { from: 0, to: 0.4 },
+        scale: { from: 0.9, to: 1.1 },
+        duration: 1200,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      });
+
+      const synergyText = activeSynergies.map((s) => `⚡ ${s}`).join('  ');
       const label = this.add
-        .text(playerX, arenaY + SPRITE_H / 2 + 84, t('⚡ TURBO COMBO ⚡'), textStyles.small)
+        .text(playerX, arenaY + SPRITE_H / 2 + 84, synergyText, textStyles.small)
         .setOrigin(0.5)
         .setColor('#ffd94a');
       this.tweens.add({
         targets: label,
-        alpha: { from: 0.4, to: 1 },
-        duration: 700,
+        alpha: { from: 0.5, to: 1 },
+        duration: 800,
         yoyo: true,
         repeat: -1,
         ease: 'Sine.easeInOut'
@@ -466,17 +484,43 @@ export class Battle extends Scene {
     this.refreshHp();
   }
 
-  private hasTurboCombo(equipped: Readonly<Record<string, PartKey>>): boolean {
-    let hasTurbo = false;
-    let hasLaser = false;
-    for (const slotId of Object.keys(equipped)) {
-      const key = equipped[slotId];
+  private getActiveSynergies(equipped: Readonly<Record<string, PartKey>>): string[] {
+    const counts: Record<PartCategory, number> = { weapon: 0, armor: 0, engine: 0, gear: 0, special: 0 };
+    const categories = new Set<PartCategory>();
+    for (const key of Object.values(equipped)) {
       if (!key) continue;
-      if (key === 'engine_turbo') hasTurbo = true;
-      if (key === 'weapon_laser') hasLaser = true;
-      if (hasTurbo && hasLaser) return true;
+      const part = PARTS[key];
+      if (!part) continue;
+      counts[part.category] += 1;
+      categories.add(part.category);
     }
-    return false;
+    const hasAll = categories.size >= 5;
+    const active: string[] = [];
+    for (const synKey of Object.keys(SYNERGIES) as (keyof typeof SYNERGIES)[]) {
+      const syn = SYNERGIES[synKey];
+      let triggered = false;
+      switch (syn.trigger.kind) {
+        case 'gear_count':     triggered = counts.gear >= syn.trigger.threshold; break;
+        case 'weapon_count':   triggered = counts.weapon >= syn.trigger.threshold; break;
+        case 'armor_count':    triggered = counts.armor >= syn.trigger.threshold; break;
+        case 'special_count':  triggered = counts.special >= syn.trigger.threshold; break;
+        case 'all_categories': triggered = hasAll; break;
+        case 'category_pair': {
+          let a = false, b = false;
+          for (const key of Object.values(equipped)) {
+            if (!key) continue;
+            const p = PARTS[key];
+            if (!p) continue;
+            if (p.category === syn.trigger.a) a = true;
+            if (p.category === syn.trigger.b) b = true;
+          }
+          triggered = a && b;
+          break;
+        }
+      }
+      if (triggered) active.push(syn.name);
+    }
+    return active;
   }
 
   private onAttack(event: AttackEvent, targetSprite: GameObjects.Rectangle, fromPlayer: boolean): void {

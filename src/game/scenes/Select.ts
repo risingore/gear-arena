@@ -7,7 +7,7 @@ import { getRunState, setRunState, resetRunState } from '../systems/runState';
 import { PALETTE, ROBOT_COLORS } from '../systems/palette';
 import { generateShopOffer } from '../systems/shop';
 import { generateRunEnemies } from '../systems/enemyPool';
-import { isRobotUnlocked, isSuperBossUnlocked } from '../systems/savedata';
+import { isRobotUnlocked, isSuperBossUnlocked, loadSaveData } from '../systems/savedata';
 import { playSfx } from '../systems/audio';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { t } from '../systems/i18n';
@@ -198,7 +198,10 @@ export class Select extends Scene {
     }
     playSfx('buy');
     const fresh = resetRunState(this);
-    const generatedRounds = generateRunEnemies(isSuperBossUnlocked(), seed);
+    // KNIGHT first clear = short 5-round intro. All others = full 10 rounds.
+    const save = loadSaveData();
+    const isKnightFirstRun = robotKey === 'robot_knight' && (save.perRobotClears[robotKey] ?? 0) === 0;
+    const generatedRounds = generateRunEnemies(isSuperBossUnlocked(), seed, isKnightFirstRun);
     const debugGold = isDebugEnabled() ? 100000 : fresh.gold;
     const next = { ...fresh, robotKey, gold: debugGold, shopOffer: generateShopOffer(), generatedRounds };
     setRunState(this, next);

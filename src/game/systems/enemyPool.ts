@@ -93,42 +93,49 @@ export interface GeneratedRound {
 }
 
 /**
- * Generate the full 10-round (or 11-round) enemy lineup for a single run.
- *
- * @param superBossUnlocked Whether the super boss has been earned
- *   (all 4 robots cleared + all normal/mid/big enemies defeated).
+ * Generate enemy lineup.
+ * @param shortRun true = 5 rounds (KNIGHT first clear), false = 10 rounds (standard)
  */
-export function generateRunEnemies(_superBossUnlocked: boolean, seed?: number): GeneratedRound[] {
-  // Install seeded or default RNG for the duration of generation.
+export function generateRunEnemies(_superBossUnlocked: boolean, seed?: number, shortRun = false): GeneratedRound[] {
   const prevRng = rng;
   rng = seed !== undefined ? createSeededRandom(seed) : Math.random;
   const rounds: GeneratedRound[] = [];
 
-  // 5-round structure: R1-R2 normal, R3 mid-boss, R4 normal(hard), R5 big boss.
-  // Designed for 3-minute runs so jam judges can complete the full loop.
   const sortedNormals = [...NORMAL_ENEMIES].sort((a, b) => a.tier - b.tier);
   const easyPool = sortedNormals.filter((e) => e.tier <= 5);
+  const midPool = sortedNormals.filter((e) => e.tier >= 4 && e.tier <= 7);
   const hardPool = sortedNormals.filter((e) => e.tier >= 6);
 
-  // R1: easy normal
-  const r1Def = pickRandom(easyPool);
-  rounds.push({ index: 1, enemy: defToEnemy(r1Def, true), enemyId: r1Def.id, goldReward: 8, isBoss: false, isSuperBoss: false });
-
-  // R2: easy-mid normal
-  const r2Def = pickRandom(easyPool);
-  rounds.push({ index: 2, enemy: defToEnemy(r2Def, true), enemyId: r2Def.id, goldReward: 10, isBoss: false, isSuperBoss: false });
-
-  // R3: mid-boss (skill reward)
-  const r3Def = pickRandom(MID_BOSSES);
-  rounds.push({ index: 3, enemy: defToEnemy(r3Def, false), enemyId: r3Def.id, goldReward: 14, isBoss: true, isSuperBoss: false });
-
-  // R4: hard normal
-  const r4Def = pickRandom(hardPool);
-  rounds.push({ index: 4, enemy: defToEnemy(r4Def, true), enemyId: r4Def.id, goldReward: 12, isBoss: false, isSuperBoss: false });
-
-  // R5: big boss (final)
-  const r5Def = pickRandom(BIG_BOSSES);
-  rounds.push({ index: 5, enemy: defToEnemy(r5Def, false), enemyId: r5Def.id, goldReward: 0, isBoss: true, isSuperBoss: false });
+  if (shortRun) {
+    // 5-round intro run: R1-R2 normal, R3 mid-boss, R4 hard, R5 big boss
+    rounds.push({ index: 1, enemy: defToEnemy(pickRandom(easyPool), true), enemyId: pickRandom(easyPool).id, goldReward: 8, isBoss: false, isSuperBoss: false });
+    rounds.push({ index: 2, enemy: defToEnemy(pickRandom(easyPool), true), enemyId: pickRandom(easyPool).id, goldReward: 10, isBoss: false, isSuperBoss: false });
+    const mb = pickRandom(MID_BOSSES);
+    rounds.push({ index: 3, enemy: defToEnemy(mb, false), enemyId: mb.id, goldReward: 14, isBoss: true, isSuperBoss: false });
+    rounds.push({ index: 4, enemy: defToEnemy(pickRandom(hardPool), true), enemyId: pickRandom(hardPool).id, goldReward: 12, isBoss: false, isSuperBoss: false });
+    const bb = pickRandom(BIG_BOSSES);
+    rounds.push({ index: 5, enemy: defToEnemy(bb, false), enemyId: bb.id, goldReward: 0, isBoss: true, isSuperBoss: false });
+  } else {
+    // Full 10-round run: R1-R3 easy, R4 mid-boss, R5-R6 mid, R7 mid-boss, R8-R9 hard, R10 big boss
+    for (let i = 1; i <= 3; i += 1) {
+      const e = pickRandom(easyPool);
+      rounds.push({ index: i, enemy: defToEnemy(e, true), enemyId: e.id, goldReward: 6 + i, isBoss: false, isSuperBoss: false });
+    }
+    const mb1 = pickRandom(MID_BOSSES);
+    rounds.push({ index: 4, enemy: defToEnemy(mb1, false), enemyId: mb1.id, goldReward: 12, isBoss: true, isSuperBoss: false });
+    for (let i = 5; i <= 6; i += 1) {
+      const e = pickRandom(midPool);
+      rounds.push({ index: i, enemy: defToEnemy(e, true), enemyId: e.id, goldReward: 9 + i, isBoss: false, isSuperBoss: false });
+    }
+    const mb2 = pickRandom(MID_BOSSES);
+    rounds.push({ index: 7, enemy: defToEnemy(mb2, false), enemyId: mb2.id, goldReward: 14, isBoss: true, isSuperBoss: false });
+    for (let i = 8; i <= 9; i += 1) {
+      const e = pickRandom(hardPool);
+      rounds.push({ index: i, enemy: defToEnemy(e, true), enemyId: e.id, goldReward: 11 + i, isBoss: false, isSuperBoss: false });
+    }
+    const bb = pickRandom(BIG_BOSSES);
+    rounds.push({ index: 10, enemy: defToEnemy(bb, false), enemyId: bb.id, goldReward: 0, isBoss: true, isSuperBoss: false });
+  }
 
   // Restore previous RNG to avoid polluting non-generation code.
   rng = prevRng;

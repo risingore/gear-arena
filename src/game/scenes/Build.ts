@@ -330,9 +330,6 @@ export class Build extends Scene {
       ease: 'Back.easeOut'
     });
 
-    // Screen micro-shake
-    this.cameras.main.shake(80, 0.003);
-
     // Glow flash ring
     const glow = this.add
       .circle(sv.circle.x, sv.circle.y, SLOT_RADIUS * 2, 0xffd94a, 0.5)

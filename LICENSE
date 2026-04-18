@@ -22,11 +22,11 @@ SOFTWARE.
 
 ---
 
-## Asset licensing notes
+Scope: This MIT license applies ONLY to source code in this repository
+(everything under `src/`, configuration files, scripts, and documentation
+prose). Runtime sound effects synthesized via the Web Audio API
+(see `src/game/systems/audio.ts`) are part of the MIT-licensed source code.
 
-This repository contains only source code under the MIT license above.
-Visual and audio assets loaded at runtime may have separate licenses.
-Runtime sound effects are synthesized in-browser via the Web Audio API
-(see `src/game/systems/audio.ts`) and are considered part of the MIT-licensed
-source code. Any bitmap art placed under `public/assets/` retains its own
-license, documented in `docs/asset-provenance.md`.
+Visual and audio ASSETS (all files under `public/assets/`) are licensed
+separately under Creative Commons Attribution-NonCommercial 4.0 International
+(CC BY-NC 4.0) — see `LICENSE-ASSETS`.

@@ -50,4 +50,9 @@ bun run package-itch  # create machines-itch.zip for itch.io
 
 ## License
 
-MIT
+Dual-licensed:
+
+- **Source code** (everything under `src/`, configs, scripts, and documentation prose) — [MIT License](LICENSE). Free to reuse, modify, and redistribute with attribution.
+- **Visual and audio assets** (everything under `public/assets/`) — [CC BY-NC 4.0](LICENSE-ASSETS). Attribution required, non-commercial use only.
+
+Runtime-synthesized sound effects generated via the Web Audio API (`src/game/systems/audio.ts`) are considered source code and fall under MIT.

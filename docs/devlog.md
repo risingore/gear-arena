@@ -222,7 +222,7 @@ Consolidated every open question into `tasks/kima-questions.md` so they can be b
 - New system: `layoutDebug.ts` for interactive layout inspection.
 
 **Infrastructure:**
-- `tools/audio-analyze` and `tools/youtube-dl` utility scripts.
+
 - Browser test harness expanded.
 - PWA manifest and service worker updates.
 

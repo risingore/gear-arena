@@ -1,5 +1,5 @@
 /**
- * GEAR ARENA — data layer type definitions (single source of truth).
+ * SOUL STRIKE — data layer type definitions (single source of truth).
  *
  * This file contains types only. Concrete values live in sibling files
  * (`parts.ts`, `robots.ts`, `rounds.ts`, `economy.ts`, `synergies.ts`) and are

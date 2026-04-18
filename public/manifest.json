@@ -1,7 +1,7 @@
 {
-  "name": "GEAR ARENA",
-  "short_name": "GEAR ARENA",
-  "description": "Slot-based mecha auto-battler roguelite",
+  "name": "SOUL STRIKE",
+  "short_name": "SOUL STRIKE",
+  "description": "Ultimate-only cyborg combat with pachislot mechanics",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#0a0a10",

@@ -7,7 +7,7 @@
 
 import { PARTS, ROBOTS, ECONOMY, ITEMS, type PartKey, type RobotKey, type ItemKey } from '@/data';
 import { BALANCE } from '@/data/balance';
-import type { RunState } from './runState';
+import type { RunState, EquippedEntry } from './runState';
 
 export interface BuyResult {
   readonly ok: boolean;
@@ -18,7 +18,7 @@ export interface BuyResult {
 const findFreeSlotFor = (
   robotKey: RobotKey,
   partKey: PartKey,
-  equipped: Readonly<Record<string, PartKey>>
+  equipped: Readonly<Record<string, EquippedEntry>>
 ): string | null => {
   const robot = ROBOTS[robotKey];
   const part = PARTS[partKey];
@@ -45,7 +45,8 @@ export const attemptBuy = (state: RunState, shopIndex: number): BuyResult => {
   const slotId = findFreeSlotFor(state.robotKey, partKey, state.equipped);
   if (!slotId) return { ok: false, reason: 'no_slot' };
 
-  const nextEquipped = { ...state.equipped, [slotId]: partKey };
+  const entry: EquippedEntry = { key: partKey, star: 1 };
+  const nextEquipped = { ...state.equipped, [slotId]: entry };
   const nextOffer = [...state.shopOffer];
   nextOffer[shopIndex] = '';
   const next: RunState = {
@@ -58,11 +59,12 @@ export const attemptBuy = (state: RunState, shopIndex: number): BuyResult => {
 };
 
 export const attemptSell = (state: RunState, slotId: string): RunState => {
-  const partKey = state.equipped[slotId];
-  if (!partKey) return state;
-  const part = PARTS[partKey];
+  const entry = state.equipped[slotId];
+  if (!entry) return state;
+  const part = PARTS[entry.key];
   if (!part) return state;
-  const refund = Math.floor(part.price * ECONOMY.sellRefundRatio);
+  const sm = BALANCE.starMultipliers[entry.star] ?? 1;
+  const refund = Math.floor(part.price * sm * ECONOMY.sellRefundRatio);
   const nextEquipped = { ...state.equipped };
   delete nextEquipped[slotId];
   return {

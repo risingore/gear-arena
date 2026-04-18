@@ -2,11 +2,18 @@ import { Scene } from 'phaser';
 
 import gameOptions from '../helper/gameOptions';
 import { createButton, createPanel } from '../helper/uiFactory';
-import { PARTS, ROBOTS, rollSkillChoices, type PartCategory, type PartKey } from '@/data';
+import { PARTS, ROBOTS, rollSkillChoices, type PartCategory } from '@/data';
 import { BALANCE } from '@/data/balance';
 import type { SkillDef } from '@/data/skills';
+import { findEnemyDef } from '@/data/enemies';
+import {
+  ATMAN_NORMAL_STATEMENTS,
+  ATMAN_MIDBOSS_STATEMENTS,
+  ATMAN_BIGBOSS_STATEMENTS,
+} from '@/data/storyText';
 import { getRunState, setRunState } from '../systems/runState';
 import { PALETTE } from '../systems/palette';
+import { bl } from '../systems/i18n';
 import { awardRoundReward } from '../systems/loadout';
 import { generateShopOffer } from '../systems/shop';
 import { playSfx } from '../systems/audio';
@@ -16,6 +23,7 @@ import { t } from '../systems/i18n';
 import { playMusic, MUSIC_KEYS } from '../systems/music';
 import { applyHiDpiToScene, showDebugBadge } from '../helper/hiDpiText';
 import { runVisualChecks } from '../systems/visualDebugger';
+import { setupLayoutDebug } from '../systems/layoutDebug';
 import { isDebugEnabled } from '../systems/debug';
 
 export class Result extends Scene {
@@ -37,8 +45,8 @@ export class Result extends Scene {
       recordDefeatedEnemy(state.lastDefeatedEnemyId);
     }
     if (outcome === 'win' || outcome === 'victory') {
-      for (const partKey of Object.values(state.equipped)) {
-        if (partKey) recordUsedPart(partKey as PartKey);
+      for (const entry of Object.values(state.equipped)) {
+        if (entry?.key) recordUsedPart(entry.key);
       }
     }
 
@@ -56,13 +64,9 @@ export class Result extends Scene {
           : '#ff4444';
 
     this.add
-      .text(gameWidth / 2, gameHeight * 0.3, titleMap[outcome], textStyles.title)
+      .text(gameWidth / 2, gameHeight * 0.18, titleMap[outcome], textStyles.title)
       .setOrigin(0.5)
       .setColor(titleColor);
-
-    this.add
-      .text(gameWidth / 2, gameHeight * 0.44, state.lastResultMessage, textStyles.body)
-      .setOrigin(0.5);
 
     if (outcome === 'win') {
       const rewarded = awardRoundReward(state);
@@ -74,24 +78,27 @@ export class Result extends Scene {
       };
       setRunState(this, advanced);
 
-      // Gold count-up animation
+      // Gold panel
       const goldEarned = advanced.gold - state.gold;
       const goldCounter = { value: state.gold };
-      createPanel(this, gameWidth / 2, gameHeight * 0.55, 300, 80, { fillAlpha: 0.5, depth: 0 });
+      const goldY = gameHeight * 0.32;
+      createPanel(this, gameWidth / 2, goldY, 260, 70, { fillAlpha: 0.5, depth: 0 });
       const goldText = this.add
-        .text(gameWidth / 2, gameHeight * 0.52, `${state.gold}g`, { ...textStyles.title, fontSize: '48px' })
+        .text(gameWidth / 2, goldY - 8, `${state.gold} g`, { ...textStyles.title, fontSize: '42px' })
         .setOrigin(0.5)
+        .setDepth(1)
         .setColor('#ffd94a');
       this.tweens.add({
         targets: goldCounter,
         value: advanced.gold,
         duration: 800,
         ease: 'Cubic.easeOut',
-        onUpdate: () => goldText.setText(`${Math.floor(goldCounter.value)}g`)
+        onUpdate: () => goldText.setText(`${Math.floor(goldCounter.value)} g`)
       });
       this.add
-        .text(gameWidth / 2, gameHeight * 0.60, `+${goldEarned}g`, textStyles.body)
+        .text(gameWidth / 2, goldY + 22, `+${goldEarned} g`, textStyles.body)
         .setOrigin(0.5)
+        .setDepth(1)
         .setColor('#3aff7a')
         .setAlpha(0.8);
       playSfx('buy');
@@ -101,33 +108,47 @@ export class Result extends Scene {
       const isBossRound = clearedRound?.isBoss === true;
       const isBigBoss = clearedRound && !clearedRound.isSuperBoss && state.currentRound >= 10;
       const isSuperRoute = state.generatedRounds.length > 10;
+      let showSkills = false;
 
       if (isBossRound && advanced.acquiredSkills.length < 3) {
-        // Big boss skills only offered on super-boss route.
         const offerSkills = isBigBoss ? isSuperRoute : true;
         if (offerSkills) {
           const tier = isBigBoss ? 'bigBoss' as const : 'midBoss' as const;
           const choices = rollSkillChoices(tier, advanced.acquiredSkills);
           if (choices.length > 0) {
+            // ATMAN statement above skill area (smaller Y)
+            if (state.lastDefeatedEnemyId) {
+              this.showAtmanStatement(state.lastDefeatedEnemyId, gameHeight * 0.44);
+            }
             this.showSkillSelection(choices, advanced);
-            return;
+            showSkills = true;
           }
         }
       }
 
-      this.showContinueButtons();
+      if (!showSkills) {
+        // ATMAN statement in normal position
+        if (state.lastDefeatedEnemyId) {
+          this.showAtmanStatement(state.lastDefeatedEnemyId, gameHeight * 0.50);
+        }
+        this.showContinueButtons();
+      }
     } else if (outcome === 'victory') {
       if (state.robotKey) recordVictory(state.robotKey);
-      // Convert remaining gold to scrap.
       const scrapEarned = Math.floor(state.gold * BALANCE.scrapConversionRate);
       if (scrapEarned > 0) recordScrap(scrapEarned);
+
+      // ATMAN statement for victory
+      if (state.lastDefeatedEnemyId) {
+        this.showAtmanStatement(state.lastDefeatedEnemyId, gameHeight * 0.36);
+      }
 
       const totalRounds = state.generatedRounds.length;
       this.add
         .text(
           gameWidth / 2,
           gameHeight * 0.50,
-          `${t('All')} ${totalRounds} ${t('rounds cleared. Final gold:')} ${state.gold}g`,
+          `${t('All')} ${totalRounds} ${t('rounds cleared. Final gold:')} ${state.gold} g`,
           textStyles.body
         )
         .setOrigin(0.5)
@@ -183,6 +204,7 @@ export class Result extends Scene {
     applyHiDpiToScene(this);
     showDebugBadge(this, isDebugEnabled());
     runVisualChecks(this);
+    setupLayoutDebug(this);
   }
 
   private showAcquiredLabel(skillName: string): void {
@@ -210,14 +232,17 @@ export class Result extends Scene {
   private showSkillSelection(choices: SkillDef[], currentState: import('../systems/runState').RunState): void {
     const { gameWidth, gameHeight, textStyles } = gameOptions;
 
-    this.add
+    const skillElements: GameObjects.GameObject[] = [];
+
+    const chooseLabel = this.add
       .text(gameWidth / 2, gameHeight * 0.56, t('CHOOSE A SKILL'), textStyles.body)
       .setOrigin(0.5)
       .setColor('#ffd94a');
+    skillElements.push(chooseLabel);
 
-    const cardW = 280;
-    const cardH = 100;
-    const gap = 20;
+    const cardW = 240;
+    const cardH = 90;
+    const gap = 16;
     const totalW = choices.length * cardW + (choices.length - 1) * gap;
     const startX = gameWidth / 2 - totalW / 2 + cardW / 2;
     const cardY = gameHeight * 0.70;
@@ -229,9 +254,13 @@ export class Result extends Scene {
         borderColor: PALETTE.cardStroke
       });
       bg.setInteractive({ useHandCursor: true });
+      skillElements.push(bg);
 
-      this.add.text(x, cardY - 28, t(skill.name), textStyles.body).setOrigin(0.5).setColor('#ffd94a');
-      this.add.text(x, cardY + 8, t(skill.description), textStyles.small).setOrigin(0.5);
+      const nameLabel = this.add.text(x, cardY - 20, t(skill.name), textStyles.body).setOrigin(0.5).setColor('#ffd94a');
+      const descLabel = this.add.text(x, cardY + 12, t(skill.description), {
+        ...textStyles.small, wordWrap: { width: cardW - 20 }, align: 'center'
+      }).setOrigin(0.5);
+      skillElements.push(nameLabel, descLabel);
 
       bg.on('pointerover', () => bg.setStrokeStyle(3, PALETTE.accentOrange));
       bg.on('pointerout', () => bg.setStrokeStyle(2, PALETTE.cardStroke));
@@ -243,6 +272,8 @@ export class Result extends Scene {
           acquiredSkills: [...currentState.acquiredSkills, skill.id]
         };
         setRunState(this, updated);
+        // Destroy all skill selection elements before showing continue buttons
+        for (const el of skillElements) el.destroy();
         this.showAcquiredLabel(skill.name);
         this.showContinueButtons();
       });
@@ -254,11 +285,11 @@ export class Result extends Scene {
 
   /**
    * Reinforce the "Machines" theme on the victory screen by describing the
-   * assembled loadout: "Your KNIGHT-01 contained 2 weapons, 3 gears, 1 engine".
+   * assembled loadout: "Your INDRA contained 2 weapons, 3 gears, 1 engine".
    */
   private buildMachineSummary(
     robotKey: string | null,
-    equipped: Readonly<Record<string, string>>
+    equipped: Readonly<Record<string, import('../systems/runState').EquippedEntry>>
   ): string {
     if (!robotKey || !(robotKey in ROBOTS)) return '';
     const robot = ROBOTS[robotKey as keyof typeof ROBOTS];
@@ -270,10 +301,10 @@ export class Result extends Scene {
       soul: 0
     };
     for (const slotId of Object.keys(equipped)) {
-      const key = equipped[slotId];
-      if (!key) continue;
-      if (!(key in PARTS)) continue;
-      const part = PARTS[key as keyof typeof PARTS];
+      const entry = equipped[slotId];
+      if (!entry?.key) continue;
+      if (!(entry.key in PARTS)) continue;
+      const part = PARTS[entry.key as keyof typeof PARTS];
       counts[part.category] += 1;
     }
     const parts: string[] = [];
@@ -284,5 +315,91 @@ export class Result extends Scene {
     if (counts.soul > 0) parts.push(`${counts.soul} ${t('souls')}`);
     if (parts.length === 0) return '';
     return `${t('Your')} ${t(robot.name)} ${t('contained')}: ${parts.join(', ')}`;
+  }
+
+  private showAtmanStatement(enemyId: string, centerY: number): void {
+    const { gameWidth, textStyles } = gameOptions;
+    const def = findEnemyDef(enemyId);
+    if (!def) return;
+
+    let statement: { en: string; ja: string } | undefined;
+
+    if (def.category === 'midBoss') {
+      statement = ATMAN_MIDBOSS_STATEMENTS[def.id];
+    } else if (def.category === 'bigBoss') {
+      statement = ATMAN_BIGBOSS_STATEMENTS[def.id];
+    }
+
+    if (!statement) {
+      const idx = Math.floor(Math.random() * ATMAN_NORMAL_STATEMENTS.length);
+      statement = ATMAN_NORMAL_STATEMENTS[idx];
+    }
+
+    if (!statement) return;
+
+    const text = bl(statement);
+    const frameW = 560;
+    const frameH = 72;
+
+    // Holographic frame background
+    const frameBg = this.add
+      .rectangle(gameWidth / 2, centerY, frameW, frameH, 0x0a2030, 0.85)
+      .setStrokeStyle(1, 0x00ccff)
+      .setDepth(5);
+
+    // Scan line effect (thin horizontal lines)
+    for (let i = 0; i < 3; i++) {
+      const lineY = centerY - frameH / 2 + 8 + i * (frameH / 3);
+      this.add
+        .rectangle(gameWidth / 2, lineY, frameW - 4, 1, 0x00ccff, 0.15)
+        .setDepth(6);
+    }
+
+    // Corner brackets
+    const bLen = 12;
+    const bOff = 2;
+    const corners = [
+      [-frameW / 2 + bOff, -frameH / 2 + bOff, bLen, 0, bLen],
+      [frameW / 2 - bOff, -frameH / 2 + bOff, -bLen, 0, bLen],
+      [-frameW / 2 + bOff, frameH / 2 - bOff, bLen, 0, -bLen],
+      [frameW / 2 - bOff, frameH / 2 - bOff, -bLen, 0, -bLen],
+    ];
+    for (const [cx, cy, dx, , dy] of corners) {
+      this.add.rectangle(gameWidth / 2 + cx + dx / 2, centerY + cy, Math.abs(dx), 1, 0x00ccff, 0.8).setDepth(7);
+      this.add.rectangle(gameWidth / 2 + cx, centerY + cy + dy / 2, 1, Math.abs(dy), 0x00ccff, 0.8).setDepth(7);
+    }
+
+    // ATMAN label
+    this.add
+      .text(gameWidth / 2, centerY - 16, '— ATMAN —', {
+        ...textStyles.small, color: '#00ccff', fontSize: '12px',
+      })
+      .setOrigin(0.5)
+      .setDepth(8)
+      .setAlpha(0.8);
+
+    // Statement text
+    const label = this.add
+      .text(gameWidth / 2, centerY + 6, text, {
+        ...textStyles.small,
+        color: '#88ddff',
+        wordWrap: { width: frameW - 40 },
+        align: 'center',
+      })
+      .setOrigin(0.5)
+      .setDepth(8);
+
+    // Fade-in animation
+    const allElements = [frameBg, label];
+    for (const el of allElements) {
+      el.setAlpha(0);
+      this.tweens.add({
+        targets: el,
+        alpha: el === frameBg ? 0.85 : 0.9,
+        duration: 800,
+        delay: 400,
+        ease: 'Sine.easeIn',
+      });
+    }
   }
 }

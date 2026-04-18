@@ -1,5 +1,5 @@
 /**
- * GEAR ARENA — permanent run skills (v0.1, 2026-04-16).
+ * SOUL STRIKE — permanent run skills (v0.1, 2026-04-16).
  *
  * Acquired after mid-boss (R4, R7) and big-boss (R10, super-boss route only).
  * Player picks 1 from 3 random options. Max 3 per run.

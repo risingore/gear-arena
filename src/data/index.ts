@@ -1,5 +1,5 @@
 /**
- * GEAR ARENA — data layer barrel export.
+ * SOUL STRIKE — data layer barrel export.
  *
  * Usage:
  *   import { PARTS, ROBOTS, ROUNDS, ECONOMY, SYNERGIES } from '@/data';
@@ -21,6 +21,9 @@ export { ECONOMY } from './economy';
 
 export { SYNERGIES, ALL_SYNERGY_KEYS } from './synergies';
 export type { SynergyKey } from './synergies';
+
+export { PLACEMENT_SYNERGIES, ALL_PLACEMENT_SYNERGY_IDS } from './placementSynergies';
+export type { PlacementSynergyDef, PlacementSynergyEffect, PlacementSlotPattern, PlacementSynergyId } from './placementSynergies';
 
 export { ITEMS, ALL_ITEM_KEYS, isItemKey } from './items';
 export type { ItemKey } from './items';

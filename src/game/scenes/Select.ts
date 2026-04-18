@@ -4,6 +4,8 @@ import type { GameObjects } from 'phaser';
 import gameOptions from '../helper/gameOptions';
 import { createButton, createPanel } from '../helper/uiFactory';
 import { ROBOTS, ALL_ROBOT_KEYS, ROBOT_ULTIMATES, type RobotKey } from '@/data';
+import { CHARACTER_QUOTES } from '@/data/storyText';
+import { bl } from '../systems/i18n';
 import { getRunState, setRunState, resetRunState } from '../systems/runState';
 import { PALETTE, ROBOT_COLORS } from '../systems/palette';
 import { generateShopOffer } from '../systems/shop';
@@ -14,6 +16,7 @@ import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { t } from '../systems/i18n';
 import { applyHiDpiToScene, showDebugBadge } from '../helper/hiDpiText';
 import { runVisualChecks } from '../systems/visualDebugger';
+import { setupLayoutDebug } from '../systems/layoutDebug';
 import { isDebugEnabled } from '../systems/debug';
 
 export class Select extends Scene {
@@ -67,6 +70,7 @@ export class Select extends Scene {
     applyHiDpiToScene(this);
     showDebugBadge(this, isDebugEnabled());
     runVisualChecks(this);
+    setupLayoutDebug(this);
   }
 
   private navigate(dir: number): void {
@@ -111,8 +115,8 @@ export class Select extends Scene {
     }
 
     // --- Info panel (left side) ---
-    const infoX = 120;
-    const infoPanelBg = createPanel(this, infoX + 200, gameHeight / 2 - 20, 440, 400, { fillAlpha: 0.5, depth: 0 });
+    const infoX = 140;
+    const infoPanelBg = createPanel(this, infoX + 200, gameHeight / 2 + 10, 440, 360, { fillAlpha: 0.5, depth: 0 });
     this.contentGroup.push(infoPanelBg);
 
     // Character selector icons (bottom center)
@@ -148,6 +152,7 @@ export class Select extends Scene {
           fontStyle: 'bold'
         })
         .setOrigin(0.5)
+        .setDepth(3)
         .setColor(isCurrent ? '#0a0a10' : (isUnlocked ? '#888899' : '#333344'));
       this.contentGroup.push(iconLabel);
 
@@ -185,7 +190,7 @@ export class Select extends Scene {
 
     // Accent line under name
     const line = this.add
-      .rectangle(infoX + 120, 210, 240, 3, color, 0.8)
+      .rectangle(infoX + 100, 210, 200, 3, color, 0.8)
       .setOrigin(0.5, 0);
     this.contentGroup.push(line);
 
@@ -223,6 +228,21 @@ export class Select extends Scene {
         .setOrigin(0, 0)
         .setColor('#ffd94a');
       this.contentGroup.push(ultText);
+    }
+
+    // Character quote
+    if (!locked) {
+      const quote = CHARACTER_QUOTES[key];
+      const quoteText = bl(quote);
+      const quoteLabel = this.add
+        .text(infoX, statsY + 80, `"${quoteText}"`, {
+          ...textStyles.body,
+          fontStyle: 'italic',
+          wordWrap: { width: 400 },
+        })
+        .setOrigin(0, 0)
+        .setAlpha(0.5);
+      this.contentGroup.push(quoteLabel);
     }
 
     // --- EMBARK button or LOCKED ---

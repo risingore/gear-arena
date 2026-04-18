@@ -1,5 +1,5 @@
 /**
- * GEAR ARENA — game balance configuration (single source of truth).
+ * SOUL STRIKE — game balance configuration (single source of truth).
  *
  * Every gameplay-relevant number lives here. Heika can tune any value
  * without touching implementation code.
@@ -42,11 +42,13 @@ export const BALANCE = {
   //   - Mid enemies   (tier 4-6, HP 80-120): 1-2 ultimates
   //   - Bosses        (HP 450-600, 15-25% DR): 2-3 ultimates (with late-game gear)
   //
-  // Math for baseline (KNIGHT-01, 2× Phantom Limb avg 8 dmg, 1 booster):
+  // Math for baseline (INDRA, 2× Phantom Limb avg 8 dmg, 1 booster):
   //   gearMult = 1 + 1 × 0.25 = 1.25
   //   perStrike = round(8 × 1.25 × 3.5) = 35
   //   2 strikes = 70 total → one-shots tier 1-3 comfortably
   //
+  /** Base ultimate damage when no modules equipped (fraction of maxHP). */
+  bareUltimateDamageRatio: 0.1,
   /** Per-gear damage multiplier added to ultimate (1 + gearCount * this). */
   gearUltimateMult: 0.25,
   /** Base ultimate damage multiplier (applied on top of weapon average). */
@@ -57,8 +59,8 @@ export const BALANCE = {
   // ---------------------------------------------------------------------------
   // Shop & Economy
   // ---------------------------------------------------------------------------
-  /** Chance that any given shop slot contains an item instead of a part. */
-  itemShopChance: 0.2,
+  /** Chance that any given shop slot contains an item instead of a part. (0 = disabled) */
+  itemShopChance: 0,
   /** Round after which epic-rarity parts can appear in shop. */
   epicUnlockRound: 5,
   /** Reroll cost increases by +1g every N rerolls. */
@@ -88,4 +90,12 @@ export const BALANCE = {
   bgmUrgentRate: 1.15,
   /** Normal auto-attack damage ratio for player (0 = no auto-attacks). */
   playerAutoAttackRatio: 0,
+
+  // ---------------------------------------------------------------------------
+  // Star Merge
+  // ---------------------------------------------------------------------------
+  /** Stat multiplier per star level. Index 0 unused, 1=default, 2=merged once, 3=max. */
+  starMultipliers: [1.0, 1.0, 1.5, 2.0] as readonly number[],
+  /** Maximum star level a part can reach. */
+  maxStarLevel: 3,
 } as const;

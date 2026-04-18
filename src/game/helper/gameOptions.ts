@@ -35,7 +35,7 @@ const TEXT_RESOLUTION =
   typeof window !== 'undefined' ? Math.min(window.devicePixelRatio || 1, 3) : 1;
 
 const gameOptions: GameOptions = {
-  gameTitle: 'GEAR ARENA',
+  gameTitle: 'SOUL STRIKE',
   gameWidth: 1280,
   gameHeight: 720,
   backgroundColor: '#0a0a10',

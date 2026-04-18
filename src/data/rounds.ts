@@ -1,5 +1,5 @@
 /**
- * GEAR ARENA — canonical round data (v0.2, 2026-04-15).
+ * SOUL STRIKE — canonical round data (v0.2, 2026-04-15).
  *
  * Heika is free to edit enemy HP, damage, cooldown, and gold rewards.
  * Kima must not rewrite these values without explicit approval.
@@ -10,7 +10,7 @@
  *   5    first mid-boss feel
  *   6-7  mid game
  *   8-9  late game
- *   10   final boss (Apex Leviathan)
+ *   10   final boss (Shuten Doji)
  */
 
 import type { RoundsRegistry } from './schema';
@@ -146,7 +146,7 @@ export const ROUNDS = {
     id: 'round_10',
     index: 10,
     enemy: {
-      name: 'Apex Leviathan',
+      name: 'Shuten Doji',
       hp: 500,
       damage: 32,
       cooldownSec: 1.3,

@@ -5,7 +5,7 @@
  * without risking their collection/unlocks.
  */
 
-const STORAGE_KEY = 'gear-arena-settings-v1';
+const STORAGE_KEY = 'soul-strike-settings-v1';
 
 export interface GameSettings {
   bgmVolume: number;          // 0.0 – 1.0

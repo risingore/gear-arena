@@ -73,6 +73,8 @@ export interface Combatant {
   ultimateLifesteal: number;
   /** If true, ultimate ignores enemy DR. */
   ultimateArmorBreak: boolean;
+  /** Whether all slots filled — triggers Tier 2 awakened ultimate. */
+  isAwakened: boolean;
   /** Active status effects on this combatant. */
   statusEffects: StatusEffect[];
   /** Evasion chance (0-0.3). */
@@ -138,7 +140,8 @@ export const createPlayerCombatant = (
   ultimateDmgPerStrike: stats.ultimateDamagePerStrike,
   ultimateChargeRate: stats.ultimateChargeRate,
   ultimateLifesteal: stats.ultimateLifesteal,
-  ultimateArmorBreak: stats.ultimateArmorBreak
+  ultimateArmorBreak: stats.ultimateArmorBreak,
+  isAwakened: stats.isAwakened
 });
 
 export const createEnemyCombatant = (
@@ -180,7 +183,8 @@ export const createEnemyCombatant = (
   ultimateDmgPerStrike: 0,
   ultimateChargeRate: 1,
   ultimateLifesteal: 0,
-  ultimateArmorBreak: false
+  ultimateArmorBreak: false,
+  isAwakened: false
 });
 
 
@@ -254,15 +258,30 @@ export const fireUltimate = (
 
   // Player ultimate: burst of strikes computed from equipped parts.
   if (!attacker.autoFireUltimate && attacker.ultimateStrikes > 0 && attacker.ultimateDmgPerStrike > 0) {
+    // Tier 2 awakened bonuses (all slots filled).
+    let awakenedStrikes = 0;
+    let awakenedArmorBreak = attacker.ultimateArmorBreak;
+    let awakenedHealPct = 0;
+    let awakenedDisableSec = 0;
+    if (attacker.isAwakened && ult.awakenedBonus) {
+      switch (ult.awakenedBonus) {
+        case 'armor_break': awakenedArmorBreak = true; break;
+        case 'heal': awakenedHealPct = ult.awakenedMagnitude ?? 0; break;
+        case 'extra_strikes': awakenedStrikes = ult.awakenedMagnitude ?? 0; break;
+        case 'disable_weapons': awakenedDisableSec = ult.awakenedMagnitude ?? 0; break;
+      }
+    }
+    const totalStrikes = attacker.ultimateStrikes + awakenedStrikes;
+
     // Temporarily remove defender DR if armor break is active.
     const savedDr = defender.damageReductionPct;
     const savedFlat = defender.damageReductionFlat;
-    if (attacker.ultimateArmorBreak) {
+    if (awakenedArmorBreak) {
       defender.damageReductionPct = 0;
       defender.damageReductionFlat = 0;
     }
     let totalDealt = 0;
-    for (let i = 0; i < attacker.ultimateStrikes; i += 1) {
+    for (let i = 0; i < totalStrikes; i += 1) {
       const sourceWeapon = i < attacker.weapons.length ? attacker.weapons[i]! : undefined;
       const strikeWeapon: CombatWeapon = {
         label: sourceWeapon?.label ?? ult.name,
@@ -277,14 +296,19 @@ export const fireUltimate = (
       if (defender.hp <= 0) break;
     }
     // Restore defender DR.
-    if (attacker.ultimateArmorBreak) {
+    if (awakenedArmorBreak) {
       defender.damageReductionPct = savedDr;
       defender.damageReductionFlat = savedFlat;
     }
     // Lifesteal: heal attacker based on damage dealt.
-    if (attacker.ultimateLifesteal > 0 && totalDealt > 0) {
-      const heal = Math.floor(totalDealt * attacker.ultimateLifesteal);
+    const totalLifesteal = attacker.ultimateLifesteal + awakenedHealPct;
+    if (totalLifesteal > 0 && totalDealt > 0) {
+      const heal = Math.floor(totalDealt * totalLifesteal);
       attacker.hp = Math.min(attacker.maxHp, attacker.hp + heal);
+    }
+    // Awakened disable: freeze enemy weapons.
+    if (awakenedDisableSec > 0) {
+      defender.weaponDisableTimer = Math.max(defender.weaponDisableTimer, awakenedDisableSec);
     }
     return;
   }

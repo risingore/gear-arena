@@ -11,9 +11,10 @@ import {
   findEnemyDef,
   ROBOT_ULTIMATES,
   ENEMY_ULTIMATES,
-  type PartKey,
-  type PartCategory
+  type PartCategory,
+  type RobotKey
 } from '@/data';
+import type { EquippedEntry } from '../systems/runState';
 import { BALANCE } from '@/data/balance';
 import { getRunState, setRunState } from '../systems/runState';
 import { PALETTE, ROBOT_COLORS } from '../systems/palette';
@@ -32,6 +33,7 @@ import { t } from '../systems/i18n';
 import { playMusic, MUSIC_KEYS, setMusicPlaybackRate } from '../systems/music';
 import { applyHiDpiToScene, TEXT_DPR, showDebugBadge } from '../helper/hiDpiText';
 import { runVisualChecks } from '../systems/visualDebugger';
+import { setupLayoutDebug } from '../systems/layoutDebug';
 import { isDebugEnabled } from '../systems/debug';
 import {
   createSlotState,
@@ -44,7 +46,13 @@ import {
   type SlotState
 } from '../systems/slotMachine';
 import { rollPrediction } from '@/data/predictions';
-import { SLOT_HIT_DAMAGE_MULT } from '@/data/slotConfig';
+import { MANTRAS } from '@/data/storyText';
+import {
+  SLOT_HIT_DAMAGE_MULT,
+  GIJIREN_CHANCE,
+  GIJIREN_PULSE_WEIGHTS,
+  GIJIREN_PULSE_INTERVAL_MS
+} from '@/data/slotConfig';
 
 const HP_BAR_W = 280;
 const HP_BAR_H = 20;
@@ -217,7 +225,8 @@ export class Battle extends Scene {
       ultimateDmgPerStrike: 0,
       ultimateChargeRate: 1,
       ultimateLifesteal: 0,
-      ultimateArmorBreak: false
+      ultimateArmorBreak: false,
+      isAwakened: false
     };
 
     // Header
@@ -306,7 +315,7 @@ export class Battle extends Scene {
     this.playerStatusTexts = [];
 
     // Ultimate gauge bars (thin bar below HP)
-    const ultBarY = arenaY + SPRITE_H / 2 + 48;
+    const ultBarY = arenaY + SPRITE_H / 2 + 56;
     const ultBarH = 6;
     this.add.rectangle(playerX, ultBarY, HP_BAR_W, ultBarH, 0x222233, 1).setOrigin(0.5);
     this.playerUltFill = this.add
@@ -317,26 +326,18 @@ export class Battle extends Scene {
       .rectangle(enemyX - HP_BAR_W / 2, ultBarY, 0, ultBarH, 0xff6a6a, 1)
       .setOrigin(0, 0.5);
 
-    // Ultimate gauge percentage text (rendered on top of the gauge bar)
+    // Ultimate gauge percentage text (right of the gauge bar)
     this.ultPercentText = this.add
-      .text(playerX, ultBarY, '0%', textStyles.small)
+      .text(playerX + HP_BAR_W / 2 + 28, ultBarY, '0%', textStyles.small)
       .setOrigin(0.5)
       .setDepth(10);
 
-    // Ultimate name labels
-    if (playerUlt) {
-      this.add.text(playerX, ultBarY + 10, playerUlt.name, textStyles.small)
-        .setOrigin(0.5).setAlpha(0.5);
-    }
-    if (this.enemy.ultimate) {
-      this.add.text(enemyX, ultBarY + 10, this.enemy.ultimate.name, textStyles.small)
-        .setOrigin(0.5).setAlpha(0.5);
-    }
-
-    // Ultimate stats under player HP bar
-    const ultSummary = `ULT: ${this.player.ultimateStrikes} strikes × ${this.player.ultimateDmgPerStrike} dmg = ${this.player.ultimateStrikes * this.player.ultimateDmgPerStrike}`;
+    // Ultimate stats under player gauge bar
+    const ultDisplayName = (this.player.isAwakened && playerUlt?.awakenedName) ? playerUlt.awakenedName : (playerUlt?.name ?? 'ULT');
+    const strikeWord = this.player.ultimateStrikes === 1 ? 'strike' : 'strikes';
+    const ultSummary = `${ultDisplayName}: ${this.player.ultimateStrikes} ${strikeWord} × ${this.player.ultimateDmgPerStrike} dmg`;
     this.add
-      .text(playerX, arenaY + SPRITE_H / 2 + 62, ultSummary, textStyles.small)
+      .text(playerX, ultBarY + 20, ultSummary, textStyles.small)
       .setOrigin(0.5)
       .setColor('#ffd94a')
       .setAlpha(0.85);
@@ -361,7 +362,7 @@ export class Battle extends Scene {
 
       const synergyText = activeSynergies.map((s) => `⚡ ${s}`).join('  ');
       const label = this.add
-        .text(playerX, arenaY + SPRITE_H / 2 + 84, synergyText, textStyles.small)
+        .text(playerX, ultBarY + 38, synergyText, textStyles.small)
         .setOrigin(0.5)
         .setColor('#ffd94a');
       this.tweens.add({
@@ -397,7 +398,7 @@ export class Battle extends Scene {
       .setAlpha(0.6)
       .setVisible(isDebugEnabled());
 
-    this.pushLog(t('Survive until ULTIMATE is ready!'));
+    this.pushLog(t('Survive until SOUL STRIKE is ready!'));
 
     this.input.keyboard?.on('keydown-R', () => fadeToScene(this, 'Title'));
     this.input.keyboard?.on('keydown-SPACE', () => {
@@ -454,6 +455,7 @@ export class Battle extends Scene {
     applyHiDpiToScene(this);
     showDebugBadge(this, isDebugEnabled());
     runVisualChecks(this);
+    setupLayoutDebug(this);
   }
 
   private cycleSpeed(): void {
@@ -549,19 +551,20 @@ export class Battle extends Scene {
 
     this.refreshHp();
 
-    // Check if ultimate gauge just filled → freeze and show button
+    // Check if ultimate gauge just filled → freeze → 擬似連 → button
     if (!this.ultReady && !this.finished && this.player.ultimate &&
         this.player.ultimateGauge >= this.player.ultimate.gaugeFillRatio) {
-      this.showUltimateButton();
+      this.ultReady = true;
+      this.startGijiren();
     }
   }
 
-  private getActiveSynergies(equipped: Readonly<Record<string, PartKey>>): string[] {
+  private getActiveSynergies(equipped: Readonly<Record<string, EquippedEntry>>): string[] {
     const counts: Record<PartCategory, number> = { module: 0, implant: 0, charger: 0, booster: 0, soul: 0 };
     const categories = new Set<PartCategory>();
-    for (const key of Object.values(equipped)) {
-      if (!key) continue;
-      const part = PARTS[key];
+    for (const entry of Object.values(equipped)) {
+      if (!entry?.key) continue;
+      const part = PARTS[entry.key];
       if (!part) continue;
       counts[part.category] += 1;
       categories.add(part.category);
@@ -579,9 +582,9 @@ export class Battle extends Scene {
         case 'all_categories': triggered = hasAll; break;
         case 'category_pair': {
           let a = false, b = false;
-          for (const key of Object.values(equipped)) {
-            if (!key) continue;
-            const p = PARTS[key];
+          for (const entry of Object.values(equipped)) {
+            if (!entry?.key) continue;
+            const p = PARTS[entry.key];
             if (!p) continue;
             if (p.category === syn.trigger.a) a = true;
             if (p.category === syn.trigger.b) b = true;
@@ -784,10 +787,14 @@ export class Battle extends Scene {
       });
     }
 
-    // Ultimate gauge
+    // Ultimate gauge (smooth tween instead of instant jump)
     const pUltMax = this.player.ultimate?.gaugeFillRatio ?? 1;
     const pUltRatio = this.player.ultimateUsed ? 0 : Math.min(1, this.player.ultimateGauge / pUltMax);
-    this.playerUltFill.width = HP_BAR_W * pUltRatio;
+    const pUltTargetW = HP_BAR_W * pUltRatio;
+    if (Math.abs(this.playerUltFill.width - pUltTargetW) > 1) {
+      this.tweens.killTweensOf(this.playerUltFill);
+      this.tweens.add({ targets: this.playerUltFill, width: pUltTargetW, duration: 200, ease: 'Sine.easeOut' });
+    }
 
     const eUltMax = this.enemy.ultimate?.gaugeFillRatio ?? 1;
     const eUltRatio = this.enemy.ultimateUsed ? 0 : Math.min(1, this.enemy.ultimateGauge / eUltMax);
@@ -1068,6 +1075,22 @@ export class Battle extends Scene {
         });
       });
 
+      // === Phase 5b: Mantra text — fades in beneath name (500-700ms) ===
+      if (state.robotKey) {
+        const mantra = MANTRAS[state.robotKey as RobotKey];
+        if (mantra) {
+          const mantraLabel = this.add
+            .text(gameWidth * 0.68, gameHeight * 0.60, mantra.text, {
+              ...textStyles.small, fontStyle: 'italic', color: accentHex,
+            })
+            .setOrigin(0.5).setDepth(D + 11).setResolution(TEXT_DPR).setAlpha(0);
+          allParts.push(mantraLabel);
+          this.time.delayedCall(500, () => {
+            this.tweens.add({ targets: mantraLabel, alpha: 0.5, duration: 300, ease: 'Sine.easeIn' });
+          });
+        }
+      }
+
       // === Phase 6: Strike count — "3... 2... 1..." countdown (600-900ms) ===
       const strikes = this.player.ultimateStrikes;
       for (let i = 0; i < Math.min(strikes, 5); i += 1) {
@@ -1266,8 +1289,121 @@ export class Battle extends Scene {
     }
   }
 
+  /**
+   * 擬似連 (Pseudo-continuation): mandala pulses before the button appears.
+   * Roll for number of pulses, then play them sequentially.
+   */
+  private startGijiren(): void {
+    // Roll: does 擬似連 happen at all?
+    if (Math.random() >= GIJIREN_CHANCE) {
+      // No 擬似連 — show button immediately
+      this.showUltimateButton();
+      return;
+    }
+
+    // Roll pulse count based on hit state
+    const isHit = this.slotState.nextIsHit || (this.slotState.inRush && !!this.slotState.aura);
+    const weights = GIJIREN_PULSE_WEIGHTS.map(([, wH, wM]) => isHit ? wH : wM);
+    const total = weights.reduce((s, w) => s + w, 0);
+    let roll = Math.random() * total;
+    let pulseCount = 1;
+    for (let i = 0; i < GIJIREN_PULSE_WEIGHTS.length; i++) {
+      roll -= weights[i]!;
+      if (roll <= 0) { pulseCount = GIJIREN_PULSE_WEIGHTS[i]![0]; break; }
+    }
+
+    // Play pulses sequentially, then show button
+    this.playMandalaPulses(pulseCount, 0);
+  }
+
+  private playMandalaPulses(total: number, current: number): void {
+    if (current >= total) {
+      // All pulses done → show button
+      this.showUltimateButton();
+      return;
+    }
+
+    this.spawnMandalaPulse(current + 1, total);
+
+    this.time.delayedCall(GIJIREN_PULSE_INTERVAL_MS, () => {
+      this.playMandalaPulses(total, current + 1);
+    });
+  }
+
+  private spawnMandalaPulse(pulseNum: number, _totalPulses: number): void {
+    const { gameWidth, gameHeight, textStyles } = gameOptions;
+
+    // Mandala ring — gets bigger and more intense with each pulse
+    const baseSize = 60 + pulseNum * 30;
+    const color = pulseNum >= 4 ? 0xff2222 : pulseNum >= 3 ? 0xffd94a : 0xffffff;
+
+    // Outer ring
+    const ring = this.add
+      .circle(gameWidth / 2, gameHeight / 2, baseSize, color, 0)
+      .setStrokeStyle(3 + pulseNum, color)
+      .setDepth(190)
+      .setAlpha(0);
+
+    this.tweens.add({
+      targets: ring,
+      alpha: { from: 0, to: 0.8 },
+      scale: { from: 0.3, to: 1.5 },
+      duration: 350,
+      ease: 'Cubic.easeOut',
+      onComplete: () => {
+        this.tweens.add({
+          targets: ring, alpha: 0, duration: 200,
+          onComplete: () => ring.destroy()
+        });
+      }
+    });
+
+    // Inner cross pattern
+    const crossH = this.add
+      .rectangle(gameWidth / 2, gameHeight / 2, baseSize * 2, 2, color, 0.6)
+      .setDepth(190);
+    const crossV = this.add
+      .rectangle(gameWidth / 2, gameHeight / 2, 2, baseSize * 2, color, 0.6)
+      .setDepth(190);
+
+    this.tweens.add({
+      targets: [crossH, crossV],
+      alpha: 0,
+      scale: 2,
+      duration: 400,
+      delay: 100,
+      onComplete: () => { crossH.destroy(); crossV.destroy(); }
+    });
+
+    // Screen shake — stronger with each pulse
+    this.cameras.main.shake(100 + pulseNum * 50, 0.005 * pulseNum);
+
+    // "DON" sound
+    playSfx('shield_block');
+
+    // Pulse counter text
+    const dots = '●'.repeat(pulseNum);
+    const counterText = this.add
+      .text(gameWidth / 2, gameHeight / 2 + baseSize + 30, dots, {
+        ...textStyles.body,
+        color: pulseNum >= 3 ? '#ffd94a' : '#ffffff',
+        fontSize: `${20 + pulseNum * 4}px`
+      })
+      .setOrigin(0.5)
+      .setDepth(191);
+
+    this.tweens.add({
+      targets: counterText,
+      alpha: { from: 1, to: 0 },
+      y: counterText.y - 20,
+      duration: 500,
+      delay: 200,
+      onComplete: () => counterText.destroy()
+    });
+  }
+
   private showUltimateButton(): void {
-    this.ultReady = true;
+    // ultReady already set by startGijiren caller
     const { gameWidth, gameHeight, textStyles } = gameOptions;
 
     // Darken + freeze feel
@@ -1285,7 +1421,7 @@ export class Battle extends Scene {
     container.add(btnBg);
 
     const btnText = this.add
-      .text(gameWidth / 2, btnY, 'ULTIMATE', { ...textStyles.title, fontSize: '56px', color: '#0a0a10', fontStyle: 'bold' })
+      .text(gameWidth / 2, btnY, 'SOUL STRIKE', { ...textStyles.title, fontSize: '52px', color: '#0a0a10', fontStyle: 'bold' })
       .setOrigin(0.5);
     container.add(btnText);
 
@@ -1474,7 +1610,10 @@ export class Battle extends Scene {
     this.player.ultimateDmgPerStrike = origDmg;
 
     // Play cut-in animation (combat stays frozen during this)
-    this.spawnUltimateFlash(this.playerSprite.x, this.playerSprite.y, this.player.ultimate.name, true, isCritical);
+    const ultDisplayName = (this.player.isAwakened && this.player.ultimate.awakenedName)
+      ? this.player.ultimate.awakenedName
+      : this.player.ultimate.name;
+    this.spawnUltimateFlash(this.playerSprite.x, this.playerSprite.y, ultDisplayName, true, isCritical);
 
     // After full animation: apply damage, then unfreeze combat
     this.time.delayedCall(1800, () => {

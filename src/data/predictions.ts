@@ -1,5 +1,5 @@
 /**
- * GEAR ARENA — ultimate button prediction effects.
+ * SOUL STRIKE — ultimate button prediction effects.
  *
  * Each prediction has a trust level (how likely it means a real hit)
  * and separate weights for hit vs miss scenarios.

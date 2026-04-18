@@ -1,5 +1,5 @@
 /**
- * GEAR ARENA — canonical parts data (v0.4, 2026-04-16).
+ * SOUL STRIKE — canonical parts data (v0.4, 2026-04-16).
  *
  * Heika is free to edit numbers, names, descriptions, and allowedSlots.
  * Kima must NOT overwrite without explicit instruction.

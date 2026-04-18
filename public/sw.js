@@ -4,7 +4,7 @@
  * falling back to network. Updated caches replace old ones on activate.
  */
 
-const CACHE_NAME = 'gear-arena-v1';
+const CACHE_NAME = 'soul-strike-v1';
 const APP_SHELL = ['./', './index.html'];
 
 self.addEventListener('install', (event) => {

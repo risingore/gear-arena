@@ -1,5 +1,5 @@
 /**
- * GEAR ARENA — ultimate abilities (v0.1, 2026-04-16).
+ * SOUL STRIKE — ultimate abilities (v0.1, 2026-04-16).
  *
  * Each robot and boss has a unique ultimate that fires automatically
  * when the gauge fills. Gauge fills by taking damage.
@@ -18,33 +18,51 @@ export interface UltimateDef {
   /** Damage required to fill gauge (as fraction of maxHp). */
   readonly gaugeFillRatio: number;
   readonly effect: UltimateEffect;
+  /** Tier 2 (awakened) name — shown when all part slots are filled. */
+  readonly awakenedName?: string;
+  /** Tier 2 bonus effect kind. */
+  readonly awakenedBonus?: 'armor_break' | 'heal' | 'extra_strikes' | 'disable_weapons';
+  /** Tier 2 bonus magnitude (heal %, extra strike count, disable seconds). */
+  readonly awakenedMagnitude?: number;
 }
 
-/** Robot ultimates keyed by robot ID. */
+/** Cyborg ultimates keyed by cyborg ID. */
 export const ROBOT_ULTIMATES: Record<string, UltimateDef> = {
   robot_knight: {
     id: 'ult_iron_fist',
     name: 'Iron Fist',
     gaugeFillRatio: 0.4,
-    effect: { kind: 'multi_strike', damageMultiplier: 2 }
+    effect: { kind: 'multi_strike', damageMultiplier: 2 },
+    awakenedName: 'Vajra Strike',
+    awakenedBonus: 'armor_break',
+    awakenedMagnitude: 1
   },
   robot_goliath: {
     id: 'ult_bulldoze',
     name: 'Bulldoze',
     gaugeFillRatio: 0.35,
-    effect: { kind: 'multi_strike', damageMultiplier: 3 }
+    effect: { kind: 'multi_strike', damageMultiplier: 3 },
+    awakenedName: 'Compassion Engine',
+    awakenedBonus: 'heal',
+    awakenedMagnitude: 0.3
   },
   robot_striker: {
     id: 'ult_thunder_kick',
     name: 'Thunder Kick',
     gaugeFillRatio: 0.45,
-    effect: { kind: 'multi_strike', damageMultiplier: 2 }
+    effect: { kind: 'multi_strike', damageMultiplier: 2 },
+    awakenedName: 'Rakshasa Dance',
+    awakenedBonus: 'extra_strikes',
+    awakenedMagnitude: 3
   },
   robot_oracle: {
-    id: 'ult_virus_burst',
-    name: 'Virus Burst',
+    id: 'ult_void_echo',
+    name: 'Void Echo',
     gaugeFillRatio: 0.4,
-    effect: { kind: 'system_hack', damage: 40, disableSec: 2 }
+    effect: { kind: 'system_hack', damage: 40, disableSec: 2 },
+    awakenedName: 'Nirvana',
+    awakenedBonus: 'disable_weapons',
+    awakenedMagnitude: 3
   }
 };
 

@@ -3,8 +3,8 @@
  *
  * Tracks:
  *   - Best round reached + total victories
- *   - Per-robot clear count (used for robot unlock progression)
- *   - Unlocked robots (KNIGHT -> GOLIATH -> STRIKER -> ORACLE)
+ *   - Per-cyborg clear count (used for cyborg unlock progression)
+ *   - Unlocked cyborgs (INDRA -> GOLIATH-414 -> LILITH -> MUMEI)
  *   - Defeated enemy IDs (collection)
  *   - Used part IDs (collection)
  *
@@ -14,9 +14,9 @@
 import { ALL_ROBOT_KEYS, type RobotKey, type PartKey } from '@/data';
 import { ALL_ENEMY_IDS } from '@/data/enemies';
 
-const STORAGE_KEY = 'gear-arena-save-v2';
+const STORAGE_KEY = 'soul-strike-save-v2';
 
-/** Robot unlock order — first robot is always unlocked. */
+/** Cyborg unlock order — first cyborg is always unlocked. */
 const UNLOCK_ORDER: readonly RobotKey[] = ALL_ROBOT_KEYS;
 
 export interface SaveData {
@@ -51,7 +51,7 @@ export const loadSaveData = (): SaveData => {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
       // Migrate from v1 if present
-      const v1 = localStorage.getItem('gear-arena-save-v1');
+      const v1 = localStorage.getItem('soul-strike-save-v1');
       if (v1) {
         const parsed = JSON.parse(v1) as Partial<SaveData>;
         const base = emptySave();
@@ -170,7 +170,7 @@ export const isRobotUnlocked = (robotKey: RobotKey): boolean => {
 
 /**
  * Check if the super boss is unlocked:
- *   1. All 4 robots have at least 1 clear each.
+ *   1. All 4 cyborgs have at least 1 clear each.
  *   2. Every non-super enemy has been defeated at least once.
  */
 /**
@@ -182,7 +182,7 @@ export const resetAllData = (): void => {
     if (typeof localStorage === 'undefined') return;
     localStorage.removeItem(STORAGE_KEY);
     // Also remove the legacy v1 key if present.
-    localStorage.removeItem('gear-arena-save-v1');
+    localStorage.removeItem('soul-strike-save-v1');
   } catch { /* silent */ }
 };
 

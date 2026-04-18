@@ -6,23 +6,22 @@ import type { LocaleDict } from './locales';
 
 export const ja: LocaleDict = {
   // Title / menus
-  'One Shot. One Kill. Build Your Ultimate.': '一撃必殺。必殺技を組み立てろ。',
-  'Slot-based Mecha Auto-Battler': 'スロット式メカ・オートバトラー',
+  'Assemble Your Soul. Press the Button. Strike.': 'この一撃に、全てを賭ける。',
   'Press SPACE or click to start': 'SPACE またはクリックでスタート',
   'R = restart anytime': 'R = いつでもリスタート',
   'Gamedev.js Jam 2026 / theme: Machines': 'Gamedev.js Jam 2026 / テーマ: Machines',
   '▶  START': '▶  スタート',
 
   // Select
-  'SELECT YOUR MACHINE': '機体を選択',
+  'SELECT YOUR MACHINE': 'サイボーグを選択',
   '← →  to browse    ENTER  to confirm': '← →  で選択    ENTER  で決定',
-  'Click a machine to deploy': 'クリックで出撃',
+  'Click a cyborg to deploy': 'クリックで出撃',
   'EMBARK  ▶': '出撃  ▶',
   'Clear the previous character to unlock': '前のキャラクターをクリアして解放',
 
   // Build
   'BUILD your machine — click shop or press 1-5 to buy, click slots to sell':
-    '機体を組み立て — ショップをクリック or 1-5キーで購入、スロットクリックで売却',
+    '義体を組み立て — ショップをクリック or 1-5キーで購入、スロットクリックで売却',
   'Click shop to buy · Click slots to sell · Drag to place':
     'ショップをクリックで購入 · スロットをクリックで売却 · ドラッグで配置',
   'Click shop to buy · Click slots to sell · Drag parts to specific slots':
@@ -61,8 +60,8 @@ export const ja: LocaleDict = {
   '⚠  BOSS BATTLE  ⚠': '⚠  ボス戦  ⚠',
   'Combat begins…  (SPACE: speed toggle x1 / x2 / x4)':
     'バトル開始…  (SPACE: 速度切替 x1 / x2 / x4)',
-  'SPACE / Click = ULTIMATE  |  S = speed toggle':
-    'SPACE / クリック = 必殺技  |  S = 速度切替',
+  'SPACE / Click = SOUL STRIKE  |  S = speed toggle':
+    'SPACE / クリック = SOUL STRIKE  |  S = 速度切替',
   'OVERDRIVE!': 'オーバードライブ!',
   '⚡ TURBO COMBO ⚡': '⚡ ターボコンボ ⚡',
   '(no weapons)': '(モジュールなし)',
@@ -104,11 +103,11 @@ export const ja: LocaleDict = {
   'Tip: You had no weapons. Buy a weapon first!': 'ヒント: モジュールがありません。まずモジュールを購入しましょう！',
   'Tip: Try filling more slots before fighting.': 'ヒント: 戦闘前にもっとスロットを埋めましょう。',
   'Tip: Adding a second weapon doubles your DPS.': 'ヒント: モジュールを2本にするとDPSが倍増します。',
-  'Tip: Try different part combinations or a different robot.': 'ヒント: 別のパーツ構成や別の機体を試しましょう。',
-  'Tip: Equip weapons to add strikes to your ultimate!': 'ヒント: モジュールを装備して必殺技のストライクを増やそう！',
-  'Tip: Fill more slots to power up your ultimate.': 'ヒント: スロットを埋めて必殺技を強化しよう。',
-  'Tip: More weapons = more ultimate strikes!': 'ヒント: モジュールが多い＝必殺技のストライクが増える！',
-  'Tip: Try different part combos to boost your ultimate damage.': 'ヒント: パーツの組み合わせで必殺技ダメージを上げよう。',
+  'Tip: Try different part combinations or a different robot.': 'ヒント: 別のパーツ構成や別のサイボーグを試しましょう。',
+  'Tip: Equip modules to add strikes to your soul strike!': 'ヒント: モジュールを装備してストライクを増やそう！',
+  'Tip: Fill more slots to power up your soul strike.': 'ヒント: スロットを埋めてSOUL STRIKEを強化しよう。',
+  'Tip: More modules = more soul strike hits!': 'ヒント: モジュールが多い＝ストライクが増える！',
+  'Tip: Try different part combos to boost your soul strike damage.': 'ヒント: パーツの組み合わせでSOUL STRIKEダメージを上げよう。',
 
   // Settings
   SETTINGS: '設定',
@@ -128,7 +127,7 @@ export const ja: LocaleDict = {
 
   // Collection
   COLLECTION: 'コレクション',
-  MACHINES: '機体',
+  CYBORGS: 'サイボーグ',
   PARTS: 'パーツ',
   ENEMIES: '敵',
   TITLES: '称号',
@@ -140,10 +139,10 @@ export const ja: LocaleDict = {
   skills: 'スキル',
 
   // Robot names
-  'KNIGHT-01': 'KNIGHT-01',
-  'GOLIATH-02': 'GOLIATH-02',
-  'STRIKER-03': 'STRIKER-03',
-  'ORACLE-04': 'ORACLE-04',
+  'INDRA': 'INDRA',
+  'GOLIATH-414': 'GOLIATH-414',
+  'LILITH': 'LILITH',
+  'MUMEI': 'MUMEI',
 
   // Robot descriptions
   'Right arm carries a massive mechanical weapon. Balanced cyborg fighter.':
@@ -269,7 +268,7 @@ export const ja: LocaleDict = {
   'War Machine': 'ウォーマシン',
   'Win 10 total runs.': '合計10回クリア。',
   'Machine Master': 'マシンマスター',
-  'Clear with all 4 robots.': '全4機体でクリア。',
+  'Clear with all 4 cyborgs.': '全4サイボーグでクリア。',
   'Full Arsenal': '完全武装',
   'Use all 25 parts at least once.': '全25パーツを使用。',
   'Chief Engineer': 'チーフエンジニア',
@@ -280,7 +279,7 @@ export const ja: LocaleDict = {
   'Defeat every enemy type.': '全敵タイプを撃破。',
   'Apex Hunter': 'エイペックスハンター',
   'Apex Predator': 'エイペックスプレデター',
-  'Defeat the APEX MACHINE.': 'APEX MACHINEを撃破。',
+  'Defeat the Daitengu.': '大天狗を撃破。',
   'Halfway There': '折り返し地点',
   'Reach round 5.': 'ラウンド5に到達。',
   Cadet: 'カデット',
@@ -289,9 +288,13 @@ export const ja: LocaleDict = {
 
   // Ultimate names
   'Iron Fist': 'アイアンフィスト',
+  'Vajra Strike': 'ヴァジュラストライク',
   Bulldoze: 'ブルドーズ',
+  'Compassion Engine': 'コンパッション・エンジン',
   'Thunder Kick': 'サンダーキック',
-  'Virus Burst': 'ウイルスバースト',
+  'Rakshasa Dance': 'ラクシャサ・ダンス',
+  'Void Echo': 'ヴォイドエコー',
+  Nirvana: 'ニルヴァーナ',
   'Boss Rage': 'ボスレイジ',
   'Titan Strike': 'タイタンストライク',
   'Extinction Protocol': 'エクスティンクション・プロトコル',
@@ -309,14 +312,48 @@ export const ja: LocaleDict = {
   FREEZE: '凍結',
   POISON: '毒',
 
+  // Placement synergy names
+  'Twin Module': 'ツインモジュール',
+  'Full Arm': 'フルアーム',
+  'Full Leg': 'フルレッグ',
+  'Core Lock': 'コアロック',
+  'Head Start': 'ヘッドスタート',
+  'Soul Resonance': 'ソウルレゾナンス',
+  'Booster Chain': 'ブースターチェーン',
+  'Mixed Arms': 'ミックスドアームズ',
+  'Leg Charger': 'レッグチャージャー',
+  'Spine Link': 'スパインリンク',
+
+  // Placement synergy descriptions
+  '2+ modules in the same slot type: ULT strike +1.':
+    '同じスロット種に2つ以上のモジュール: ULTストライク+1。',
+  'All arm_r slots filled: ULT damage +20%.':
+    '右腕スロット全装備: ULTダメージ+20%。',
+  'All legs_l slots filled: charge speed +30%.':
+    '左脚スロット全装備: チャージ速度+30%。',
+  'Chest + back both have parts: DR +5%.':
+    '胸+背中にパーツ装備: DR+5%。',
+  'Head slot filled: hit chance +0.5/sec.':
+    '頭スロット装備: 命中率+0.5/秒。',
+  '2+ soul parts on back slots: ULT damage +25%.':
+    '背中に2つ以上のソウル: ULTダメージ+25%。',
+  '3+ boosters anywhere: charge speed +20%.':
+    'ブースター3つ以上: チャージ速度+20%。',
+  'Module + implant in the same limb: HP +15.':
+    '同じ肢にモジュール+インプラント: HP+15。',
+  'Charger on legs: ULT damage +10%.':
+    '脚にチャージャー: ULTダメージ+10%。',
+  'Soul on back + charger on chest: charge speed +40%.':
+    '背中にソウル+胸にチャージャー: チャージ速度+40%。',
+
   // Misc
   'DAILY RUN': 'デイリーラン',
   CONFIRM: '確定',
   Scrap: 'スクラップ',
-  '★ ULTIMATE ★': '★ 必殺技 ★',
+  '★ SOUL STRIKE ★': '★ SOUL STRIKE ★',
   DEFENSE: '防御',
-  'Survive until ULTIMATE is ready!': '必殺技が溜まるまで耐えろ！',
-  'Survive and charge your ULTIMATE! SPACE / Click to fire!': '耐えて必殺ゲージを溜めろ！ SPACE / クリック で発動！',
+  'Survive until SOUL STRIKE is ready!': 'SOUL STRIKEが溜まるまで耐えろ！',
+  'Survive and charge your SOUL STRIKE! SPACE / Click to fire!': '耐えてSOUL STRIKEを溜めろ！ SPACE / クリック で発動！',
   'READY!': 'READY!',
   'Drag parts from shop to blueprint slots': 'ショップからパーツをドラッグして設計図に配置',
   SELL: '売却',

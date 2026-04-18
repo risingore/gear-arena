@@ -1,5 +1,5 @@
 /**
- * GEAR ARENA — canonical synergy data (v0.2, 2026-04-16).
+ * SOUL STRIKE — canonical synergy data (v0.2, 2026-04-16).
  *
  * Heika is free to edit triggers and effects. Kima must not rewrite without
  * approval.

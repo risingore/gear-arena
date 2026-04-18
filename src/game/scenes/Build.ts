@@ -15,7 +15,8 @@ import {
   type ItemKey,
   type SlotDef,
 } from '@/data';
-import { getRunState, setRunState, type RunState } from '../systems/runState';
+import { BALANCE } from '@/data/balance';
+import { getRunState, setRunState, type RunState, type EquippedEntry } from '../systems/runState';
 import { PALETTE, CATEGORY_COLORS, CATEGORY_LABEL } from '../systems/palette';
 import { computeLoadoutStats } from '../systems/stats';
 import { generateShopOffer } from '../systems/shop';
@@ -26,22 +27,23 @@ import { t } from '../systems/i18n';
 import { playMusic, MUSIC_KEYS } from '../systems/music';
 import { applyHiDpiToScene, showDebugBadge } from '../helper/hiDpiText';
 import { runVisualChecks } from '../systems/visualDebugger';
+import { setupLayoutDebug } from '../systems/layoutDebug';
 import { isDebugEnabled } from '../systems/debug';
 
 // ---------------------------------------------------------------------------
 // Layout constants
 // ---------------------------------------------------------------------------
 
-const SKILL_COL_W = 72;
-const BLUEPRINT_BOX_W = 370;
-const BLUEPRINT_BOX_H = 570;
-const SLOT_RADIUS = 18;
-const SHOP_CARD_W = 130;
-const SHOP_CARD_H = 90;
+const SKILL_COL_W = 56;
+const BLUEPRINT_BOX_W = 340;
+const BLUEPRINT_BOX_H = 480;
+const SLOT_RADIUS = 19;
+const SHOP_CARD_W = 140;
+const SHOP_CARD_H = 86;
 const SHOP_CARD_GAP = 8;
 const SHOP_COLS = 2;
-const STATS_W = 240;
-const COL_GAP = 35;
+const STATS_W = 260;
+const COL_GAP = 20;
 const SHOP_W = SHOP_COLS * SHOP_CARD_W + (SHOP_COLS - 1) * SHOP_CARD_GAP;
 const TOTAL_W = SKILL_COL_W + COL_GAP + BLUEPRINT_BOX_W + COL_GAP + SHOP_W + COL_GAP + STATS_W;
 const LEFT_MARGIN = Math.floor((1280 - TOTAL_W) / 2);
@@ -110,6 +112,7 @@ export class Build extends Scene {
   private blueprintOriginX = 0;
   private blueprintOriginY = 0;
   private blueprintScale = 1;
+  private silhouetteRect!: GameObjects.Rectangle;
   private hoverShopIndex: number | null = null;
 
   // Trash & basket zones
@@ -160,26 +163,26 @@ export class Build extends Scene {
     this.drawTrashAndBasket();
 
     // Right column — stats panel background + gold + stats + preview
-    createPanel(this, STATS_X + STATS_W / 2, 350, STATS_W + 16, 540, { fillAlpha: 0.5, depth: 0 });
+    createPanel(this, STATS_X + STATS_W / 2, 330, STATS_W + 16, 520, { fillAlpha: 0.5, depth: 0 });
 
     this.goldText = this.add
-      .text(STATS_X, 72, '', textStyles.body)
+      .text(STATS_X, 82, '', textStyles.body)
       .setOrigin(0, 0)
       .setColor('#ffd94a');
 
     this.statsText = this.add
-      .text(STATS_X, 110, '', textStyles.small)
+      .text(STATS_X, 110, '', { ...textStyles.small, wordWrap: { width: STATS_W - 8 } })
       .setOrigin(0, 0);
 
     this.previewText = this.add
-      .text(STATS_X, 310, '', textStyles.small)
+      .text(STATS_X, 310, '', { ...textStyles.small, wordWrap: { width: STATS_W - 8 } })
       .setOrigin(0, 0)
       .setColor('#3ab0ff');
 
     // Buttons
     const btnX = STATS_X + STATS_W / 2;
     const rerollCost = getRerollCost(getRunState(this));
-    const rerollBtn = createButton(this, btnX, 560, 200, 44, `${t('REROLL')} (${rerollCost}g)`, () => {
+    const rerollBtn = createButton(this, btnX, 500, 200, 44, `${t('REROLL')} (${rerollCost} g)`, () => {
       const s = getRunState(this);
       const rerolled = attemptReroll(s, generateShopOffer(s.currentRound));
       if (rerolled) {
@@ -193,7 +196,7 @@ export class Build extends Scene {
     });
     this.rerollBtnText = rerollBtn.text;
 
-    createButton(this, btnX, 620, 200, 50, t('READY'), () => {
+    createButton(this, btnX, 556, 200, 50, t('READY'), () => {
       playSfx('click');
       fadeToScene(this, 'Battle');
     }, { variant: 'accent', accentColor: 0x3aff7a });
@@ -227,10 +230,10 @@ export class Build extends Scene {
 
     if (state.currentRound === 1) {
       const hint = this.add
-        .text(BLUEPRINT_X + BLUEPRINT_BOX_W / 2, gameOptions.gameHeight - 20,
+        .text(BLUEPRINT_X + BLUEPRINT_BOX_W / 2, ZONE_Y + ZONE_H + 14,
           t('Drag parts from shop to blueprint slots'),
           { ...textStyles.small, color: '#88ccff' })
-        .setOrigin(0.5, 1)
+        .setOrigin(0.5, 0)
         .setAlpha(0.8);
       this.tweens.add({ targets: hint, alpha: 0, delay: 8000, duration: 2000 });
     }
@@ -238,6 +241,7 @@ export class Build extends Scene {
     applyHiDpiToScene(this);
     showDebugBadge(this, isDebugEnabled());
     runVisualChecks(this);
+    setupLayoutDebug(this);
   }
 
   // ==========================================================================
@@ -259,16 +263,16 @@ export class Build extends Scene {
 
     // Silhouette placeholder
     const silhouetteX = BLUEPRINT_X + BLUEPRINT_BOX_W / 2;
-    const silhouetteY = BP_TOP + BLUEPRINT_BOX_H / 2 + 10;
-    this.add
-      .rectangle(silhouetteX, silhouetteY, BLUEPRINT_BOX_W * 0.55, BLUEPRINT_BOX_H * 0.72, 0x000000, 0)
+    const silhouetteY = BP_TOP + BLUEPRINT_BOX_H / 2;
+    this.silhouetteRect = this.add
+      .rectangle(silhouetteX, silhouetteY, BLUEPRINT_BOX_W * 0.88, BLUEPRINT_BOX_H * 0.88, 0x000000, 0)
       .setStrokeStyle(2, PALETTE.blueprintLine);
 
-    // Coordinate mapping: virtual 192x220 -> panel
+    // Coordinate mapping: virtual 192x240 -> panel
     const virtualW = 192;
-    const virtualH = 220;
-    const drawableW = BLUEPRINT_BOX_W * 0.75;
-    const drawableH = BLUEPRINT_BOX_H * 0.8;
+    const virtualH = 240;
+    const drawableW = BLUEPRINT_BOX_W * 0.85;
+    const drawableH = BLUEPRINT_BOX_H * 0.85;
     this.blueprintScale = Math.min(drawableW / virtualW, drawableH / virtualH);
     this.blueprintOriginX = silhouetteX - (virtualW * this.blueprintScale) / 2;
     this.blueprintOriginY = silhouetteY - (virtualH * this.blueprintScale) / 2;
@@ -293,11 +297,14 @@ export class Build extends Scene {
       return { slot, circle, label, icon: null };
     });
 
-    // Buff slots at the bottom of the blueprint
-    this.drawBuffSlots(robot.buffSlots);
+    // Buff slots disabled when itemShopChance = 0
+    if (BALANCE.itemShopChance > 0) {
+      this.drawBuffSlots(robot.buffSlots);
+    }
   }
 
   private drawBuffSlots(count: number): void {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { textStyles } = gameOptions;
     const baseY = BP_TOP + BLUEPRINT_BOX_H - 40 - BUFF_SLOT_Y_OFFSET;
     const centerX = BLUEPRINT_X + BLUEPRINT_BOX_W / 2;
@@ -350,7 +357,7 @@ export class Build extends Scene {
       .setOrigin(0, 0)
       .setStrokeStyle(2, PALETTE.accentBlue);
     this.add
-      .text(basketX + 4, ZONE_Y + 2, t('STORAGE'), { ...textStyles.small, fontSize: '11px', color: '#3ab0ff' })
+      .text(basketX + 10, ZONE_Y + 8, t('STORAGE'), { ...textStyles.small, fontSize: '11px', color: '#3ab0ff' })
       .setOrigin(0, 0);
   }
 
@@ -365,8 +372,8 @@ export class Build extends Scene {
     const startX = basketX + 4;
     const startY = ZONE_Y + 18;
 
-    state.storedParts.forEach((partKey, i) => {
-      const part = PARTS[partKey];
+    state.storedParts.forEach((stored, i) => {
+      const part = PARTS[stored.key];
       if (!part) return;
       const col = i % 4;
       const row = Math.floor(i / 4);
@@ -509,6 +516,10 @@ export class Build extends Scene {
     const key = state.shopOffer[index];
     if (!key) return;
 
+    // Block if can't afford
+    const price = isItemKey(key) ? ITEMS[key].price : PARTS[key as PartKey].price;
+    if (state.gold < price) { playSfx('click'); return; }
+
     if (isItemKey(key)) {
       this.buyItemToBuffSlot(index, key as ItemKey);
       return;
@@ -516,7 +527,9 @@ export class Build extends Scene {
 
     const partKey = key as PartKey;
     if (!state.robotKey) return;
-    const slotId = this.findFreeSlotFor(state.robotKey, partKey, state.equipped);
+    // Try free slot first, then try merge slot
+    const slotId = this.findFreeSlotFor(state.robotKey, partKey, state.equipped)
+      ?? this.findMergeSlotFor(partKey, state.equipped);
     if (!slotId) { playSfx('click'); return; }
     this.executeBuyPart(index, partKey, slotId);
   }
@@ -535,9 +548,11 @@ export class Build extends Scene {
       }
       if (isItemKey(key)) {
         const item = ITEMS[key];
-        bg.setFillStyle(PALETTE.itemCardBg, 1);
+        const canAffordItem = state.gold >= item.price;
+        bg.setFillStyle(canAffordItem ? PALETTE.itemCardBg : PALETTE.buttonDisabled, 1);
+        container.setAlpha(canAffordItem ? 1 : 0.45);
         container.add(
-          this.add.rectangle(0, -SHOP_CARD_H / 2 + 6, SHOP_CARD_W - 8, 4, PALETTE.itemBar, 1)
+          this.add.rectangle(0, -SHOP_CARD_H / 2 + 6, SHOP_CARD_W - 8, 4, PALETTE.itemBar, canAffordItem ? 1 : 0.3)
         );
         container.add(
           this.add
@@ -550,17 +565,19 @@ export class Build extends Scene {
         );
         container.add(
           this.add
-            .text(0, SHOP_CARD_H / 2 - 16, `${item.price}g`, textStyles.body)
+            .text(0, SHOP_CARD_H / 2 - 16, `${item.price} g`, textStyles.body)
             .setOrigin(0.5)
-            .setColor('#ffd94a')
+            .setColor(canAffordItem ? '#ffd94a' : '#ff4444')
         );
         return;
       }
 
-      bg.setFillStyle(PALETTE.cardBg, 1);
       const part = PARTS[key as PartKey];
+      const canAfford = state.gold >= part.price;
+      bg.setFillStyle(canAfford ? PALETTE.cardBg : PALETTE.buttonDisabled, 1);
+      container.setAlpha(canAfford ? 1 : 0.45);
       container.add(
-        this.add.rectangle(0, -SHOP_CARD_H / 2 + 6, SHOP_CARD_W - 8, 4, CATEGORY_COLORS[part.category], 1)
+        this.add.rectangle(0, -SHOP_CARD_H / 2 + 6, SHOP_CARD_W - 8, 4, CATEGORY_COLORS[part.category], canAfford ? 1 : 0.3)
       );
       container.add(
         this.add
@@ -569,13 +586,13 @@ export class Build extends Scene {
           .setColor('#aaaabb')
       );
       container.add(
-        this.add.text(0, 2, t(part.name), { ...textStyles.small, color: '#ffffff', wordWrap: { width: SHOP_CARD_W - 12 } }).setOrigin(0.5)
+        this.add.text(0, -2, t(part.name), { ...textStyles.small, fontSize: '14px', color: '#ffffff', wordWrap: { width: SHOP_CARD_W - 12 } }).setOrigin(0.5)
       );
       container.add(
         this.add
-          .text(0, SHOP_CARD_H / 2 - 16, `${part.price}g`, textStyles.body)
+          .text(0, SHOP_CARD_H / 2 - 14, `${part.price} g`, textStyles.body)
           .setOrigin(0.5)
-          .setColor('#ffd94a')
+          .setColor(canAfford ? '#ffd94a' : '#ff4444')
       );
     });
   }
@@ -589,6 +606,10 @@ export class Build extends Scene {
     const key = state.shopOffer[shopIndex];
     if (!key) return;
 
+    // Block drag if can't afford
+    const price = isItemKey(key) ? ITEMS[key].price : PARTS[key as PartKey].price;
+    if (state.gold < price) { playSfx('click'); return; }
+
     this.dragSource = DragSource.Shop;
     this.dragShopIndex = shopIndex;
     const itemMode = isItemKey(key);
@@ -601,9 +622,9 @@ export class Build extends Scene {
 
   private startDragFromSlot(slotId: string): void {
     const state = getRunState(this);
-    const partKey = state.equipped[slotId];
-    if (!partKey) return;
-    const part = PARTS[partKey];
+    const entry = state.equipped[slotId];
+    if (!entry) return;
+    const part = PARTS[entry.key];
     if (!part) return;
 
     this.dragSource = DragSource.Slot;
@@ -619,8 +640,9 @@ export class Build extends Scene {
 
   private startDragFromBasket(basketIndex: number): void {
     const state = getRunState(this);
-    const partKey = state.storedParts[basketIndex];
-    if (!partKey) return;
+    const stored = state.storedParts[basketIndex];
+    if (!stored) return;
+    const partKey = stored.key;
     const part = PARTS[partKey];
     if (!part) return;
 
@@ -702,6 +724,12 @@ export class Build extends Scene {
       this.executeStore(slotId);
       return;
     }
+    // Check drop on another blueprint slot (merge or move)
+    const targetSlot = this.findSlotUnder(x, y);
+    if (targetSlot && targetSlot.slot.id !== slotId) {
+      this.executeSlotToSlot(slotId, targetSlot.slot.id);
+      return;
+    }
     // Dropped nowhere valid -> snap back (no-op)
   }
 
@@ -711,8 +739,9 @@ export class Build extends Scene {
 
   private dropFromBasket(basketIndex: number, x: number, y: number): void {
     const state = getRunState(this);
-    const partKey = state.storedParts[basketIndex];
-    if (!partKey) return;
+    const stored = state.storedParts[basketIndex];
+    if (!stored) return;
+    const partKey = stored.key;
 
     // Drop on a blueprint slot -> re-equip (no cost)
     const targetSlot = this.findSlotUnder(x, y);
@@ -743,11 +772,30 @@ export class Build extends Scene {
     if (!slot) { playSfx('click'); return; }
     if (part.category !== slot.accepts) { playSfx('click'); return; }
 
-    // Slot must be empty — reject if occupied
-    if (state.equipped[slotId]) { playSfx('click'); return; }
+    const existing = state.equipped[slotId];
     let next: RunState = state;
 
-    const nextEquipped = { ...next.equipped, [slotId]: partKey };
+    if (existing) {
+      // Star merge: same part key and star < max -> upgrade
+      if (existing.key === partKey && existing.star < BALANCE.maxStarLevel) {
+        const merged: EquippedEntry = { key: existing.key, star: existing.star + 1 };
+        const nextEquipped = { ...next.equipped, [slotId]: merged };
+        const nextOffer = [...next.shopOffer];
+        nextOffer[shopIndex] = '';
+        next = { ...next, gold: next.gold - part.price, equipped: nextEquipped, shopOffer: nextOffer };
+        setRunState(this, next);
+        this.refreshAll();
+        playSfx('buy');
+        this.flashSlot(slotId);
+        return;
+      }
+      // Occupied with different part or max star -> reject
+      playSfx('click');
+      return;
+    }
+
+    const entry: EquippedEntry = { key: partKey, star: 1 };
+    const nextEquipped = { ...next.equipped, [slotId]: entry };
     const nextOffer = [...next.shopOffer];
     nextOffer[shopIndex] = '';
     next = { ...next, gold: next.gold - part.price, equipped: nextEquipped, shopOffer: nextOffer };
@@ -782,7 +830,7 @@ export class Build extends Scene {
 
   private executeSell(slotId: string): void {
     const state = getRunState(this);
-    if (!state.equipped[slotId]) return;
+    if (!state.equipped[slotId]?.key) return;
     const next = attemptSell(state, slotId);
     setRunState(this, next);
     this.refreshAll();
@@ -792,18 +840,60 @@ export class Build extends Scene {
 
   private executeStore(slotId: string): void {
     const state = getRunState(this);
-    const partKey = state.equipped[slotId];
-    if (!partKey) return;
+    const entry = state.equipped[slotId];
+    if (!entry) return;
     const nextEquipped = { ...state.equipped };
     delete nextEquipped[slotId];
     const next: RunState = {
       ...state,
       equipped: nextEquipped,
-      storedParts: [...state.storedParts, partKey],
+      storedParts: [...state.storedParts, { key: entry.key, star: entry.star }],
     };
     setRunState(this, next);
     this.refreshAll();
     playSfx('click');
+  }
+
+  private executeSlotToSlot(fromSlotId: string, toSlotId: string): void {
+    const state = getRunState(this);
+    if (!state.robotKey) return;
+    const fromEntry = state.equipped[fromSlotId];
+    if (!fromEntry) return;
+
+    const robot = ROBOTS[state.robotKey];
+    const toSlotDef = robot.slots.find((s) => s.id === toSlotId);
+    if (!toSlotDef) { playSfx('click'); return; }
+
+    const fromPart = PARTS[fromEntry.key];
+    if (!fromPart || fromPart.category !== toSlotDef.accepts) { playSfx('click'); return; }
+
+    const toEntry = state.equipped[toSlotId];
+
+    if (toEntry) {
+      // Target occupied — try merge (same part key, star < max)
+      if (toEntry.key === fromEntry.key && toEntry.star < BALANCE.maxStarLevel) {
+        const merged: EquippedEntry = { key: toEntry.key, star: toEntry.star + fromEntry.star };
+        const clampedStar = Math.min(merged.star, BALANCE.maxStarLevel);
+        const nextEquipped = { ...state.equipped, [toSlotId]: { key: merged.key, star: clampedStar } };
+        delete (nextEquipped as Record<string, EquippedEntry | undefined>)[fromSlotId];
+        setRunState(this, { ...state, equipped: nextEquipped });
+        this.refreshAll();
+        playSfx('buy');
+        this.flashSlot(toSlotId);
+        return;
+      }
+      // Different part or max star -> reject
+      playSfx('click');
+      return;
+    }
+
+    // Target empty — move part
+    const nextEquipped = { ...state.equipped, [toSlotId]: fromEntry };
+    delete (nextEquipped as Record<string, EquippedEntry | undefined>)[fromSlotId];
+    setRunState(this, { ...state, equipped: nextEquipped });
+    this.refreshAll();
+    playSfx('buy');
+    this.flashSlot(toSlotId);
   }
 
   private executeReequip(basketIndex: number, partKey: PartKey, slotId: string): void {
@@ -816,12 +906,29 @@ export class Build extends Scene {
     if (!slot) { playSfx('click'); return; }
     if (part.category !== slot.accepts) { playSfx('click'); return; }
 
-    // Slot must be empty
-    if (state.equipped[slotId]) { playSfx('click'); return; }
-
+    const existing = state.equipped[slotId];
     const nextStored = [...state.storedParts];
-    nextStored.splice(basketIndex, 1);
-    const nextEquipped = { ...state.equipped, [slotId]: partKey };
+    const storedEntry = nextStored.splice(basketIndex, 1)[0]!;
+
+    if (existing) {
+      // Try merge: same part key, star < max
+      if (existing.key === partKey && existing.star < BALANCE.maxStarLevel) {
+        const merged: EquippedEntry = { key: existing.key, star: Math.min(existing.star + storedEntry.star, BALANCE.maxStarLevel) };
+        const nextEquipped = { ...state.equipped, [slotId]: merged };
+        const next: RunState = { ...state, equipped: nextEquipped, storedParts: nextStored };
+        setRunState(this, next);
+        this.refreshAll();
+        playSfx('buy');
+        this.flashSlot(slotId);
+        return;
+      }
+      // Different part or max star -> reject
+      playSfx('click');
+      return;
+    }
+
+    const entry: EquippedEntry = { key: partKey, star: storedEntry.star };
+    const nextEquipped = { ...state.equipped, [slotId]: entry };
     const next: RunState = { ...state, equipped: nextEquipped, storedParts: nextStored };
 
     setRunState(this, next);
@@ -832,9 +939,9 @@ export class Build extends Scene {
 
   private executeSellFromBasket(basketIndex: number): void {
     const state = getRunState(this);
-    const partKey = state.storedParts[basketIndex];
-    if (!partKey) return;
-    const part = PARTS[partKey];
+    const stored = state.storedParts[basketIndex];
+    if (!stored) return;
+    const part = PARTS[stored.key];
     if (!part) return;
     const refund = Math.floor(part.price * ECONOMY.sellRefundRatio);
     const nextStored = [...state.storedParts];
@@ -879,7 +986,7 @@ export class Build extends Scene {
   private findFreeSlotFor(
     robotKey: RobotKey,
     partKey: PartKey,
-    equipped: Readonly<Record<string, PartKey>>
+    equipped: Readonly<Record<string, EquippedEntry>>
   ): string | null {
     const robot = ROBOTS[robotKey];
     const part = PARTS[partKey];
@@ -887,6 +994,19 @@ export class Build extends Scene {
       if (equipped[slot.id]) continue;
       if (part.category !== slot.accepts) continue;
       return slot.id;
+    }
+    return null;
+  }
+
+  /** Find a slot with the same part that can be star-merged. */
+  private findMergeSlotFor(
+    partKey: PartKey,
+    equipped: Readonly<Record<string, EquippedEntry>>
+  ): string | null {
+    for (const slotId of Object.keys(equipped)) {
+      const entry = equipped[slotId];
+      if (!entry) continue;
+      if (entry.key === partKey && entry.star < BALANCE.maxStarLevel) return slotId;
     }
     return null;
   }
@@ -914,10 +1034,17 @@ export class Build extends Scene {
   private highlightDropTargetsForPart(partKey: PartKey): void {
     const part = PARTS[partKey];
     if (!part) return;
+    const state = getRunState(this);
     this.slotVisuals.forEach((sv) => {
       const valid = part.category === sv.slot.accepts;
-      if (valid) {
+      if (!valid) return;
+      const existing = state.equipped[sv.slot.id];
+      if (!existing) {
+        // Empty compatible slot
         sv.circle.setStrokeStyle(3, PALETTE.accentGreen);
+      } else if (existing.key === partKey && existing.star < BALANCE.maxStarLevel) {
+        // Merge-eligible slot — highlight in gold
+        sv.circle.setStrokeStyle(3, 0xffd94a);
       }
     });
   }
@@ -943,7 +1070,7 @@ export class Build extends Scene {
   private clearHighlights(): void {
     const state = getRunState(this);
     this.slotVisuals.forEach((sv) => {
-      sv.circle.setStrokeStyle(2, state.equipped[sv.slot.id] ? PALETTE.slotFilledStroke : PALETTE.slotEmptyStroke);
+      sv.circle.setStrokeStyle(2, state.equipped[sv.slot.id]?.key ? PALETTE.slotFilledStroke : PALETTE.slotEmptyStroke);
     });
     this.buffSlotVisuals.forEach((bsv) => {
       bsv.circle.setStrokeStyle(2, PALETTE.itemBar);
@@ -958,11 +1085,12 @@ export class Build extends Scene {
 
   private showSlotTooltip(slotId: string): void {
     const state = getRunState(this);
-    const partKey = state.equipped[slotId];
-    if (!partKey) return;
-    const part = PARTS[partKey];
+    const entry = state.equipped[slotId];
+    if (!entry) return;
+    const part = PARTS[entry.key];
     if (!part) return;
-    const lines = [`${t(part.name)} (${CATEGORY_LABEL[part.category]})`];
+    const starLabel = entry.star > 1 ? ` ${'★'.repeat(entry.star)}` : '';
+    const lines = [`${t(part.name)}${starLabel} (${CATEGORY_LABEL[part.category]})`];
     lines.push(t(part.description));
     if (part.category === 'module') {
       const w = part as import('@/data').WeaponPart;
@@ -974,7 +1102,8 @@ export class Build extends Scene {
       if (a.damageReduction) lines.push(`DR flat +${a.damageReduction}`);
       if (a.damageReductionPct) lines.push(`DR pct +${(a.damageReductionPct * 100).toFixed(0)}%`);
     }
-    lines.push(`Sell: ${Math.floor(part.price * ECONOMY.sellRefundRatio)}g`);
+    const sm = BALANCE.starMultipliers[entry.star] ?? 1;
+    lines.push(`Sell: ${Math.floor(part.price * sm * ECONOMY.sellRefundRatio)} g`);
     this.previewText.setText(lines.join('\n'));
   }
 
@@ -984,7 +1113,7 @@ export class Build extends Scene {
     if (!itemKey) return;
     const item = ITEMS[itemKey as keyof typeof ITEMS];
     if (!item) return;
-    this.previewText.setText(`${t(item.name)}\n  ${t(item.description)}\nSell: ${Math.floor(item.price * ECONOMY.sellRefundRatio)}g`);
+    this.previewText.setText(`${t(item.name)}\n  ${t(item.description)}\nSell: ${Math.floor(item.price * ECONOMY.sellRefundRatio)} g`);
   }
 
   private flashSlot(slotId: string): void {
@@ -1031,17 +1160,18 @@ export class Build extends Scene {
   private refreshSlots(): void {
     const state = getRunState(this);
     this.slotVisuals.forEach((sv) => {
-      const partKey = state.equipped[sv.slot.id];
+      const entry = state.equipped[sv.slot.id];
       if (sv.icon) {
         sv.icon.destroy();
         sv.icon = null;
       }
-      if (partKey) {
-        const part = PARTS[partKey];
+      if (entry) {
+        const part = PARTS[entry.key];
         const color = CATEGORY_COLORS[part.category];
         sv.circle.setFillStyle(PALETTE.slotFilled, 1);
         sv.circle.setStrokeStyle(2, PALETTE.slotFilledStroke);
-        sv.label.setText(CATEGORY_LABEL[part.category]).setColor('#ffffff');
+        const starStr = entry.star > 1 ? '★'.repeat(entry.star) : CATEGORY_LABEL[part.category];
+        sv.label.setText(starStr).setColor(entry.star >= 3 ? '#ffd94a' : entry.star === 2 ? '#aeeaff' : '#ffffff');
         sv.icon = this.add
           .rectangle(sv.circle.x, sv.circle.y - SLOT_RADIUS - 10, 12, 12, color, 1)
           .setStrokeStyle(1, PALETTE.textPrimary);
@@ -1051,6 +1181,16 @@ export class Build extends Scene {
         sv.label.setText(CATEGORY_LABEL[sv.slot.accepts]).setColor('#aeeaff');
       }
     });
+
+    // Awakened glow: all slots filled → inner silhouette glows
+    const allFilled = this.slotVisuals.every((sv) => !!state.equipped[sv.slot.id]);
+    if (allFilled && this.slotVisuals.length > 0) {
+      this.silhouetteRect.setFillStyle(0x1a2a40, 1);
+      this.silhouetteRect.setStrokeStyle(2, 0xffd94a);
+    } else {
+      this.silhouetteRect.setFillStyle(0x000000, 0);
+      this.silhouetteRect.setStrokeStyle(2, PALETTE.blueprintLine);
+    }
   }
 
   private refreshBuffSlots(): void {
@@ -1078,9 +1218,9 @@ export class Build extends Scene {
     this.roundText.setText(`${t('ROUND')} ${state.currentRound} / ${totalRounds}`);
 
     const newRerollCost = getRerollCost(state);
-    this.rerollBtnText.setText(`${t('REROLL')} (${newRerollCost}g)`);
+    this.rerollBtnText.setText(`${t('REROLL')} (${newRerollCost} g)`);
 
-    this.goldText.setText(`${state.gold}g`);
+    this.goldText.setText(`${state.gold} g`);
     if (state.gold >= 15) this.goldText.setColor('#ff7a00');
     else this.goldText.setColor('#ffd94a');
 
@@ -1107,8 +1247,8 @@ export class Build extends Scene {
     const evasionPct = Math.round(stats.evasionChance * 100);
     this.statsText.setText(
       [
-        '\u2605 ULTIMATE \u2605',
-        `  ${stats.ultimateStrikes} strikes \u00d7 ${stats.ultimateDamagePerStrike} dmg`,
+        '\u2605 SOUL STRIKE \u2605',
+        `  ${stats.ultimateStrikes} ${stats.ultimateStrikes === 1 ? 'strike' : 'strikes'} \u00d7 ${stats.ultimateDamagePerStrike} dmg`,
         `  = ${stats.ultimateTotalDamage} total`,
         `  Charge: x${stats.ultimateChargeRate.toFixed(1)}` +
           (stats.ultimateLifesteal > 0 ? `  |  Drain ${Math.round(stats.ultimateLifesteal * 100)}%` : '') +
@@ -1131,11 +1271,18 @@ export class Build extends Scene {
       } else if (hoveredKey) {
         const partKey = hoveredKey as PartKey;
         const part = PARTS[partKey];
-        const slotId = this.findFreeSlotFor(state.robotKey, partKey, state.equipped);
-        if (slotId) {
-          const nextEquipped = { ...state.equipped, [slotId]: partKey };
+        const freeSlotId = this.findFreeSlotFor(state.robotKey, partKey, state.equipped);
+        const mergeSlotId = this.findMergeSlotFor(partKey, state.equipped);
+        const targetSlotId = freeSlotId ?? mergeSlotId;
+        if (targetSlotId) {
+          const existing = state.equipped[targetSlotId];
+          const previewEntry: EquippedEntry = existing
+            ? { key: existing.key, star: existing.star + 1 }
+            : { key: partKey, star: 1 };
+          const nextEquipped = { ...state.equipped, [targetSlotId]: previewEntry };
           const nextStats = computeLoadoutStats(robot, nextEquipped, state.acquiredSkills);
-          const lines: string[] = [`${t('PREVIEW')}: ${t('buy')} ${t(part.name)} (${part.price}g)`];
+          const mergeLabel = existing ? ` (★${previewEntry.star} merge)` : '';
+          const lines: string[] = [`${t('PREVIEW')}: ${t('buy')} ${t(part.name)} (${part.price}g)${mergeLabel}`];
           const hpDelta = nextStats.maxHp - stats.maxHp;
           if (hpDelta !== 0) lines.push(`  ${t('MAX HP')}  ${stats.maxHp} \u2192 ${nextStats.maxHp}  (${hpDelta > 0 ? '+' : ''}${hpDelta})`);
           const drFlatDelta = nextStats.damageReductionFlat - stats.damageReductionFlat;

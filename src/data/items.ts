@@ -1,5 +1,5 @@
 /**
- * GEAR ARENA — canonical consumable items data (v0.1, 2026-04-16).
+ * SOUL STRIKE — canonical consumable items data (v0.1, 2026-04-16).
  *
  * Items are single-use: either consumed immediately in the Build phase
  * (e.g. healing) or applied as a buff for the next battle only.

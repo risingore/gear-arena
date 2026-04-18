@@ -1,6 +1,6 @@
 {
   "name": "machines",
-  "description": "GEAR ARENA — Gamedev.js Jam 2026 entry (theme: Machines). Slot-based auto-battler roguelike built with Phaser 4.",
+  "description": "SOUL STRIKE — Gamedev.js Jam 2026 entry (theme: Machines). Ultimate-only cyborg combat with pachislot mechanics, built with Phaser 4.",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -17,9 +17,11 @@
     "phaser": "4.0.0"
   },
   "devDependencies": {
+    "playwright": "1.59.1",
+    "puppeteer": "24.41.0",
+    "terser": "5.39.0",
     "typescript": "5.7.2",
     "vite": "6.3.1",
-    "terser": "5.39.0",
     "wrangler": "4.70.0"
   }
 }

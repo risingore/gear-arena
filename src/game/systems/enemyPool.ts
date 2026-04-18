@@ -93,7 +93,7 @@ export interface GeneratedRound {
 
 /**
  * Generate enemy lineup.
- * @param shortRun true = 5 rounds (KNIGHT first clear), false = 10 rounds (standard)
+ * @param shortRun true = 5 rounds (INDRA first clear), false = 10 rounds (standard)
  */
 export function generateRunEnemies(_superBossUnlocked: boolean, seed?: number, shortRun = false): GeneratedRound[] {
   const prevRng = rng;

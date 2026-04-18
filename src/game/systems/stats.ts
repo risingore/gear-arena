@@ -16,6 +16,7 @@ import {
   type RobotData
 } from '@/data';
 import { BALANCE } from '@/data/balance';
+import type { EquippedEntry } from './runState';
 
 export interface WeaponInstance {
   readonly slotId: string;
@@ -53,22 +54,28 @@ export interface LoadoutStats {
   readonly ultimateLifesteal: number;
   /** Ultimate: if true, ignores enemy DR. */
   readonly ultimateArmorBreak: boolean;
+  /** Whether all part slots are filled (triggers Tier 2 awakening). */
+  readonly isAwakened: boolean;
 }
 
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.max(min, Math.min(max, value));
 
+/** Resolve the star multiplier for a given star level. */
+const starMult = (star: number): number =>
+  BALANCE.starMultipliers[star] ?? 1;
+
 export const computeLoadoutStats = (
   robot: RobotData,
-  equipped: Readonly<Record<string, PartKey>>,
+  equipped: Readonly<Record<string, EquippedEntry>>,
   acquiredSkills: readonly string[] = []
 ): LoadoutStats => {
   const equippedParts: PartData[] = [];
   for (const slotId of Object.keys(equipped)) {
-    const key = equipped[slotId];
-    if (!key) continue;
-    const part = PARTS[key];
+    const entry = equipped[slotId];
+    if (!entry) continue;
+    const part = PARTS[entry.key];
     if (part) equippedParts.push(part);
   }
 
@@ -88,41 +95,47 @@ export const computeLoadoutStats = (
   let soulCount = 0;
   let chargerCount = 0;
 
-  const moduleParts: { slotId: string; key: PartKey; part: Extract<PartData, { category: 'module' }> }[] = [];
+  const moduleParts: { slotId: string; key: PartKey; part: Extract<PartData, { category: 'module' }>; star: number }[] = [];
 
   for (const slotId of Object.keys(equipped)) {
-    const key = equipped[slotId];
-    if (!key) continue;
+    const entry = equipped[slotId];
+    if (!entry) continue;
+    const { key, star } = entry;
     const part = PARTS[key];
     if (!part) continue;
+    const sm = starMult(star);
 
     switch (part.category) {
       case 'module':
-        moduleParts.push({ slotId, key, part });
+        moduleParts.push({ slotId, key, part, star });
         moduleCount += 1;
         break;
       case 'implant':
-        bonusHp += part.bonusHp;
-        flatReduction += part.damageReduction;
-        pctReduction += part.damageReductionPct;
+        bonusHp += Math.round(part.bonusHp * sm);
+        flatReduction += Math.round(part.damageReduction * sm);
+        pctReduction += part.damageReductionPct * sm;
         if (key === 'armor_shield') shieldCount += 1;
         implantCount += 1;
         break;
       case 'charger':
-        bonusHp += part.bonusHp;
-        bonusDamage += part.bonusDamage;
-        pctReduction += part.bonusDamageReductionPct;
+        bonusHp += Math.round(part.bonusHp * sm);
+        bonusDamage += Math.round(part.bonusDamage * sm);
+        pctReduction += part.bonusDamageReductionPct * sm;
         chargerCount += 1;
         break;
-      case 'booster':
-        cooldownMult *= part.cooldownMultiplier;
-        hpPenalty += part.hpPenalty;
+      case 'booster': {
+        // Booster cooldownMultiplier < 1 means faster. Higher star = closer to 1 benefit.
+        // e.g. mult=0.9 → bonus=-0.1 → at star2: bonus*1.5=-0.15 → effective 0.85
+        const cdBonus = (part.cooldownMultiplier - 1) * sm;
+        cooldownMult *= (1 + cdBonus);
+        hpPenalty += Math.round(part.hpPenalty * sm);
         boosterCount += 1;
         break;
+      }
       case 'soul':
-        if (part.effectKind === 'overdrive') overdriveMagnitude = Math.max(overdriveMagnitude, part.magnitude);
-        else if (part.effectKind === 'repair') repairMagnitude = Math.max(repairMagnitude, part.magnitude);
-        else if (part.effectKind === 'synergy_booster') gearSynergyMagnitude = Math.max(gearSynergyMagnitude, part.magnitude);
+        if (part.effectKind === 'overdrive') overdriveMagnitude = Math.max(overdriveMagnitude, part.magnitude * sm);
+        else if (part.effectKind === 'repair') repairMagnitude = Math.max(repairMagnitude, part.magnitude * sm);
+        else if (part.effectKind === 'synergy_booster') gearSynergyMagnitude = Math.max(gearSynergyMagnitude, part.magnitude * sm);
         soulCount += 1;
         break;
     }
@@ -191,8 +204,9 @@ export const computeLoadoutStats = (
   const maxHp = Math.max(BALANCE.hpFloor, robot.baseHp + bonusHp - hpPenalty);
   const damageReductionPct = clamp(pctReduction, 0, BALANCE.damageReductionCap);
 
-  const weapons: WeaponInstance[] = moduleParts.map(({ slotId, key, part }) => {
-    const baseDmg = part.damage + bonusDamage + gearSynergyMagnitude * boosterCount;
+  const weapons: WeaponInstance[] = moduleParts.map(({ slotId, key, part, star }) => {
+    const sm = starMult(star);
+    const baseDmg = Math.round(part.damage * sm) + bonusDamage + gearSynergyMagnitude * boosterCount;
     const effectiveDamage = Math.round(baseDmg * (1 + synergyDamagePct));
     const effectiveCooldown = (part.cooldownSec * cooldownMult) / robot.baseAttackSpeedMultiplier;
     return {
@@ -204,14 +218,14 @@ export const computeLoadoutStats = (
     };
   });
 
-  // No fist fallback — player has no auto-attacks. An empty loadout means
-  // zero strikes and the ultimate does nothing (correct penalty).
-
   // Ultimate calculation: every equipped part contributes to the big hit.
-  // Weapons = strikes. Gears = damage mult. Engines = charge speed. Skills = bonuses.
-  const ultStrikes = moduleCount + skillUltExtraStrikes;
+  // Modules = strikes + damage. Boosters = damage mult. Chargers = charge speed.
+  // With 0 modules: 1 strike at base soul damage (maxHP × bareUltimateDamageRatio).
+  const ultStrikes = Math.max(1, moduleCount) + skillUltExtraStrikes;
   const gearMult = 1 + boosterCount * BALANCE.gearUltimateMult;
-  const baseDmgPerStrike = weapons.reduce((sum, w) => sum + w.damage, 0) / Math.max(1, weapons.length);
+  const baseDmgPerStrike = moduleCount > 0
+    ? weapons.reduce((sum, w) => sum + w.damage, 0) / weapons.length
+    : maxHp * BALANCE.bareUltimateDamageRatio;
   const ultDmgPerStrike = Math.round(baseDmgPerStrike * gearMult * BALANCE.ultimateBaseMult * (1 + skillUltDamagePct));
   const ultChargeRate = 1 + chargerCount * BALANCE.engineChargeRate + skillUltChargeBonus;
 
@@ -234,7 +248,8 @@ export const computeLoadoutStats = (
     ultimateTotalDamage: ultStrikes * ultDmgPerStrike,
     ultimateChargeRate: ultChargeRate,
     ultimateLifesteal: skillUltLifesteal,
-    ultimateArmorBreak: skillUltArmorBreak
+    ultimateArmorBreak: skillUltArmorBreak,
+    isAwakened: robot.slots.every((s) => !!equipped[s.id]?.key)
   };
 };
 

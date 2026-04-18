@@ -1,5 +1,5 @@
 # --- Secrets ---
-# GEAR ARENA uses no environment variables. No .env template is shipped.
+# SOUL STRIKE uses no environment variables. No .env template is shipped.
 .env
 .env.*
 *.pem
@@ -35,6 +35,18 @@ tests/
 
 # --- Python venv (rembg background removal tool) ---
 .venv/
+
+# --- Audio analysis tool artifacts (Heika's reference tracks, not for public) ---
+tools/audio-analyze/input/*
+!tools/audio-analyze/input/.gitkeep
+tools/audio-analyze/output/*
+!tools/audio-analyze/output/.gitkeep
+tools/audio-analyze/.venv/
+
+# --- YouTube DL tool artifacts (downloaded media, not for public) ---
+tools/youtube-dl/output/*
+!tools/youtube-dl/output/.gitkeep
+tools/youtube-dl/.venv/
 
 # --- Node / Bun ---
 node_modules/

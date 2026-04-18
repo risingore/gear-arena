@@ -11,12 +11,14 @@ import { loadSettings, updateSetting } from '../systems/settings';
 import { resetAllData } from '../systems/savedata';
 import { applyHiDpiToScene, showDebugBadge } from '../helper/hiDpiText';
 import { runVisualChecks } from '../systems/visualDebugger';
+import { setupLayoutDebug } from '../systems/layoutDebug';
 import { isDebugEnabled, toggleDebug } from '../systems/debug';
 import { setMusicMuted } from '../systems/music';
 import { setSfxMuted } from '../systems/audio';
 
-const ROW_H = 52;
-const LABEL_X = 340;
+const ROW_H = 48;
+const DIVIDER_MARGIN = 36;
+const LABEL_X = 370;
 const VALUE_X = 700;
 
 export class Settings extends Scene {
@@ -30,7 +32,7 @@ export class Settings extends Scene {
     fadeInCurrent(this);
 
     // Page background panel
-    createPanel(this, gameWidth / 2, gameHeight / 2, 600, gameHeight - 60, { fillAlpha: 0.4, depth: 0 });
+    createPanel(this, gameWidth / 2, gameHeight / 2 + 30, 600, gameHeight - 140, { fillAlpha: 0.4, depth: 0 });
 
     this.add
       .text(gameWidth / 2, 40, t('SETTINGS'), textStyles.title)
@@ -101,24 +103,22 @@ export class Settings extends Scene {
       .text(VALUE_X, y, `${gameWidth} × ${gameHeight}`, textStyles.body)
       .setOrigin(0.5)
       .setAlpha(0.7);
-    y += ROW_H;
 
-    // --- Separator ---
-    y += 10;
-    createDivider(this, gameWidth / 2, y, 500);
-    y += 20;
+    // --- Separator (margin symmetric: DIVIDER_MARGIN above = DIVIDER_MARGIN below) ---
+    y += DIVIDER_MARGIN;
+    createDivider(this, gameWidth / 2, y, 520);
+    y += DIVIDER_MARGIN;
 
     // --- Debug Mode ---
     this.drawRow(y, t('Debug Mode'), isDebugEnabled() ? 'ON' : 'OFF', () => {
       const on = toggleDebug();
       return on ? 'ON' : 'OFF';
     });
-    y += ROW_H;
 
     // --- Separator ---
-    y += 10;
-    createDivider(this, gameWidth / 2, y, 500);
-    y += 24;
+    y += DIVIDER_MARGIN;
+    createDivider(this, gameWidth / 2, y, 520);
+    y += DIVIDER_MARGIN;
 
     // --- Reset All Data ---
     let confirmPending = false;
@@ -155,6 +155,7 @@ export class Settings extends Scene {
     applyHiDpiToScene(this);
     showDebugBadge(this, isDebugEnabled());
     runVisualChecks(this);
+    setupLayoutDebug(this);
   }
 
   private drawRow(

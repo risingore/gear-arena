@@ -20,7 +20,7 @@
 
 import { LOCALES, SUPPORTED_LOCALES, type Locale } from '../i18n';
 
-const STORAGE_KEY = 'gear-arena-locale';
+const STORAGE_KEY = 'soul-strike-locale';
 const DEFAULT_LOCALE: Locale = 'en';
 
 const isSupported = (value: string): value is Locale =>
@@ -50,6 +50,10 @@ const detectLocale = (): Locale => {
 let currentLocale: Locale = detectLocale();
 
 export const getLocale = (): Locale => currentLocale;
+
+/** Pick the correct string from a bilingual { en, ja } record. */
+export const bl = (text: { en: string; ja: string }): string =>
+  currentLocale === 'ja' ? text.ja : text.en;
 
 export const setLocale = (locale: Locale): void => {
   currentLocale = locale;

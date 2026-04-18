@@ -55,5 +55,8 @@ const config: Types.Core.GameConfig = {
 };
 
 export const startGame = (parent: string): Game => {
-  return new Game({ ...config, parent });
+  const game = new Game({ ...config, parent });
+  // Expose game instance for debug/test tools
+  (window as any).__PHASER_GAME__ = game;
+  return game;
 };

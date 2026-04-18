@@ -10,6 +10,7 @@ import { recordScrap } from '../systems/savedata';
 import { t } from '../systems/i18n';
 import { applyHiDpiToScene, showDebugBadge } from '../helper/hiDpiText';
 import { runVisualChecks } from '../systems/visualDebugger';
+import { setupLayoutDebug } from '../systems/layoutDebug';
 import { isDebugEnabled } from '../systems/debug';
 
 export class GameOver extends Scene {
@@ -63,12 +64,12 @@ export class GameOver extends Scene {
     // Analysis hint based on loadout.
     const equipped = state.equipped ?? {};
     const partCount = Object.keys(equipped).length;
-    const weaponCount = Object.values(equipped).filter((k) => k && String(k).startsWith('weapon_')).length;
+    const weaponCount = Object.values(equipped).filter((e) => e?.key && String(e.key).startsWith('weapon_')).length;
     let hint = '';
-    if (weaponCount === 0) hint = t('Tip: Equip weapons to add strikes to your ultimate!');
-    else if (partCount <= 2) hint = t('Tip: Fill more slots to power up your ultimate.');
-    else if (weaponCount === 1) hint = t('Tip: More weapons = more ultimate strikes!');
-    else hint = t('Tip: Try different part combos to boost your ultimate damage.');
+    if (weaponCount === 0) hint = t('Tip: Equip modules to add strikes to your soul strike!');
+    else if (partCount <= 2) hint = t('Tip: Fill more slots to power up your soul strike.');
+    else if (weaponCount === 1) hint = t('Tip: More modules = more soul strike hits!');
+    else hint = t('Tip: Try different part combos to boost your soul strike damage.');
     createPanel(this, gameWidth / 2, gameHeight * 0.59, 520, 36, { fillAlpha: 0.5, depth: 0 });
     this.add
       .text(gameWidth / 2, gameHeight * 0.59, hint, textStyles.small)
@@ -87,5 +88,6 @@ export class GameOver extends Scene {
     applyHiDpiToScene(this);
     showDebugBadge(this, isDebugEnabled());
     runVisualChecks(this);
+    setupLayoutDebug(this);
   }
 }

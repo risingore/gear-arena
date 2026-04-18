@@ -8,10 +8,12 @@ import { playSfx } from '../systems/audio';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { loadSaveData } from '../systems/savedata';
 import { getPlayerTitle } from '../systems/achievements';
-import { t } from '../systems/i18n';
+import { t, bl } from '../systems/i18n';
+import { THESIS } from '@/data/storyText';
 import { playMusic, MUSIC_KEYS } from '../systems/music';
 import { applyHiDpiToScene, showDebugBadge } from '../helper/hiDpiText';
 import { runVisualChecks } from '../systems/visualDebugger';
+import { setupLayoutDebug } from '../systems/layoutDebug';
 import { isDebugEnabled, toggleDebug } from '../systems/debug';
 
 export class Title extends Scene {
@@ -65,10 +67,23 @@ export class Title extends Scene {
 
     // Subtitle
     const subText = this.add
-      .text(gameWidth / 2, gameHeight * 0.40, t('One Shot. One Kill. Build Your Ultimate.'), textStyles.body)
+      .text(gameWidth / 2, gameHeight * 0.40, t('Assemble Your Soul. Press the Button. Strike.'), textStyles.body)
       .setOrigin(0.5)
       .setAlpha(0);
     this.tweens.add({ targets: subText, alpha: 0.7, duration: 600, delay: 300 });
+
+    // Thesis line
+    const thesisText = bl(THESIS);
+    const thesis = this.add
+      .text(gameWidth / 2, gameHeight * 0.46, thesisText, {
+        ...textStyles.small,
+        color: '#aabbcc',
+        wordWrap: { width: 700 },
+        align: 'center',
+      })
+      .setOrigin(0.5)
+      .setAlpha(0);
+    this.tweens.add({ targets: thesis, alpha: 0.85, duration: 1000, delay: 800 });
 
     this.add
       .text(gameWidth / 2, gameHeight - 24, t('Gamedev.js Jam 2026 / theme: Machines'), textStyles.small)
@@ -79,19 +94,23 @@ export class Title extends Scene {
     const save = loadSaveData();
     if (save.bestRound > 0 || save.totalClears > 0) {
       const statLine = `Best Round: ${save.bestRound}   ·   Victories: ${save.totalClears}   ·   Scrap: ${save.scrap}`;
-      createPanel(this, gameWidth / 2, gameHeight * 0.83, 500, 64, { fillAlpha: 0.6, depth: 0 });
+      const playerTitle = getPlayerTitle(save);
+      const panelH = playerTitle ? 52 : 36;
+      const panelY = gameHeight * 0.85;
+      createPanel(this, gameWidth / 2, panelY, 460, panelH, { fillAlpha: 0.4, depth: 0 });
       this.add
-        .text(gameWidth / 2, gameHeight * 0.80, statLine, textStyles.small)
+        .text(gameWidth / 2, panelY - (playerTitle ? 8 : 0), statLine, textStyles.small)
         .setOrigin(0.5)
-        .setAlpha(0.6);
-    }
-    const title = getPlayerTitle(save);
-    if (title) {
-      this.add
-        .text(gameWidth / 2, gameHeight * 0.86, `— ${title} —`, textStyles.small)
-        .setOrigin(0.5)
-        .setColor('#ffd94a')
-        .setAlpha(0.8);
+        .setDepth(1)
+        .setAlpha(0.7);
+      if (playerTitle) {
+        this.add
+          .text(gameWidth / 2, panelY + 12, `— ${playerTitle} —`, textStyles.small)
+          .setOrigin(0.5)
+          .setDepth(1)
+          .setColor('#ffd94a')
+          .setAlpha(0.8);
+      }
     }
 
     const start = (): void => {
@@ -101,7 +120,7 @@ export class Title extends Scene {
     this.input.keyboard?.once('keydown-SPACE', start);
 
     // Clickable start button
-    createButton(this, gameWidth / 2, gameHeight * 0.56, 260, 48, t('START'), start);
+    createButton(this, gameWidth / 2, gameHeight * 0.55, 260, 44, t('START'), start);
 
     // Collection button
     createButton(this, gameWidth / 2, gameHeight * 0.63, 260, 44, t('COLLECTION'),
@@ -109,7 +128,7 @@ export class Title extends Scene {
     );
 
     // Settings button
-    createButton(this, gameWidth / 2, gameHeight * 0.69, 260, 44, t('SETTINGS'),
+    createButton(this, gameWidth / 2, gameHeight * 0.71, 260, 44, t('SETTINGS'),
       () => { playSfx('click'); fadeToScene(this, 'Settings'); }
     );
 
@@ -131,6 +150,7 @@ export class Title extends Scene {
     applyHiDpiToScene(this);
     showDebugBadge(this, isDebugEnabled());
     runVisualChecks(this);
+    setupLayoutDebug(this);
   }
 
   private drawBackgroundGear(

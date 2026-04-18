@@ -1,5 +1,5 @@
 /**
- * GEAR ARENA — pachislot system configuration.
+ * SOUL STRIKE — pachislot system configuration.
  *
  * All tunable values for the hit/rush/aura system.
  * Heika is free to edit every number here.
@@ -28,6 +28,28 @@ export const SLOT_CONTINUATION_RATE: Record<AuraColor, number> = {
   red:     0.40,
   rainbow: 0.60,
 };
+
+// ---------------------------------------------------------------------------
+// Pseudo-continuation (擬似連) — mandala pulses before ULTIMATE button
+// ---------------------------------------------------------------------------
+
+/** Probability that 擬似連 occurs at all (vs direct button appearance). */
+export const GIJIREN_CHANCE = 0.6;
+
+/**
+ * When 擬似連 fires, how many pulses (1-4)?
+ * Weighted roll. More pulses = rarer = higher hit expectation.
+ * [pulses, weightOnHit, weightOnMiss]
+ */
+export const GIJIREN_PULSE_WEIGHTS: readonly [number, number, number][] = [
+  [1, 30, 50],  // 1 pulse: common, low trust
+  [2, 30, 30],  // 2 pulses: medium
+  [3, 25, 15],  // 3 pulses: rare, high trust
+  [4, 15,  5],  // 4 pulses: very rare, near-guaranteed
+];
+
+/** Delay between each mandala pulse (ms). */
+export const GIJIREN_PULSE_INTERVAL_MS = 600;
 
 /** Aura color roll weights (higher = more common). */
 export const SLOT_AURA_WEIGHTS: Record<AuraColor, number> = {

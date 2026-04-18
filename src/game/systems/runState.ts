@@ -19,12 +19,18 @@ const REGISTRY_KEY = 'runState';
 
 export type BattleOutcome = 'pending' | 'win' | 'lose' | 'victory';
 
+/** A part installed in a slot, with its current star level. */
+export interface EquippedEntry {
+  readonly key: PartKey;
+  readonly star: number;
+}
+
 export interface RunState {
   robotKey: RobotKey | null;
   currentRound: number;
   gold: number;
-  /** Slot ID -> equipped part key */
-  equipped: Record<string, PartKey>;
+  /** Slot ID -> equipped part (key + star level) */
+  equipped: Record<string, EquippedEntry>;
   /** Current shop offer (part keys; empty string = sold out) */
   shopOffer: string[];
   battleOutcome: BattleOutcome;
@@ -45,7 +51,7 @@ export interface RunState {
   /** Pending skill choices offered after boss fight (skill IDs; empty = none). */
   pendingSkillChoices: string[];
   /** Parts removed from blueprint and stored in the basket (persist between rounds). */
-  storedParts: PartKey[];
+  storedParts: EquippedEntry[];
   /** Buff items equipped in the blueprint's buff slots (consumed on battle start). */
   equippedBuffs: ItemKey[];
   /** Accumulated statistics for the current run. */

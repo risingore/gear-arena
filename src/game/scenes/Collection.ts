@@ -21,6 +21,7 @@ import { ACHIEVEMENTS } from '@/data/achievements';
 import { SKILLS } from '@/data';
 import { applyHiDpiToScene, showDebugBadge } from '../helper/hiDpiText';
 import { runVisualChecks } from '../systems/visualDebugger';
+import { setupLayoutDebug } from '../systems/layoutDebug';
 import { isDebugEnabled } from '../systems/debug';
 
 type TabName = 'machines' | 'parts' | 'enemies' | 'titles';
@@ -55,11 +56,9 @@ export class Collection extends Scene {
     this.cameras.main.setBackgroundColor(PALETTE.bg);
     fadeInCurrent(this);
 
-    this.add.text(gameWidth / 2, 36, t('COLLECTION'), textStyles.title).setOrigin(0.5);
-
     // Tab buttons
     const tabs: { tab: TabName; label: string }[] = [
-      { tab: 'machines', label: t('MACHINES') },
+      { tab: 'machines', label: t('CYBORGS') },
       { tab: 'parts',    label: t('PARTS') },
       { tab: 'enemies',  label: t('ENEMIES') },
       { tab: 'titles',   label: t('TITLES') }
@@ -117,6 +116,7 @@ export class Collection extends Scene {
     applyHiDpiToScene(this);
     showDebugBadge(this, isDebugEnabled());
     runVisualChecks(this);
+    setupLayoutDebug(this);
   }
 
   private refreshTabs(): void {
@@ -233,7 +233,7 @@ export class Collection extends Scene {
       if (isUsed) {
         this.addScrollable(this.add.text(x, y - 30, CATEGORY_LABEL[part.category], textStyles.small).setOrigin(0.5).setColor('#aaaabb'));
         this.addScrollable(this.add.text(x, y + 2, t(part.name), { ...textStyles.small, color: '#ffffff', wordWrap: { width: CARD_W - 16 } }).setOrigin(0.5));
-        this.addScrollable(this.add.text(x, y + 36, `${part.price}g`, textStyles.small).setOrigin(0.5).setColor('#ffd94a'));
+        this.addScrollable(this.add.text(x, y + 36, `${part.price} g`, textStyles.small).setOrigin(0.5).setColor('#ffd94a'));
       } else {
         this.addScrollable(this.add.text(x, y, '???', textStyles.body).setOrigin(0.5).setAlpha(0.3));
       }

@@ -8,7 +8,7 @@
  *   - Future debug aids can check isDebugEnabled()
  */
 
-const STORAGE_KEY = 'gear-arena-debug';
+const STORAGE_KEY = 'soul-strike-debug';
 
 interface DebugSettings {
   enabled: boolean;

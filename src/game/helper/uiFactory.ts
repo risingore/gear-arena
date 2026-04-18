@@ -1,5 +1,5 @@
 /**
- * GEAR ARENA UI Design System
+ * SOUL STRIKE UI Design System
  *
  * Unified factory functions for panels, buttons, labels, dividers, and glow
  * text. Every scene should use these instead of raw rectangles/text so that

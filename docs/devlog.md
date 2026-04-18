@@ -34,7 +34,7 @@ Engine: Phaser 4.0 / Vite 6 / TypeScript / Bun.
 
 ### Next
 
-- Day 2+: Replace placeholder rectangles with real art generated through the AI → pixel editor workflow documented in `ai-asset-workflow.md`.
+- Day 2+: Replace placeholder rectangles with real art generated through the Grok → Piskel workflow documented in `ai-asset-workflow.md`.
 - Day 8: Balance tuning entirely via `src/data/*.ts`.
 - Day 11: Devlog final pass, itch.io page, submission.
 
@@ -103,7 +103,7 @@ Consolidated every open question into `tasks/kima-questions.md` so they can be b
 - **Debug badge**: red "DEBUG" label on all scenes when debug mode is ON.
 
 **Art:**
-- INDRA battle sprite (960x960 RGBA transparent, AI-generated + rembg).
+- INDRA battle sprite (960x960 RGBA transparent, Grok + rembg).
 - Art style locked: post-cyberpunk biomechanical. High-detail digital illustration, NOT pixel art.
 - Batch background-removal tool (`bun run remove-bg`) via rembg.
 
@@ -124,7 +124,7 @@ Consolidated every open question into `tasks/kima-questions.md` so they can be b
 - Day 3+: Remaining robot battle sprites (GOLIATH, STRIKER, ORACLE).
 - Enemy sprites.
 - Part icons for blueprint slots.
-- BGM tracks (AI-composed).
+- BGM tracks (Suno).
 - Balance tuning via `src/data/*.ts`.
 
 ---

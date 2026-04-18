@@ -28,6 +28,8 @@ tasks/
 # docs/ contains designer + engineer working documents authored in Japanese.
 # The public-facing material (README.md at the repo root) is separate.
 docs/
+# Exception: devlog is public-facing for Jam judges
+!docs/devlog.md
 
 # --- Internal tests (kept private by explicit Heika decision) ---
 # The unit tests stay local only. They are not shipped in the public repo.

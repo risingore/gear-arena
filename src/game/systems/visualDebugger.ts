@@ -10,6 +10,8 @@
  * 6. Circles (slots) outside their containing rectangle
  * 7. Circle-on-circle overlap (slot collision)
  * 8. Divider asymmetric margins (above ≠ below)
+ * 9. Tiny text under 10px (likely unreadable)
+ * 10. Low-alpha text (near-invisible, probably a bug)
  */
 
 import type { Scene, GameObjects } from 'phaser';
@@ -24,7 +26,9 @@ type IssueType =
   | 'text_text_overlap'
   | 'circle_outside'
   | 'circle_overlap'
-  | 'asymmetric_margin';
+  | 'asymmetric_margin'
+  | 'tiny_text'
+  | 'low_alpha_text';
 
 interface VisualIssue {
   type: IssueType;
@@ -306,6 +310,33 @@ export function runVisualChecks(scene: Scene): VisualIssue[] {
           x: div.x, y: divCenterY
         });
       }
+    }
+  }
+
+  // --- Check 9: Tiny text (< 10px) ---
+  for (const t of texts) {
+    // Approximate glyph height from bounds; if the text bounding box is
+    // under 10px tall it's likely unreadable on a 720p stage.
+    if (t.h > 0 && t.h < 10) {
+      issues.push({
+        type: 'tiny_text',
+        message: `Text "${clip(t.obj.text)}" is ${r(t.h)}px tall (< 10px, likely unreadable)`,
+        x: t.x, y: t.y,
+      });
+    }
+  }
+
+  // --- Check 10: Low-alpha text that looks like a bug, not intentional ---
+  for (const t of texts) {
+    // Alphas between 0.05 and 0.18 are suspicious: visible enough to render
+    // but too faint to read. Deliberate quiet lines (attributions,
+    // watermarks) usually sit between 0.25 and 0.5.
+    if (t.obj.alpha >= 0.05 && t.obj.alpha < 0.18 && t.obj.text.length >= 4) {
+      issues.push({
+        type: 'low_alpha_text',
+        message: `Text "${clip(t.obj.text)}" has alpha ${t.obj.alpha.toFixed(2)} (near-invisible, intended?)`,
+        x: t.x, y: t.y,
+      });
     }
   }
 

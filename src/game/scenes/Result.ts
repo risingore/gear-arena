@@ -1,4 +1,5 @@
 import { Scene } from 'phaser';
+import type { GameObjects } from 'phaser';
 
 import gameOptions from '../helper/gameOptions';
 import { createButton, createPanel } from '../helper/uiFactory';
@@ -10,6 +11,7 @@ import {
   ATMAN_NORMAL_STATEMENTS,
   ATMAN_MIDBOSS_STATEMENTS,
   ATMAN_BIGBOSS_STATEMENTS,
+  HYAKKI_YAKOU_TEASER,
 } from '@/data/storyText';
 import { getRunState, setRunState } from '../systems/runState';
 import { PALETTE } from '../systems/palette';
@@ -19,6 +21,7 @@ import { generateShopOffer } from '../systems/shop';
 import { playSfx } from '../systems/audio';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { recordVictory, recordDefeatedEnemy, recordUsedPart, recordAcquiredSkill, recordScrap } from '../systems/savedata';
+import { mountEdOverlay } from '../overlays/edOverlay';
 import { t } from '../systems/i18n';
 import { playMusic, MUSIC_KEYS } from '../systems/music';
 import { applyHiDpiToScene, showDebugBadge } from '../helper/hiDpiText';
@@ -181,10 +184,7 @@ export class Result extends Scene {
           .setAlpha(0.85);
       }
 
-      createButton(this, gameWidth / 2, gameHeight * 0.78, 280, 48, t('RETURN TO TITLE'), () => {
-        playSfx('click');
-        fadeToScene(this, 'Title');
-      });
+      this.showEdSequence();
       this.input.keyboard?.once('keydown-SPACE', () => fadeToScene(this, 'Title'));
     } else if (outcome === 'lose') {
       createButton(this, gameWidth / 2, gameHeight * 0.70, 240, 48, t('CONTINUE'), () => {
@@ -213,6 +213,58 @@ export class Result extends Scene {
       .text(gameWidth / 2, gameHeight * 0.64, `Acquired: ${t(skillName)}`, textStyles.body)
       .setOrigin(0.5)
       .setColor('#3aff7a');
+  }
+
+  /**
+   * Victory ED: HYAKKI YAKOU — STANDING BY teaser, then
+   * TO BE CONTINUED: SOUL BREAKER reveal. Sets up the three-episode arc
+   * (STRIKE -> BREAKER -> SAMSARA) as defined in docs/story.md.
+   */
+  private showEdSequence(): void {
+    const { gameWidth, gameHeight, textStyles } = gameOptions;
+
+    // Phase 1 (delay 1800ms): HYAKKI YAKOU glitch line for 0.7s
+    this.time.delayedCall(1800, () => {
+      const teaser = bl(HYAKKI_YAKOU_TEASER);
+      const t1 = this.add
+        .text(gameWidth / 2, gameHeight * 0.88, teaser, {
+          ...textStyles.small,
+          color: '#aeeaff',
+          fontStyle: 'italic',
+        })
+        .setOrigin(0.5)
+        .setAlpha(0)
+        .setDepth(10);
+      this.tweens.add({
+        targets: t1,
+        alpha: { from: 0, to: 0.6 },
+        duration: 200,
+        yoyo: true,
+        hold: 500,
+        ease: 'Linear',
+        onComplete: () => t1.destroy(),
+      });
+    });
+
+    // Phase 2 (delay 3600ms): DOM-based ED reveal. Native browser text gives
+    // the SOUL BREAKER headline crisp edges that Phaser text shadows can't
+    // match — matches the Title overlay's rendering path.
+    this.time.delayedCall(3600, () => {
+      mountEdOverlay({
+        continuedLabel: t('TO BE CONTINUED:'),
+        heroText: 'SOUL BREAKER',
+        holdMs: 3500,
+      });
+      void gameWidth;
+      void gameHeight;
+      void textStyles;
+    });
+
+    // Manual return button (under the bottom HUD)
+    createButton(this, gameWidth / 2, gameHeight * 0.92, 240, 38, t('RETURN TO TITLE'), () => {
+      playSfx('click');
+      fadeToScene(this, 'Title');
+    });
   }
 
   private showContinueButtons(): void {

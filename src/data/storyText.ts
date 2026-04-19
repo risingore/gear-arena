@@ -22,6 +22,50 @@ export const THESIS: BilingualText = {
   ja: 'ATMANは人類のすべてをデータに変えた。だが、魂だけは変換できなかった。お前の一撃が、その証明だ。',
 };
 
+/** Thesis first half — shown on Select. Establishes the stakes. */
+export const THESIS_PROLOGUE: BilingualText = {
+  en: 'ATMAN digitized everything human. But the soul refused to convert.',
+  ja: 'ATMANは人類のすべてをデータに変えた。だが、魂だけは変換できなかった。',
+};
+
+/** Thesis closing line — shown during SOUL STRIKE cut-in. Completes the refutation. */
+export const THESIS_PROOF: BilingualText = {
+  en: 'Your strike proves it still exists.',
+  ja: 'お前の一撃が、その証明だ。',
+};
+
+// ---------------------------------------------------------------------------
+// Round transition monologues — per-character, short "inner voice" lines
+// shown at the top of each Build screen between rounds (not round 1).
+// ---------------------------------------------------------------------------
+
+export const ROUND_TRANSITION_MONOLOGUES: Record<RobotKey, readonly BilingualText[]> = {
+  robot_knight: [
+    { en: 'Break.',       ja: '壊す。' },
+    { en: 'Again.',       ja: 'もう一度。' },
+    { en: 'Good.',        ja: '上等だ。' },
+    { en: 'Steady the arm.', ja: '腕を据えろ。' },
+  ],
+  robot_goliath: [
+    { en: '...',            ja: '……' },
+    { en: '...why?',        ja: '……なぜ？' },
+    { en: '(it moved again)', ja: '（また動いた）' },
+    { en: '...still here.', ja: '……まだ、いる。' },
+  ],
+  robot_striker: [
+    { en: 'Dance.',         ja: '踊れ。' },
+    { en: 'Lower.',         ja: 'もっと下へ。' },
+    { en: 'Again.',         ja: 'もう一度。' },
+    { en: 'Throne holds.',  ja: '王座は揺るがぬ。' },
+  ],
+  robot_oracle: [
+    { en: '(humming a mandala...)', ja: '（曼荼羅を口ずさんでいる……）' },
+    { en: '(oṃ...)',                ja: '（オーン……）' },
+    { en: '(the song answers)',     ja: '（歌が応える）' },
+    { en: '(śūnya)',                ja: '（空）' },
+  ],
+};
+
 // ---------------------------------------------------------------------------
 // Select screen character quotes
 // ---------------------------------------------------------------------------

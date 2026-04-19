@@ -29,10 +29,11 @@ import {
 import { playSfx } from '../systems/audio';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { recordRoundReached } from '../systems/savedata';
-import { t } from '../systems/i18n';
+import { t, bl } from '../systems/i18n';
 import { playMusic, MUSIC_KEYS, setMusicPlaybackRate } from '../systems/music';
 import { applyHiDpiToScene, TEXT_DPR, showDebugBadge } from '../helper/hiDpiText';
 import { runVisualChecks } from '../systems/visualDebugger';
+import { attachFpsMeter } from '../systems/fpsMeter';
 import { setupLayoutDebug } from '../systems/layoutDebug';
 import { isDebugEnabled } from '../systems/debug';
 import {
@@ -46,7 +47,9 @@ import {
   type SlotState
 } from '../systems/slotMachine';
 import { rollPrediction } from '@/data/predictions';
-import { MANTRAS } from '@/data/storyText';
+import { ULT_PITCH_BY_ROBOT } from '@/data/audioProfile';
+import { MANTRAS, THESIS_PROOF } from '@/data/storyText';
+import { mountMandalaOverlay } from '../overlays/mandalaOverlay';
 import {
   SLOT_HIT_DAMAGE_MULT,
   GIJIREN_CHANCE,
@@ -296,7 +299,9 @@ export class Battle extends Scene {
       .setOrigin(0, 0.5);
     this.playerHpText = this.add
       .text(playerX, hpBarY, '', textStyles.small)
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setColor('#ffffff')
+      .setStroke('#000000', 3);
 
     this.add
       .rectangle(enemyX, hpBarY, HP_BAR_W, HP_BAR_H, PALETTE.hpBarBg, 1)
@@ -309,7 +314,9 @@ export class Battle extends Scene {
       .setOrigin(0, 0.5);
     this.enemyHpText = this.add
       .text(enemyX, hpBarY, '', textStyles.small)
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setColor('#ffffff')
+      .setStroke('#000000', 3);
 
     // Status effect indicators next to player HP bar
     this.playerStatusTexts = [];
@@ -456,6 +463,7 @@ export class Battle extends Scene {
     showDebugBadge(this, isDebugEnabled());
     runVisualChecks(this);
     setupLayoutDebug(this);
+    attachFpsMeter(this);
   }
 
   private cycleSpeed(): void {
@@ -957,9 +965,22 @@ export class Battle extends Scene {
     const D = 200; // depth base
 
     if (fromPlayer) {
-      playSfx('ultimate');
+      const robotKey = getRunState(this).robotKey;
+      const ultPitch = robotKey && robotKey in ULT_PITCH_BY_ROBOT
+        ? ULT_PITCH_BY_ROBOT[robotKey as keyof typeof ULT_PITCH_BY_ROBOT]
+        : 1;
+      playSfx('ultimate', ultPitch);
       const allParts: GameObjects.GameObject[] = [];
       const destroy = () => allParts.forEach((p) => p.destroy());
+
+      // B-10: spawn a DOM mandala behind the cut-in for Retina-sharp
+      // ritual framing. Auto-dismisses shortly after the cut-in ends.
+      const mandalaUnmount = mountMandalaOverlay({
+        soulDialProgress: 1.0,
+        showTitle: false,
+        autoDismissMs: 1700,
+      });
+      void mandalaUnmount;
 
       // Color theme: normal = gold, critical = red-gold
       const accentColor = isCritical ? 0xff2222 : 0xffd94a;
@@ -1176,6 +1197,34 @@ export class Battle extends Scene {
           }
         }
       });
+
+      // === Phase 7b: Thesis proof — closes the 3-second thesis arc started
+      //     on Title (ATMAN denial) and Select (prologue). Only appears on
+      //     critical hits so it feels earned. ===
+      if (isCritical) {
+        this.time.delayedCall(1150, () => {
+          const proof = bl(THESIS_PROOF);
+          const proofText = this.add
+            .text(gameWidth / 2, gameHeight * 0.78, proof, {
+              ...textStyles.body,
+              fontSize: '18px',
+              fontStyle: 'italic',
+              color: '#ffd94a',
+            })
+            .setOrigin(0.5)
+            .setDepth(D + 21)
+            .setResolution(TEXT_DPR)
+            .setAlpha(0);
+          allParts.push(proofText);
+          this.tweens.add({
+            targets: proofText,
+            alpha: 1,
+            y: gameHeight * 0.76,
+            duration: 200,
+            ease: 'Cubic.easeOut',
+          });
+        });
+      }
 
       // === Phase 8: Dismiss everything + camera restore (1400ms) ===
       this.time.delayedCall(1400, () => {
@@ -1481,6 +1530,7 @@ export class Battle extends Scene {
 
     switch (pred.id) {
       case 'rainbow_btn': {
+        playSfx('pred_rainbow');
         const colors = [0xff0000, 0xff7a00, 0xffd94a, 0x3aff7a, 0x3ab0ff, 0xcc66ff];
         let ci = 0;
         const timer = this.time.addEvent({
@@ -1496,6 +1546,7 @@ export class Battle extends Scene {
         break;
       }
       case 'fish': {
+        playSfx('pred_fish');
         for (let i = 0; i < 8; i++) {
           const fish = this.add.text(-60, gh * 0.3 + i * 25 + Math.random() * 20, '🐟', { fontSize: '24px' });
           container.add(fish);
@@ -1504,12 +1555,14 @@ export class Battle extends Scene {
         break;
       }
       case 'red_flash': {
+        playSfx('pred_red_flash');
         const flash = this.add.rectangle(gw / 2, gh / 2, gw, gh, 0xff0000, 0);
         container.add(flash);
         this.tweens.add({ targets: flash, alpha: { from: 0, to: 0.3 }, duration: 200, yoyo: true, repeat: 2 });
         break;
       }
       case 'exclaim': {
+        playSfx('pred_exclaim');
         const ex = this.add.text(gw / 2, gh / 2 - 120, '! !', {
           ...textStyles.title, fontSize: '80px', color: '#ff7a00', fontStyle: 'bold'
         }).setOrigin(0.5).setAlpha(0);
@@ -1518,6 +1571,7 @@ export class Battle extends Scene {
         break;
       }
       case 'lightning': {
+        playSfx('pred_lightning');
         // 3 white flashes: rectangle alpha 0→0.6→0, 100ms each
         for (let i = 0; i < 3; i++) {
           const rect = this.add.rectangle(gw / 2, gh / 2, gw, gh, 0xffffff, 0).setDepth(190);
@@ -1535,6 +1589,7 @@ export class Battle extends Scene {
         break;
       }
       case 'mandala': {
+        playSfx('pred_mandala');
         // Circle + cross pattern in gold, fades in and out over 800ms
         const cx = gw / 2;
         const cy = gh / 2 - 80;
@@ -1559,6 +1614,7 @@ export class Battle extends Scene {
         break;
       }
       case 'glitch': {
+        playSfx('pred_glitch');
         // 5 thin horizontal lines at random y positions, random colors, flash for 200ms
         const glitchColors = [0xff0000, 0x00ff00, 0x0000ff, 0xff00ff, 0x00ffff];
         for (let i = 0; i < 5; i++) {

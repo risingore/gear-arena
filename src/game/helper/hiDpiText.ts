@@ -10,8 +10,12 @@
  * under Rollup / Vite tree-shaking.
  */
 
+// Minimum 2x rasterization — matches the canvas backing store in main.ts
+// (RENDER_DPR) so glyphs don't look softer than the surrounding Graphics.
 export const TEXT_DPR =
-  typeof window !== 'undefined' ? Math.min(window.devicePixelRatio || 1, 3) : 1;
+  typeof window !== 'undefined'
+    ? Math.max(2, Math.min(window.devicePixelRatio || 1, 3))
+    : 2;
 
 /**
  * Walk the scene's display list and set the resolution of every Text
@@ -21,7 +25,6 @@ export const TEXT_DPR =
 export function applyHiDpiToScene(scene: {
   children: { list: readonly { type?: string; setResolution?: (r: number) => void }[] };
 }): void {
-  if (TEXT_DPR <= 1) return;
   for (const child of scene.children.list) {
     if (child.type === 'Text' && child.setResolution) {
       child.setResolution(TEXT_DPR);

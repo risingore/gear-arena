@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="45%" r="65%">
+      <stop offset="0%" stop-color="#142040"/>
+      <stop offset="55%" stop-color="#0a0a10"/>
+      <stop offset="100%" stop-color="#05060a"/>
+    </radialGradient>
+    <radialGradient id="core" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ff7a00" stop-opacity="0.6"/>
+      <stop offset="60%" stop-color="#ff7a00" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#ff7a00" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="160" fill="url(#core)"/>
+  <circle cx="256" cy="256" r="220" fill="none" stroke="#aeeaff" stroke-width="2" stroke-opacity="0.4"/>
+  <circle cx="256" cy="256" r="180" fill="none" stroke="#aeeaff" stroke-width="1.5" stroke-opacity="0.25" stroke-dasharray="6 10"/>
+  <g font-family="Impact, 'Bebas Neue', sans-serif" text-anchor="middle" font-weight="700">
+    <text x="256" y="240" font-size="92" fill="#ffffff" letter-spacing="2">SOUL</text>
+    <text x="256" y="320" font-size="92" fill="#ff7a00" letter-spacing="2" style="filter: drop-shadow(0 0 10px #ff7a00)">STRIKE</text>
+  </g>
+  <g stroke="#ff7a00" stroke-width="3" fill="none">
+    <path d="M64 64 L64 96 M64 64 L96 64"/>
+    <path d="M448 64 L448 96 M448 64 L416 64"/>
+    <path d="M64 448 L64 416 M64 448 L96 448"/>
+    <path d="M448 448 L448 416 M448 448 L416 448"/>
+  </g>
+</svg>

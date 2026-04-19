@@ -16,6 +16,7 @@ import {
   type SlotDef,
 } from '@/data';
 import { BALANCE } from '@/data/balance';
+import { ROUND_TRANSITION_MONOLOGUES } from '@/data/storyText';
 import { getRunState, setRunState, type RunState, type EquippedEntry } from '../systems/runState';
 import { PALETTE, CATEGORY_COLORS, CATEGORY_LABEL } from '../systems/palette';
 import { computeLoadoutStats } from '../systems/stats';
@@ -23,10 +24,11 @@ import { generateShopOffer } from '../systems/shop';
 import { attemptSell, attemptReroll, getRerollCost } from '../systems/loadout';
 import { playSfx } from '../systems/audio';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
-import { t } from '../systems/i18n';
+import { t, bl } from '../systems/i18n';
 import { playMusic, MUSIC_KEYS } from '../systems/music';
 import { applyHiDpiToScene, showDebugBadge } from '../helper/hiDpiText';
 import { runVisualChecks } from '../systems/visualDebugger';
+import { attachFpsMeter } from '../systems/fpsMeter';
 import { setupLayoutDebug } from '../systems/layoutDebug';
 import { isDebugEnabled } from '../systems/debug';
 
@@ -236,12 +238,29 @@ export class Build extends Scene {
         .setOrigin(0.5, 0)
         .setAlpha(0.8);
       this.tweens.add({ targets: hint, alpha: 0, delay: 8000, duration: 2000 });
+    } else if (state.robotKey) {
+      // Round transition monologue — per-character inner voice line.
+      // Rotates based on round number so mid-run players see variety.
+      const monologues = ROUND_TRANSITION_MONOLOGUES[state.robotKey];
+      if (monologues && monologues.length > 0) {
+        const idx = (state.currentRound - 2) % monologues.length;
+        const line = bl(monologues[idx]!);
+        const monoText = this.add
+          .text(BLUEPRINT_X + BLUEPRINT_BOX_W / 2, 18,
+            `— ${line} —`,
+            { ...textStyles.small, color: '#aeeaff', fontStyle: 'italic' })
+          .setOrigin(0.5, 0)
+          .setAlpha(0);
+        this.tweens.add({ targets: monoText, alpha: 0.7, duration: 700, delay: 150 });
+        this.tweens.add({ targets: monoText, alpha: 0, duration: 800, delay: 4500 });
+      }
     }
 
     applyHiDpiToScene(this);
     showDebugBadge(this, isDebugEnabled());
     runVisualChecks(this);
     setupLayoutDebug(this);
+    attachFpsMeter(this);
   }
 
   // ==========================================================================
@@ -304,7 +323,6 @@ export class Build extends Scene {
   }
 
   private drawBuffSlots(count: number): void {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { textStyles } = gameOptions;
     const baseY = BP_TOP + BLUEPRINT_BOX_H - 40 - BUFF_SLOT_Y_OFFSET;
     const centerX = BLUEPRINT_X + BLUEPRINT_BOX_W / 2;

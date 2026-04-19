@@ -34,6 +34,8 @@ export type { SkillDef, SkillEffectKind } from './skills';
 export { ROBOT_ULTIMATES, ENEMY_ULTIMATES } from './ultimates';
 export type { UltimateDef, UltimateEffect } from './ultimates';
 
+export { ULT_PITCH_BY_ROBOT } from './audioProfile';
+
 export {
   NORMAL_ENEMIES,
   MID_BOSSES,

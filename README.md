@@ -2,9 +2,9 @@
 
 Assemble your soul. Press the button. Strike.
 
-Cyborg humans augmented with mechanical weapons fight in an ultimate-only combat system. No normal attacks — survive enemy fire while your soul gauge charges, then press SOUL STRIKE and unleash a devastating one-hit kill powered by a pachislot-inspired hit system.
+Cyborg humans augmented with mechanical weapons fight in an ultimate-only combat system. No normal attacks — survive enemy fire while your soul gauge charges, then press SOUL STRIKE and unleash a devastating one-hit kill. A hidden probability system, layered aura states, and prediction glyphs decide whether the blow lands as a critical.
 
-Built with **Phaser 4 + TypeScript + Vite + Bun**.
+Episode 0 of the planned **CIRCLE OF SAMSARA** trilogy. Built with **Phaser 4 + TypeScript + Vite + Bun**.
 
 ## Play Now
 
@@ -13,14 +13,16 @@ Built with **Phaser 4 + TypeScript + Vite + Bun**.
 ## Features
 
 - **Ultimate-only combat** — no normal attacks. Survive, charge, and fire your SOUL STRIKE
-- **Pachislot hit system** — rush mechanic determines critical hits and aura bonuses
+- **Hidden probability hit system** — rush states, layered aura colors (green → blue → red → rainbow), and prediction glyphs shape each critical decision
 - **4 cyborg fighters** — INDRA, GOLIATH-414, LILITH, MUMEI — each with a distinct blueprint and soul strike ability
 - **25 parts** across 5 categories (module, implant, charger, booster, soul) that power up your strike
-- **Modules = strike power** — each equipped module adds strikes to your soul strike attack
+- **Buddhist mandala lore** — character names (Indra, Goliath, Lilith/Rakshasa, Mumei/Shunya) and ultimate names (Vajra, Karuna, Raksha, Nirvana) are drawn from the Kongō-kai and Taizō-kai mandala systems
 - **5 consumable items** — heal mid-run or buff your next battle
 - **10 skills** — earned from boss rewards, permanent for the run
 - **10 rounds** with escalating difficulty, mid-bosses, and a final boss
 - **Achievements and collection** — track unlocked cyborgs, discovered parts, defeated enemies, earned titles, and acquired skills
+- **HTML DOM Title overlay** — the Title screen is a native SVG + CSS layer riding on top of the Phaser canvas, so text and vector art render at full device resolution on Retina / 4K
+- **Trilogy tease** — defeat the final boss to glimpse the next chapter: `HYAKKI YAKOU — STANDING BY` and `TO BE CONTINUED: SOUL BREAKER`
 - **Zero-byte audio** — all SFX synthesized at runtime via Web Audio API
 - **Japanese localization** — auto-detected from browser language
 - **PWA support** — installable as a standalone app

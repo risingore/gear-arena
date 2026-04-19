@@ -26,7 +26,14 @@ export type SfxName =
   | 'skill_acquire'
   | 'shield_block'
   | 'dodge'
-  | 'combo';
+  | 'combo'
+  | 'pred_rainbow'
+  | 'pred_fish'
+  | 'pred_red_flash'
+  | 'pred_exclaim'
+  | 'pred_lightning'
+  | 'pred_mandala'
+  | 'pred_glitch';
 
 const MASTER_GAIN = 0.25;
 
@@ -104,8 +111,36 @@ class AudioBus {
         this.chime(now, [523, 659, 784, 1046], 0.22, 0.25);
         break;
       case 'ultimate':
-        this.pluck(now, 60, 0.3, 'sine', 0.3);
-        this.sweep(now + 0.05, 80, 600, 0.4, 0.2);
+        // pitch parameter lets Battle.ts pass per-character voicing
+        // (INDRA 1.0 / GOLIATH 0.75 / LILITH 1.25 / MUMEI 1.5).
+        this.pluck(now, 60 * pitch, 0.3, 'sine', 0.3);
+        this.sweep(now + 0.05, 80 * pitch, 600 * pitch, 0.4, 0.2);
+        break;
+      case 'pred_rainbow':
+        this.chime(now, [523, 659, 784, 988, 1175], 0.14, 0.2);
+        break;
+      case 'pred_fish':
+        this.sweep(now, 300, 900, 0.25, 0.15);
+        break;
+      case 'pred_red_flash':
+        this.noise(now, 0.1, 0.28, 1200);
+        this.pluck(now, 180, 0.08, 'sawtooth', 0.2);
+        break;
+      case 'pred_exclaim':
+        this.pluck(now, 880, 0.08, 'square', 0.22);
+        this.pluck(now + 0.12, 880, 0.08, 'square', 0.22);
+        break;
+      case 'pred_lightning':
+        this.noise(now, 0.05, 0.35, 3200);
+        this.noise(now + 0.1, 0.05, 0.3, 2800);
+        this.noise(now + 0.2, 0.05, 0.25, 2400);
+        break;
+      case 'pred_mandala':
+        this.chime(now, [660, 990, 1320], 0.3, 0.18);
+        break;
+      case 'pred_glitch':
+        this.noise(now, 0.15, 0.2, 2000);
+        this.sweep(now, 400, 1800, 0.12, 0.15);
         break;
       case 'skill_acquire':
         this.chime(now, [440, 554, 659, 880], 0.14, 0.2);

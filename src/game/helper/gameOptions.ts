@@ -32,7 +32,9 @@ type GameOptions = {
  * Capped at 3 to keep the glyph cache reasonable on extreme DPI screens.
  */
 const TEXT_RESOLUTION =
-  typeof window !== 'undefined' ? Math.min(window.devicePixelRatio || 1, 3) : 1;
+  typeof window !== 'undefined'
+    ? Math.max(2, Math.min(window.devicePixelRatio || 1, 3))
+    : 2;
 
 const gameOptions: GameOptions = {
   gameTitle: 'SOUL STRIKE',

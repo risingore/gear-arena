@@ -86,7 +86,19 @@ export const ja: LocaleDict = {
   '▶  NEXT ROUND': '▶  次のラウンド',
   'QUIT TO TITLE': 'タイトルに戻る',
   '▶  RETURN TO TITLE': '▶  タイトルに戻る',
+  'RETURN TO TITLE': 'タイトルに戻る',
   '▶  CONTINUE': '▶  続ける',
+  // Title overlay menu labels
+  PLAY: 'プレイ',
+  START: 'スタート',
+  // ED sequence
+  'TO BE CONTINUED:': '続く：',
+  // Thesis and Atman quotes used by overlays and Select
+  'The soul is a myth.': '魂は神話だ。',
+  "What you call 'soul' is merely unprocessed data.": 'お前の言う「魂」は、未処理のデータに過ぎない。',
+  '— ATMAN, broadcast': '— ATMAN、放送',
+  // SPACE / MOUSE footer hints used on Title overlay (static; no translation needed but kept for consistency)
+  'PRESS  [SPACE]  /  NAV  [MOUSE]': '[SPACE]で開始  /  [MOUSE]で選択',
   'Earned gold — total now': '獲得ゴールド — 合計',
   earned: '獲得',
   All: '全',

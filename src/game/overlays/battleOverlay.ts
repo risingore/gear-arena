@@ -13,7 +13,7 @@
  * top-right label without re-mounting.
  */
 
-import { escapeHtml as esc, ensureStyle, clearPriorRoots, fitStageToCanvas, wrapUnmount } from './overlayBase';
+import { escapeHtml as esc, ensureStyle, ensureFrameStyle, buildFrameHtml, clearPriorRoots, fitStageToCanvas, wrapUnmount } from './overlayBase';
 
 export interface BattleOverlayOptions {
   round: number;
@@ -28,6 +28,7 @@ export interface BattleOverlayOptions {
 
 export interface BattleOverlayHandle {
   setSpeed(x: number): void;
+  setDimmed(dim: boolean): void;
   unmount(): void;
 }
 
@@ -42,6 +43,7 @@ const CSS = `
   background:transparent;overflow:hidden;
 }
 .${ROOT_CLASS}.visible{opacity:1}
+.${ROOT_CLASS}.dimmed{opacity:0;transition:opacity 120ms ease}
 .${ROOT_CLASS} .stage{
   width:1280px;height:720px;position:absolute;left:50%;top:50%;
   transform:translate(-50%,-50%);
@@ -70,6 +72,7 @@ const CSS = `
 `;
 
 export function mountBattleOverlay(opts: BattleOverlayOptions): BattleOverlayHandle {
+  ensureFrameStyle();
   ensureStyle(STYLE_ID, CSS);
   clearPriorRoots(ROOT_CLASS);
 
@@ -77,6 +80,12 @@ export function mountBattleOverlay(opts: BattleOverlayOptions): BattleOverlayHan
   root.className = ROOT_CLASS;
   root.innerHTML = `
     <div class="stage">
+      ${buildFrameHtml({
+        tagLeft: `<b>SS</b>-<b>004</b> / COMBAT <span class="bar"></span> ${opts.isBoss ? 'BOSS' : 'BATTLE'}`,
+        tagRight: `ROUND <span class="bar"></span> <b>${opts.round}</b> / ${opts.totalRounds}`,
+        showGrid: false,
+        showVignette: false,
+      })}
       <div class="round">
         <span class="label">${esc(opts.roundLabel)}</span>
         <span class="current">${opts.round}</span>
@@ -100,6 +109,9 @@ export function mountBattleOverlay(opts: BattleOverlayOptions): BattleOverlayHan
   return {
     setSpeed(x: number): void {
       speedEl.textContent = `x${x}`;
+    },
+    setDimmed(dim: boolean): void {
+      root.classList.toggle('dimmed', dim);
     },
     unmount: wrapUnmount(root, disposeFit),
   };

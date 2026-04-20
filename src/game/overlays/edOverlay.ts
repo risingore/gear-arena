@@ -7,6 +7,8 @@
  * the hold duration.
  */
 
+import { ensureFrameStyle, buildFrameHtml } from './overlayBase';
+
 export interface EdOverlayOptions {
   continuedLabel?: string;
   heroText?: string;
@@ -67,8 +69,15 @@ export function mountEdOverlay(opts: EdOverlayOptions = {}): () => void {
 
   const root = document.createElement('div');
   root.className = ROOT_CLASS;
+  ensureFrameStyle();
   root.innerHTML = `
     <div class="stage">
+      ${buildFrameHtml({
+        tagLeft: '<b>SS</b>-<b>???</b> / EPILOGUE <span class="bar"></span> TRANSMISSION',
+        tagRight: 'SIGNAL <span class="bar"></span> <b>LOST</b>',
+        showGrid: false,
+        showVignette: false,
+      })}
       <div class="continued">${opts.continuedLabel ?? 'TO BE CONTINUED:'}</div>
       <div class="hero">${opts.heroText ?? 'SOUL BREAKER'}</div>
       <div class="credits">

@@ -7,6 +7,8 @@
  * for the 1280x720 design space, scaled to the canvas bounding box.
  */
 
+import { ensureFrameStyle, buildFrameHtml } from './overlayBase';
+
 export interface SelectOverlayCharacter {
   readonly key: string;
   readonly name: string;
@@ -138,15 +140,15 @@ const CSS = `
   font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:.14em;color:#fff;
   background:linear-gradient(90deg,var(--theme-border,#ff7a00),rgba(0,0,0,0));
   border:1px solid var(--theme-border,#ff7a00);border-left:3px solid var(--theme-border,#ff7a00);
-  box-shadow:0 0 22px rgba(255,122,0,.45);
+  filter:drop-shadow(0 0 10px rgba(255,122,0,.45));
   clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px));
-  transition:transform .15s ease, box-shadow .15s ease;
+  transition:transform .15s ease, filter .15s ease;
 }
-.${ROOT_CLASS} .action:hover{transform:translateX(3px);box-shadow:0 0 32px rgba(255,122,0,.7)}
+.${ROOT_CLASS} .action:hover{transform:translateX(3px);filter:drop-shadow(0 0 14px rgba(255,122,0,.7))}
 .${ROOT_CLASS} .action.locked{
   color:#ff4444;background:rgba(255,68,68,.08);
   border-color:#ff4444;border-left-color:#ff4444;
-  box-shadow:none;cursor:not-allowed;
+  filter:none;cursor:not-allowed;
 }
 .${ROOT_CLASS} .action.locked:hover{transform:none}
 .${ROOT_CLASS} .lock-hint{
@@ -220,8 +222,13 @@ export function mountSelectOverlay(opts: SelectOverlayOptions): SelectOverlayHan
     })
     .join('');
 
+  ensureFrameStyle();
   root.innerHTML = `
-    <div class="stage">
+    <div class="stage ss-stage">
+      ${buildFrameHtml({
+        tagLeft: '<b>SS</b>-<b>002</b> / ROSTER <span class="bar"></span> SELECT',
+        tagRight: 'CYBORG PROFILE <span class="bar"></span> <b data-role="idxTag"></b> / <b data-role="totalTag"></b>',
+      })}
       <div class="bg-wash"></div>
       <div class="prologue">${esc(opts.thesisPrologue)}</div>
       <div class="portrait-wrap"></div>
@@ -246,6 +253,9 @@ export function mountSelectOverlay(opts: SelectOverlayOptions): SelectOverlayHan
   const action = root.querySelector('[data-role="embark"]') as HTMLButtonElement;
   const lockHint = root.querySelector('.lock-hint') as HTMLElement;
   const iconEls = Array.from(root.querySelectorAll<HTMLElement>('.ch-icon'));
+  const idxTag = root.querySelector('[data-role="idxTag"]') as HTMLElement | null;
+  const totalTag = root.querySelector('[data-role="totalTag"]') as HTMLElement | null;
+  if (totalTag) totalTag.textContent = String(opts.characters.length).padStart(2, '0');
 
   let currentIdx = opts.initialIndex;
 
@@ -296,6 +306,7 @@ export function mountSelectOverlay(opts: SelectOverlayOptions): SelectOverlayHan
     iconEls.forEach((el, i) => {
       el.classList.toggle('current', i === idx);
     });
+    if (idxTag) idxTag.textContent = String(idx + 1).padStart(2, '0');
   };
 
   render(currentIdx);

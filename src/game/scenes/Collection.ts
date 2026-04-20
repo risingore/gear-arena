@@ -23,6 +23,7 @@ import { applyHiDpiToScene, showDebugBadge } from '../helper/hiDpiText';
 import { runVisualChecks } from '../systems/visualDebugger';
 import { setupLayoutDebug } from '../systems/layoutDebug';
 import { isDebugEnabled } from '../systems/debug';
+import { mountFrameOverlay } from '../overlays/overlayBase';
 
 type TabName = 'machines' | 'parts' | 'enemies' | 'titles';
 
@@ -55,6 +56,13 @@ export class Collection extends Scene {
     const { gameWidth, gameHeight, textStyles } = gameOptions;
     this.cameras.main.setBackgroundColor(PALETTE.bg);
     fadeInCurrent(this);
+
+    const unmountFrame = mountFrameOverlay({
+      tagLeft: '<b>SS</b>-<b>050</b> / ARCHIVE <span class="bar"></span> COLLECTION',
+      tagRight: 'UNLOCK STATUS <span class="bar"></span> <b>INDEX</b>',
+    });
+    this.events.once('shutdown', unmountFrame);
+    this.events.once('destroy', unmountFrame);
 
     // Tab buttons
     const tabs: { tab: TabName; label: string }[] = [

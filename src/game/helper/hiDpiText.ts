@@ -40,13 +40,13 @@ export function applyHiDpiToScene(scene: {
 export function showDebugBadge(scene: Phaser.Scene, debugEnabled: boolean): void {
   if (!debugEnabled) return;
   scene.add
-    .text(8, 8, 'DEBUG', {
+    .text(8, 40, 'DEBUG', {
       fontFamily: 'system-ui, sans-serif',
-      fontSize: '18px',
+      fontSize: '14px',
       color: '#ff3333',
       fontStyle: 'bold'
     })
     .setOrigin(0, 0)
-    .setAlpha(0.9)
+    .setAlpha(0.6)
     .setDepth(9999);
 }

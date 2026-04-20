@@ -7,6 +7,8 @@
  * current values and routes clicks back to the scene.
  */
 
+import { ensureFrameStyle, buildFrameHtml } from './overlayBase';
+
 export interface SettingsRow {
   readonly label: string;
   readonly value: string;
@@ -101,6 +103,7 @@ function esc(s: string): string {
 }
 
 export function mountSettingsOverlay(opts: SettingsOverlayOptions): () => void {
+  ensureFrameStyle();
   ensureStyle();
 
   document.querySelectorAll(`.${ROOT_CLASS}`).forEach((el) => el.remove());
@@ -119,7 +122,11 @@ export function mountSettingsOverlay(opts: SettingsOverlayOptions): () => void {
     .join('');
 
   root.innerHTML = `
-    <div class="stage">
+    <div class="stage ss-stage">
+      ${buildFrameHtml({
+        tagLeft: '<b>SS</b>-<b>099</b> / SYSTEM <span class="bar"></span> CONFIG',
+        tagRight: 'USER PREFERENCES <span class="bar"></span> <b>ACTIVE</b>',
+      })}
       <div class="title">${esc(opts.title)}</div>
       <div class="panel">
         ${rowHtml}

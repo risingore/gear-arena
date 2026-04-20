@@ -686,3 +686,184 @@ One import (`createLabel`) became unused and was removed with it.
   value to be had, but no longer critical for Jam submission.
 
 ---
+
+## Day 7 — 2026-04-21
+
+**Theme: one visual language, everywhere.** The Title screen was
+already the project's strongest piece — grid + brackets + SS-tags +
+scanlines + glitch tear + chamfered buttons. Every other scene was
+a reasonable dark rectangle. Today was the day to close the gap.
+
+### Ultimate cut-in — kill the noise, keep the impact
+
+The old cut-in ran 1.4 s across 8 phases, stacking diagonal slash
+lines, V-shape screen splits, a right-column of stacked text
+(ULT name + robot name + mantra + HIT counter × up to 5), twin
+shockwaves, plus a full-screen mandala behind it all. On CRITICAL,
+the same pass also fired a 100px pulsing "CRITICAL!", three extra
+rings, and a thesis-proof body line. Reading it back as a frame
+list, it was obvious: four main elements were all shouting at once
+and nothing landed.
+
+Rebuilt as a classic fighting-game cut-in: slanted panel slams in
+from the left, character portrait sits inside the panel, ULT name
+stamps in from the opposite side with a scale-punch, shockwave
+ring releases, dismiss. 0.9 s total, three elements, one beat each.
+
+- `src/game/scenes/Battle.ts` — the 300-line `spawnUltimateFlash`
+  body is now ~100 lines. `_x, _y` parameters (unused since the
+  redesign) were removed, the panel + portrait tween was merged
+  into a single `targets: [panel, portrait]` call, and a
+  `this.events.once('shutdown', destroy)` now guards against a
+  scene exit mid-animation leaving the `delayedCall` chain to fire
+  against destroyed objects.
+- Critical differentiation survived but was slimmed: accent colour
+  shifts from gold to red, zoom is slightly stronger (1.15 vs
+  1.08), and camera shake is longer. No extra text layers, no
+  extra rings. If it needs to feel different, colour + impact
+  duration does the job.
+
+One bug that `tsc --noEmit` and `/simplify` could not catch: the
+Battle top DOM header (`ROUND N / M`, BATTLE subheading, SPEED
+indicator) sits **outside** the Phaser canvas, so the cut-in's
+in-canvas black overlay couldn't dim it. During the 900 ms
+takeover, the HUD chrome stayed at 100% brightness and broke the
+framing. Fix: added `BattleOverlayHandle.setDimmed(dim)` that
+toggles a `.dimmed { opacity: 0 }` class on the overlay root, and
+the cut-in entry/exit flips it. The canvas-level black overlay was
+also pushed from α 0.78 → 0.96 so the ghost HP bars / combat log
+behind the cut-in stop bleeding through.
+
+The character scale was still too large on the first pass — head
+and sword clipped the panel top and bottom. Panel height went from
+`gameHeight * 0.58` → `0.82`, character scale 1.25 → 0.6. The
+character now sits cleanly inside the frame.
+
+### One frame to rule them all
+
+Extracted the Title's visual chrome into `overlays/overlayBase.ts`:
+
+- `ensureFrameStyle()` — injects a single global stylesheet
+  exposing `.ss-stage` (radial BG + scanlines + glitch tear),
+  `.ss-frame-grid`, `.ss-frame-vignette`,
+  `.ss-frame-bracket.tl|tr|bl|br`, `.ss-frame-tag.tl|tr`, and
+  shared chamfer buttons `.ss-primary` / `.ss-secondary` /
+  `.ss-danger` / `.ss-panel`.
+- `buildFrameHtml({tagLeft, tagRight, showGrid?, showVignette?,
+  showBrackets?})` — emits the decor divs as a single HTML
+  fragment, dropped into any overlay's stage.
+- `mountFrameOverlay(opts)` — a thin standalone frame-only
+  overlay for Phaser scenes not yet DOM-migrated (Collection,
+  Credits).
+
+Applied to every DOM overlay (Build, Select, Result, Settings,
+GameOver, ED, Battle) with scene-appropriate tag text:
+
+| Scene | Top-left | Top-right |
+|---|---|---|
+| Build | SS-003 / BLUEPRINT ∙ BUILD | BUILD PHASE ∙ ROUND NN |
+| Select | SS-002 / ROSTER ∙ SELECT | CYBORG PROFILE ∙ NN / MM |
+| Battle | SS-004 / COMBAT ∙ BATTLE | ROUND ∙ NN / MM |
+| Result | SS-005 / RESULT ∙ SUMMARY | OUTCOME ∙ ROUND |
+| Settings | SS-099 / SYSTEM ∙ CONFIG | USER PREFERENCES ∙ ACTIVE |
+| GameOver | SS-066 / FLATLINE ∙ TERMINATED | REACHED ∙ NN / MM |
+| ED | SS-??? / EPILOGUE ∙ TRANSMISSION | SIGNAL ∙ LOST |
+| Collection | SS-050 / ARCHIVE ∙ COLLECTION | UNLOCK STATUS ∙ INDEX |
+| Credits | SS-100 / CREDITS ∙ ROSTER | PRODUCTION ∙ SOUL STRIKE |
+
+Every non-Title scene is now framed with the same brackets, tag
+pattern, grid mask, and scanlines it inherits from Title.
+
+### Orange-glow bug: clip-path eats box-shadow
+
+While reviewing screenshots, the orange halo on PLAY and READY
+looked chunky — like the glow was being cut at the chamfer edges
+instead of curving around them. It was. `clip-path: polygon(…)`
+clips the element's rendered output including its `box-shadow`,
+so a chamfered button with `box-shadow: 0 0 28px orange` loses
+the shadow at every diagonal corner. The glow is then drawn as a
+rectangle minus wedges, which reads as a visual glitch.
+
+Swapped every `clip-path`-clipped element's `box-shadow` for
+`filter: drop-shadow()`, which respects the clipped shape and
+draws the halo around the actual silhouette. `.ss-primary`,
+`.ss-secondary`, `.ss-danger`, `.ss-panel` / `.ss-panel-accent`
+in `overlayBase.ts`; `.primary`, `.secondary`, `.menu-backing`
+in `titleOverlay.ts`; `.action` in `selectOverlay.ts`. The orange
+halo now traces the hex chamfer cleanly on hover.
+
+### Build — holographic, not dark
+
+The parts-equipping screen is where the player *thinks*. It was
+the darkest screen in the build. Three palette shifts made it
+feel like an active holographic readout instead of a black slab:
+
+- `PALETTE.blueprintBg`: `0x10204a` (deep navy) → `0x142a5e`
+  (brighter navy-cyan). Blueprint panel now reads as lit-from-
+  within rather than painted-on.
+- `PALETTE.cardStroke`: `0x555577` (muted purple) → `0x5a8ec4`
+  (cyan-blue). Every shop card gets a cool-toned hairline that
+  matches the SS-tag palette instead of looking like a leftover
+  UI kit.
+- `uiFactory.PANEL_BORDER`: `0x334466` → `0x5a8ec4`. The STATS
+  panel on the right and the Collection cards inherit it.
+- `scenes/Build.ts` — READY button switched from
+  `accentColor: 0x3aff7a` (bright green, wildly off-brand) to
+  `PALETTE.accentOrange` (`0xff7a00`), so it matches Title's PLAY.
+
+### SOUL STRIKE button — Title's circle, as a button
+
+When the ult gauge fills and combat freezes, the old button was a
+flat yellow rectangle with "SOUL STRIKE" in black. Replaced with
+a Title-style mandala: two counter-rotating cyan rings with
+dashed guides and crosshair axes, a breathing orange center-pulse,
+and a circular button at the core with "SOUL" (white) / "STRIKE"
+(orange) stacked in Bebas Neue. On rush aura, the ring accent
+colour, center-pulse, and "STRIKE" fill all switch to the aura
+hex via a `setAura(hex)` handle — RED aura turns the whole
+assembly red without remounting.
+
+New file: `src/game/overlays/soulStrikeButtonOverlay.ts`. Mounted
+and unmounted by `Battle.showUltimateButton` / `.triggerPlayerUltimate`
+and the scene shutdown hooks. The predictions system and the aura
+hint stay on the Phaser canvas above the DOM button.
+
+One follow-up caught by running the full browser-test: the
+overlay root was intercepting clicks on the rest of the screen
+because it was `pointer-events: auto` over 1280×720. Restricted
+that to the `.btn` itself so combat input still reaches the
+canvas underneath.
+
+### DEBUG badge cleanup
+
+The red dev-only `DEBUG` badge was at `y = 8`, which collided
+head-on with the top-left SS-tag that now appears on every scene.
+Dropped it to `y = 40`, shrunk the font 18 → 14, and knocked
+opacity to 0.6. In production (debug off) it's hidden anyway, but
+while developing it no longer argues with the frame.
+
+### Quality bar
+
+- `bunx tsc --noEmit`: 0 errors.
+- `bun run scripts/browser-test.ts`: 14 pass, 1 pre-existing
+  fail (unrelated Battle → Result timing quirk, same as Day 6),
+  Visual 7 scenes OK / 0 issues.
+- `/simplify` pass on the cut-in rewrite: three review agents
+  found the `_x, _y` dead params, the duplicate tween, and the
+  missing shutdown guard. All three applied.
+- Visual verification: cut-in captured at 5 offsets (60 / 220 /
+  400 / 620 / 860 ms) via a new `scripts/shots-ult.ts`; the SOUL
+  STRIKE mandala button captured with and without aura via
+  `scripts/shots-soulbtn.ts`. This is where the DOM-header-not-
+  dimmed bug was caught, which `tsc` and `/simplify` could never
+  have surfaced.
+
+### Next
+
+- Day 8: balance tuning via `auto-play.ts` run-stats, now that
+  placement synergies and the new cut-in timing are stable.
+- Polish the Build Phaser-side shop header and STATS panel text
+  to Bebas Neue for consistency with the DOM chrome.
+- Integrate art + audio assets as they arrive (Tasks A–E).
+
+---

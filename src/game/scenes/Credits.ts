@@ -8,6 +8,7 @@ import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { t } from '../systems/i18n';
 import { applyHiDpiToScene, showDebugBadge } from '../helper/hiDpiText';
 import { isDebugEnabled } from '../systems/debug';
+import { mountFrameOverlay } from '../overlays/overlayBase';
 
 /**
  * Credits scene.
@@ -85,6 +86,13 @@ export class Credits extends Scene {
     const { gameWidth, gameHeight, textStyles } = gameOptions;
     this.cameras.main.setBackgroundColor(PALETTE.bg);
     fadeInCurrent(this);
+
+    const unmountFrame = mountFrameOverlay({
+      tagLeft: '<b>SS</b>-<b>100</b> / CREDITS <span class="bar"></span> ROSTER',
+      tagRight: 'PRODUCTION <span class="bar"></span> <b>SOUL STRIKE</b>',
+    });
+    this.events.once('shutdown', unmountFrame);
+    this.events.once('destroy', unmountFrame);
 
     this.add
       .text(gameWidth / 2, 60, t('CREDITS'), textStyles.title)

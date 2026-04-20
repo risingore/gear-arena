@@ -9,7 +9,7 @@
  *   - `pending` : fallback with RETURN TO TITLE
  */
 
-import { escapeHtml as esc, ensureStyle, clearPriorRoots, fitStageToCanvas, wrapUnmount } from './overlayBase';
+import { escapeHtml as esc, ensureStyle, ensureFrameStyle, buildFrameHtml, clearPriorRoots, fitStageToCanvas, wrapUnmount } from './overlayBase';
 
 export type ResultOutcome = 'win' | 'victory' | 'lose' | 'pending';
 
@@ -241,10 +241,18 @@ export function mountResultOverlay(opts: ResultOverlayOptions): ResultOverlayHan
       </div>`
     : '';
 
+  ensureFrameStyle();
+  const outcomeTag = opts.outcome === 'win' ? 'ROUND CLEARED'
+    : opts.outcome === 'victory' ? 'CAMPAIGN VICTORY'
+    : opts.outcome === 'lose' ? 'DEFEATED'
+    : 'RESULT';
   root.innerHTML = `
-    <div class="stage">
+    <div class="stage ss-stage">
+      ${buildFrameHtml({
+        tagLeft: '<b>SS</b>-<b>005</b> / RESULT <span class="bar"></span> SUMMARY',
+        tagRight: `${esc(outcomeTag)} <span class="bar"></span> <b>${esc(opts.roundLabel ?? '')}</b>`,
+      })}
       <h1 class="title" style="color:${esc(opts.titleColor)}">${esc(opts.title)}</h1>
-      ${opts.roundLabel ? `<div class="round">${esc(opts.roundLabel)}</div>` : ''}
       ${goldBlock}
       ${scrapBlock}
       ${statsBlock}

@@ -199,7 +199,7 @@ export class Build extends Scene {
     createButton(this, btnX, 556, 200, 50, t('READY'), () => {
       playSfx('click');
       fadeToScene(this, 'Battle');
-    }, { variant: 'accent', accentColor: 0x3aff7a });
+    }, { variant: 'accent', accentColor: PALETTE.accentOrange });
 
     // Shop grid
     this.drawShopArea();

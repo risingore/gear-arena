@@ -26,8 +26,8 @@ import { TEXT_DPR } from './hiDpiText';
 // Color constants
 // ---------------------------------------------------------------------------
 
-const PANEL_BG = 0x12121e;
-const PANEL_BORDER = 0x334466;
+const PANEL_BG = 0x16203a;
+const PANEL_BORDER = 0x5a8ec4;
 
 const BUTTON_BG = 0x1a2a44;
 const BUTTON_HOVER = 0x2a3a55;

@@ -5,6 +5,8 @@
  * scene transitions so keyboard shortcuts keep working.
  */
 
+import { ensureFrameStyle, buildFrameHtml } from './overlayBase';
+
 export interface GameOverOverlayOptions {
   round: number;
   totalRounds: number;
@@ -99,8 +101,13 @@ export function mountGameOverOverlay(opts: GameOverOverlayOptions): () => void {
     ? `<div class="scrap">+${opts.scrapEarned} Scrap</div>`
     : '';
 
+  ensureFrameStyle();
   root.innerHTML = `
-    <div class="stage">
+    <div class="stage ss-stage">
+      ${buildFrameHtml({
+        tagLeft: '<b>SS</b>-<b>066</b> / FLATLINE <span class="bar"></span> TERMINATED',
+        tagRight: `REACHED <span class="bar"></span> <b>${opts.round}</b> / ${opts.totalRounds}`,
+      })}
       <div class="title">GAME OVER</div>
       <div class="round">REACHED ROUND ${opts.round} / ${opts.totalRounds}</div>
       ${scrapHtml}

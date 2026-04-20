@@ -131,7 +131,7 @@ const CSS = `
   width:530px;height:130px;
   background:rgba(10,10,16,.7);
   border:1px solid rgba(174,234,255,.12);
-  box-shadow:0 0 40px rgba(10,10,16,.55), inset 0 0 0 1px rgba(0,0,0,.4);
+  filter:drop-shadow(0 0 18px rgba(10,10,16,.55));
   z-index:3;
   clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px));
 }
@@ -140,13 +140,13 @@ const CSS = `
   display:flex;align-items:center;justify-content:center;gap:16px;
   background:linear-gradient(90deg,rgba(255,122,0,.22),rgba(255,122,0,.04));
   border:1px solid #ff7a00;border-left:3px solid #ff7a00;
-  box-shadow:0 0 28px rgba(255,122,0,.4);
+  filter:drop-shadow(0 0 10px rgba(255,122,0,.45));
   clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px));
   cursor:pointer;transition:all .15s ease;
 }
-.${ROOT_CLASS} .menu .primary:hover{background:linear-gradient(90deg,#ff7a00,rgba(255,122,0,.55))}
+.${ROOT_CLASS} .menu .primary:hover{background:linear-gradient(90deg,#ff7a00,rgba(255,122,0,.55));filter:drop-shadow(0 0 14px rgba(255,122,0,.7))}
 .${ROOT_CLASS} .menu .primary:hover .lbl{color:#0a0a10;text-shadow:none}
-.${ROOT_CLASS} .menu .primary .lbl{font-family:'Bebas Neue',sans-serif;font-size:30px;letter-spacing:.1em;color:#fff;text-shadow:0 0 12px rgba(255,122,0,.7);transition:all .15s}
+.${ROOT_CLASS} .menu .primary .lbl{font-family:'Bebas Neue',sans-serif;font-size:30px;letter-spacing:.1em;color:#fff;text-shadow:0 0 10px rgba(255,122,0,.55);transition:all .15s}
 
 .${ROOT_CLASS} .secondary-row{display:flex;gap:10px}
 .${ROOT_CLASS} .secondary{
@@ -154,11 +154,11 @@ const CSS = `
   display:flex;align-items:center;justify-content:center;gap:12px;
   background:linear-gradient(90deg,rgba(174,234,255,.18),rgba(174,234,255,.03));
   border:1px solid rgba(174,234,255,.35);border-left:3px solid rgba(174,234,255,.6);
-  box-shadow:0 0 20px rgba(174,234,255,.18);
+  filter:drop-shadow(0 0 8px rgba(174,234,255,.2));
   clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px));
   cursor:pointer;transition:all .15s ease;
 }
-.${ROOT_CLASS} .secondary:hover{background:linear-gradient(90deg,#3a7fbf,#1f4d80);border-color:#5aaaff;box-shadow:0 0 28px rgba(58,127,191,.55)}
+.${ROOT_CLASS} .secondary:hover{background:linear-gradient(90deg,#3a7fbf,#1f4d80);border-color:#5aaaff;filter:drop-shadow(0 0 12px rgba(90,170,255,.55))}
 .${ROOT_CLASS} .secondary:hover .lbl{color:#eaf6ff;text-shadow:0 0 10px rgba(174,234,255,.5)}
 .${ROOT_CLASS} .secondary .lbl{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:.1em;color:#cfd8e4;transition:color .15s}
 

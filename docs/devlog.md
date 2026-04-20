@@ -584,3 +584,105 @@ deferred to the next session.
 - Day 8 balance tuning once the two overlays land.
 
 ---
+
+## Day 6 — 2026-04-20 (session 2)
+
+Kima cleared the final three deferred items: placement-synergy
+effect hookup, plus hybrid DOM headers for Build and Battle. All
+seven gameplay scenes now have some DOM-overlay UI.
+
+### Placement synergy effect hookup
+
+`src/data/placementSynergies.ts` has ten definitions but until this
+session they were data-only — no code path consumed them. Added:
+
+- `systems/synergyCheck.ts` gains `getActivePlacementSynergies` and
+  `computePlacementSynergyEffects`. Both use the same rule: a synergy
+  is active when the matching-slot count meets its `minCount`, or —
+  if `minCount` is omitted — when **every** relevant slot in the
+  robot is occupied by a qualifying category. The effect bundle
+  exposes `hpBonus`, `drBonus`, `chargeSpeedMult`, `ultDamageMult`,
+  `ultStrikeBonus`, and `hitChancePerSec` as pre-aggregated numbers
+  so downstream layers just add them in.
+- `systems/stats.ts` consumes the bundle: HP / DR bonuses fold into
+  the base stat calculation, `ultimateStrikes` / `ultimateDamagePerStrike`
+  / `ultimateChargeRate` absorb the remaining fields, and
+  `LoadoutStats.placementSynergies` exposes the bundle for Battle.
+- `systems/slotMachine.ts` — `tickSlotMachine` gains an optional
+  `bonusHitProbPerSec` parameter folded into the per-frame roll, so
+  placement effects like `hit_chance_bonus` speed up the slot roll.
+- `scenes/Battle.ts` pulls `stats.placementSynergies.hitChancePerSec`
+  into the slot tick, and pushes each active synergy's
+  `name — description` to the battle log at the start of combat
+  (prefixed with `◆`). Players now see concrete feedback for the
+  blueprint choices they made.
+
+All ten synergies are now both data and behavior — no more fake
+feedback. Next step (Day 8) is actually **tuning** the numbers now
+that they're live.
+
+### Overlay A-6 — Build hybrid header
+
+`src/game/scenes/Build.ts` (1337 lines, heavy with drag-and-drop
+coordinate math that has to stay on the Phaser canvas) has been
+migrated to a hybrid overlay:
+
+- DOM: `ROUND N / M` label top-center, per-round inner-voice
+  monologue (italic, fades in then out), first-round tutorial hint
+  (`Drag parts from shop to blueprint slots`).
+- Canvas (unchanged): blueprint silhouette + slot circles + buff
+  slots, SELL / STORAGE drop zones, shop cards with hover preview,
+  STATS panel (gold / ult summary / defense / preview diff),
+  REROLL / READY buttons.
+
+The DOM header is `overlays/buildOverlay.ts` (consumes overlayBase
+helpers) with `update(round, totalRounds, monologue?)` so scene
+transitions can update it without remounting.
+
+The drag system is intentionally left on the canvas because it
+tracks pointer events against blueprint-local coordinates; moving
+it to DOM would require re-implementing the slot-hit test in HTML
+and add more complexity than the crispness payoff justifies before
+the Jam deadline.
+
+### Overlay A-5 — Battle hybrid header
+
+`src/game/scenes/Battle.ts` (1700 lines, with pachislot cut-in
+choreography, camera shake tweens, sprite knockbacks) migrated the
+top strip only:
+
+- DOM: `ROUND N / M` headline, `BATTLE` / `⚠  BOSS BATTLE  ⚠`
+  subheading (orange glow for boss), `(S) SPEED xN` indicator in
+  the top-right with a live `setSpeed(x)` update method.
+- Canvas (unchanged): player + enemy sprites, HP bars + ULT gauge,
+  prediction cues, cut-in overlay, log lines, all the combat
+  choreography.
+
+The speedLabel Phaser `Text` object and its two `setText` call
+sites are gone — the overlay handle's `setSpeed(x)` replaces them.
+One import (`createLabel`) became unused and was removed with it.
+
+### Quality bar (session 2)
+
+- `bunx tsc --noEmit`: 0 errors.
+- `bun run build`: 5.3 s, gzip 408 KB total (58 KB app + 350 KB
+  Phaser) — unchanged from session 1.
+- `bun run scripts/browser-test.ts`: Functional `14 passed, 1 failed`
+  (same timing quirk in the Battle → Result transition, not a
+  correctness bug), VisualDebugger `7 scenes OK / 0 issues`, Boss
+  test + skill pick green.
+- Every gameplay scene in the project now has at least its header
+  rendered through DOM with native-browser text quality. Select,
+  Result, GameOver, Title, Settings are fully DOM; Build and Battle
+  are hybrid (header + hint in DOM, mechanics in canvas).
+
+### Next
+
+- Day 7 onward: art + audio asset integration (Tasks A–E).
+- Day 8: balance tuning driven by `auto-play.ts` run-stats data,
+  now that placement synergies actually fire.
+- If we revisit, extend the Build / Battle overlays to cover the
+  STATS panel (Build) and HP / ULT bars (Battle) — that's still
+  value to be had, but no longer critical for Jam submission.
+
+---

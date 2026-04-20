@@ -17,6 +17,7 @@ import {
 } from '@/data';
 import { BALANCE } from '@/data/balance';
 import type { EquippedEntry } from './runState';
+import { computePlacementSynergyEffects, type PlacementSynergyBundle } from './synergyCheck';
 
 export interface WeaponInstance {
   readonly slotId: string;
@@ -56,6 +57,8 @@ export interface LoadoutStats {
   readonly ultimateArmorBreak: boolean;
   /** Whether all part slots are filled (triggers Tier 2 awakening). */
   readonly isAwakened: boolean;
+  /** Placement synergy bundle (for Battle pushLog + slot-machine hit bonus). */
+  readonly placementSynergies: PlacementSynergyBundle;
 }
 
 
@@ -201,6 +204,13 @@ export const computeLoadoutStats = (
 
   bonusHp += skillBonusHp;
 
+  // Placement synergy bundle: HP / DR bonuses merge into stats; other
+  // effects (charge speed, ult damage / strikes, hit chance) are
+  // consumed by Battle + slot machine layers.
+  const psyn = computePlacementSynergyEffects(equipped, robot);
+  bonusHp += psyn.hpBonus;
+  pctReduction += psyn.drBonus;
+
   const maxHp = Math.max(BALANCE.hpFloor, robot.baseHp + bonusHp - hpPenalty);
   const damageReductionPct = clamp(pctReduction, 0, BALANCE.damageReductionCap);
 
@@ -221,13 +231,15 @@ export const computeLoadoutStats = (
   // Ultimate calculation: every equipped part contributes to the big hit.
   // Modules = strikes + damage. Boosters = damage mult. Chargers = charge speed.
   // With 0 modules: 1 strike at base soul damage (maxHP × bareUltimateDamageRatio).
-  const ultStrikes = Math.max(1, moduleCount) + skillUltExtraStrikes;
+  const ultStrikes = Math.max(1, moduleCount) + skillUltExtraStrikes + psyn.ultStrikeBonus;
   const gearMult = 1 + boosterCount * BALANCE.gearUltimateMult;
   const baseDmgPerStrike = moduleCount > 0
     ? weapons.reduce((sum, w) => sum + w.damage, 0) / weapons.length
     : maxHp * BALANCE.bareUltimateDamageRatio;
-  const ultDmgPerStrike = Math.round(baseDmgPerStrike * gearMult * BALANCE.ultimateBaseMult * (1 + skillUltDamagePct));
-  const ultChargeRate = 1 + chargerCount * BALANCE.engineChargeRate + skillUltChargeBonus;
+  const ultDmgPerStrike = Math.round(
+    baseDmgPerStrike * gearMult * BALANCE.ultimateBaseMult * (1 + skillUltDamagePct + psyn.ultDamageMult),
+  );
+  const ultChargeRate = 1 + chargerCount * BALANCE.engineChargeRate + skillUltChargeBonus + psyn.chargeSpeedMult;
 
   return {
     maxHp,
@@ -249,7 +261,8 @@ export const computeLoadoutStats = (
     ultimateChargeRate: ultChargeRate,
     ultimateLifesteal: skillUltLifesteal,
     ultimateArmorBreak: skillUltArmorBreak,
-    isAwakened: robot.slots.every((s) => !!equipped[s.id]?.key)
+    isAwakened: robot.slots.every((s) => !!equipped[s.id]?.key),
+    placementSynergies: psyn,
   };
 };
 

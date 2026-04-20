@@ -2,7 +2,6 @@ import { Scene } from 'phaser';
 import type { GameObjects } from 'phaser';
 
 import gameOptions from '../helper/gameOptions';
-import { createLabel } from '../helper/uiFactory';
 import {
   ROBOTS,
   ITEMS,
@@ -49,6 +48,7 @@ import {
 import { rollPrediction } from '@/data/predictions';
 import { ULT_PITCH_BY_ROBOT } from '@/data/audioProfile';
 import { MANTRAS, THESIS_PROOF } from '@/data/storyText';
+import { mountBattleOverlay, type BattleOverlayHandle } from '../overlays/battleOverlay';
 import { mountMandalaOverlay } from '../overlays/mandalaOverlay';
 import {
   SLOT_HIT_DAMAGE_MULT,
@@ -87,7 +87,7 @@ export class Battle extends Scene {
   private playerBaseX = 0;
   private enemyBaseX = 0;
   private timeScale = 2;
-  private speedLabel!: GameObjects.Text;
+  private battleOverlay: BattleOverlayHandle | null = null;
   private elapsedBattleSec = 0;
   private debugTimerText!: GameObjects.Text;
   private playerHpTrail!: GameObjects.Rectangle;
@@ -100,6 +100,10 @@ export class Battle extends Scene {
   private lastBgmRate = 1;
   /** Pachislot hit system state. */
   private slotState!: SlotState;
+  /** Placement-synergy bonus to the pachislot hit probability per second. */
+  private slotMachineHitBonus = 0;
+  /** Placement synergies currently active, pushed to log on battle start. */
+  private activePlacementSynergies: readonly import('@/data').PlacementSynergyDef[] = [];
   /** Visual: aura ring around player (null = no aura). */
   private auraRing: GameObjects.Arc | null = null;
   /** Visual: aura color label. */
@@ -142,6 +146,8 @@ export class Battle extends Scene {
     const robot = ROBOTS[state.robotKey];
     this.playerRobotArchetypeLabel = robot.archetype.toUpperCase();
     const stats = computeLoadoutStats(robot, state.equipped, state.acquiredSkills);
+    this.slotMachineHitBonus = stats.placementSynergies.hitChancePerSec;
+    this.activePlacementSynergies = stats.placementSynergies.active;
 
     // Pull the pre-generated enemy for this round from the run state.
     const genRound = state.generatedRounds[state.currentRound - 1];
@@ -232,14 +238,25 @@ export class Battle extends Scene {
       isAwakened: false
     };
 
-    // Header
-    this.add
-      .text(gameWidth / 2, 48, `${t('ROUND')} ${state.currentRound} / ${totalRounds}`, textStyles.title)
-      .setOrigin(0.5);
-    this.add
-      .text(gameWidth / 2, 92, genRound.isBoss ? t('⚠  BOSS BATTLE  ⚠') : t('BATTLE'), textStyles.body)
-      .setOrigin(0.5)
-      .setColor(genRound.isBoss ? '#ff7a00' : '#ffffff');
+    // Header (DOM overlay — see overlays/battleOverlay.ts)
+    this.battleOverlay = mountBattleOverlay({
+      round: state.currentRound,
+      totalRounds,
+      roundLabel: t('ROUND'),
+      speedLabel: t('SPEED'),
+      isBoss: genRound.isBoss === true,
+      subheadingBattle: t('BATTLE'),
+      subheadingBoss: t('⚠  BOSS BATTLE  ⚠'),
+      initialSpeed: this.timeScale,
+    });
+    this.events.once('shutdown', () => {
+      this.battleOverlay?.unmount();
+      this.battleOverlay = null;
+    });
+    this.events.once('destroy', () => {
+      this.battleOverlay?.unmount();
+      this.battleOverlay = null;
+    });
 
     // Player side — pushed apart so the large sprites have room to breathe.
     const playerX = gameWidth * 0.25;
@@ -394,9 +411,7 @@ export class Battle extends Scene {
       .setOrigin(0.5, 0)
       .setAlpha(0.9);
 
-    this.speedLabel = createLabel(this, gameWidth - 24, 24, `(S) ${t('SPEED')} x${this.timeScale}`, 'body')
-      .setOrigin(1, 0)
-      .setAlpha(0.8);
+    // SPEED indicator is rendered via battleOverlay.setSpeed().
 
     // Debug: elapsed real-time counter (only visible when debug mode is ON).
     this.debugTimerText = this.add
@@ -406,6 +421,12 @@ export class Battle extends Scene {
       .setVisible(isDebugEnabled());
 
     this.pushLog(t('Survive until SOUL STRIKE is ready!'));
+
+    // Log active placement synergies so the player can see the buffs
+    // their slot arrangement unlocked. Empty when nothing triggers.
+    for (const syn of this.activePlacementSynergies) {
+      this.pushLog(`◆ ${t(syn.name)} — ${t(syn.description)}`);
+    }
 
     this.input.keyboard?.on('keydown-R', () => fadeToScene(this, 'Title'));
     this.input.keyboard?.on('keydown-SPACE', () => {
@@ -470,7 +491,7 @@ export class Battle extends Scene {
     const sequence = [1, 2, 4, 6];
     const idx = sequence.indexOf(this.timeScale);
     this.timeScale = sequence[(idx + 1) % sequence.length]!;
-    this.speedLabel.setText(`(S) ${t('SPEED')} x${this.timeScale}`);
+    this.battleOverlay?.setSpeed(this.timeScale);
     playSfx('click');
   }
 
@@ -484,7 +505,7 @@ export class Battle extends Scene {
 
     // Pachislot: tick hit determination + aura check
     if (!this.finished && !this.introActive) {
-      const hitTriggered = tickSlotMachine(this.slotState, realDtSec);
+      const hitTriggered = tickSlotMachine(this.slotState, realDtSec, this.slotMachineHitBonus);
       if (hitTriggered) {
         playSfx('combo');
       }
@@ -506,7 +527,7 @@ export class Battle extends Scene {
       this.timeScale < Battle.AUTO_FF_SPEED
     ) {
       this.timeScale = Battle.AUTO_FF_SPEED;
-      this.speedLabel.setText(`(S) ${t('SPEED')} x${this.timeScale}`);
+      this.battleOverlay?.setSpeed(this.timeScale);
     }
 
     const dtSec = realDtSec * this.timeScale;

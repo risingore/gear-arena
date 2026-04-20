@@ -66,10 +66,15 @@ export const rollAuraColor = (): AuraColor => {
 };
 
 /** Tick each frame. Returns true if a hit flag was just set. */
-export const tickSlotMachine = (state: SlotState, dtSec: number): boolean => {
+export const tickSlotMachine = (
+  state: SlotState,
+  dtSec: number,
+  bonusHitProbPerSec = 0,
+): boolean => {
   if (state.inRush) return false;
   state.accumulator += dtSec;
-  if (Math.random() < SLOT_HIT_PROB_PER_SEC * dtSec * 60) {
+  const probPerFrame = (SLOT_HIT_PROB_PER_SEC + bonusHitProbPerSec) * dtSec * 60;
+  if (Math.random() < probPerFrame) {
     state.nextIsHit = true;
     return true;
   }

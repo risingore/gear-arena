@@ -31,6 +31,7 @@ import { runVisualChecks } from '../systems/visualDebugger';
 import { attachFpsMeter } from '../systems/fpsMeter';
 import { setupLayoutDebug } from '../systems/layoutDebug';
 import { isDebugEnabled } from '../systems/debug';
+import { mountBuildOverlay, type BuildOverlayHandle } from '../overlays/buildOverlay';
 
 // ---------------------------------------------------------------------------
 // Layout constants
@@ -109,7 +110,7 @@ export class Build extends Scene {
   private goldText!: GameObjects.Text;
   private statsText!: GameObjects.Text;
   private previewText!: GameObjects.Text;
-  private roundText!: GameObjects.Text;
+  private buildOverlay: BuildOverlayHandle | null = null;
   private rerollBtnText!: GameObjects.Text;
   private blueprintOriginX = 0;
   private blueprintOriginY = 0;
@@ -150,10 +151,7 @@ export class Build extends Scene {
     fadeInCurrent(this);
     playMusic(this, MUSIC_KEYS.build);
 
-    // Header
-    this.roundText = this.add
-      .text(BLUEPRINT_X, 16, '', textStyles.body)
-      .setOrigin(0, 0);
+    // Header is rendered as a DOM overlay (see overlays/buildOverlay.ts).
 
     // Left column — acquired skills
     this.drawSkillSlots(state.acquiredSkills);
@@ -230,31 +228,32 @@ export class Build extends Scene {
 
     this.refreshAll();
 
-    if (state.currentRound === 1) {
-      const hint = this.add
-        .text(BLUEPRINT_X + BLUEPRINT_BOX_W / 2, ZONE_Y + ZONE_H + 14,
-          t('Drag parts from shop to blueprint slots'),
-          { ...textStyles.small, color: '#88ccff' })
-        .setOrigin(0.5, 0)
-        .setAlpha(0.8);
-      this.tweens.add({ targets: hint, alpha: 0, delay: 8000, duration: 2000 });
-    } else if (state.robotKey) {
-      // Round transition monologue — per-character inner voice line.
-      // Rotates based on round number so mid-run players see variety.
+    // Mount the DOM header overlay (ROUND label + monologue + hint).
+    let monologue: string | undefined;
+    if (state.currentRound !== 1 && state.robotKey) {
       const monologues = ROUND_TRANSITION_MONOLOGUES[state.robotKey];
       if (monologues && monologues.length > 0) {
         const idx = (state.currentRound - 2) % monologues.length;
-        const line = bl(monologues[idx]!);
-        const monoText = this.add
-          .text(BLUEPRINT_X + BLUEPRINT_BOX_W / 2, 18,
-            `— ${line} —`,
-            { ...textStyles.small, color: '#aeeaff', fontStyle: 'italic' })
-          .setOrigin(0.5, 0)
-          .setAlpha(0);
-        this.tweens.add({ targets: monoText, alpha: 0.7, duration: 700, delay: 150 });
-        this.tweens.add({ targets: monoText, alpha: 0, duration: 800, delay: 4500 });
+        monologue = bl(monologues[idx]!);
       }
     }
+    const totalRounds = state.generatedRounds?.length || 10;
+    this.buildOverlay = mountBuildOverlay({
+      round: state.currentRound,
+      totalRounds,
+      roundLabel: t('ROUND'),
+      monologue,
+      tutorialHint: state.currentRound === 1 ? t('Drag parts from shop to blueprint slots') : undefined,
+    });
+
+    this.events.once('shutdown', () => {
+      this.buildOverlay?.unmount();
+      this.buildOverlay = null;
+    });
+    this.events.once('destroy', () => {
+      this.buildOverlay?.unmount();
+      this.buildOverlay = null;
+    });
 
     applyHiDpiToScene(this);
     showDebugBadge(this, isDebugEnabled());
@@ -1232,8 +1231,8 @@ export class Build extends Scene {
 
   private refreshHud(): void {
     const state = getRunState(this);
-    const totalRounds = state.generatedRounds?.length || 10;
-    this.roundText.setText(`${t('ROUND')} ${state.currentRound} / ${totalRounds}`);
+    const overlayTotal = state.generatedRounds?.length || 10;
+    this.buildOverlay?.update(state.currentRound, overlayTotal);
 
     const newRerollCost = getRerollCost(state);
     this.rerollBtnText.setText(`${t('REROLL')} (${newRerollCost} g)`);

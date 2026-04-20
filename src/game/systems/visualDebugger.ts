@@ -340,14 +340,15 @@ export function runVisualChecks(scene: Scene): VisualIssue[] {
     }
   }
 
-  // Log results
-  if (issues.length > 0) {
-    console.warn(`[VisualDebugger] ${scene.scene.key}: ${issues.length} issue(s) found:`);
-    for (const issue of issues) {
-      console.warn(`  [${issue.type}] ${issue.message}`);
+  if (isDebugEnabled()) {
+    if (issues.length > 0) {
+      console.warn(`[VisualDebugger] ${scene.scene.key}: ${issues.length} issue(s) found:`);
+      for (const issue of issues) {
+        console.warn(`  [${issue.type}] ${issue.message}`);
+      }
+    } else {
+      console.log(`[VisualDebugger] ${scene.scene.key}: OK — no issues detected`);
     }
-  } else {
-    console.log(`[VisualDebugger] ${scene.scene.key}: OK — no issues detected`);
   }
 
   return issues;

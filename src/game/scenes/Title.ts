@@ -51,6 +51,10 @@ export class Title extends Scene {
         playSfx('click');
         fadeToScene(this, 'Settings');
       },
+      onCredits: () => {
+        playSfx('click');
+        fadeToScene(this, 'Credits');
+      },
       saveData: {
         bestRound: save.bestRound,
         victories: save.totalClears,
@@ -60,6 +64,7 @@ export class Title extends Scene {
       primaryLabel: t('PLAY'),
       collectionLabel: t('COLLECTION'),
       settingsLabel: t('SETTINGS'),
+      creditsLabel: t('CREDITS'),
     });
 
     this.events.once('shutdown', () => {

@@ -23,6 +23,7 @@ export interface TitleOverlayOptions {
   onPlay(): void;
   onCollection(): void;
   onSettings(): void;
+  onCredits?(): void;
   saveData?: TitleOverlaySaveData;
   atmanQuoteLine1?: string;
   atmanQuoteLine2?: string;
@@ -30,6 +31,7 @@ export interface TitleOverlayOptions {
   primaryLabel?: string;
   collectionLabel?: string;
   settingsLabel?: string;
+  creditsLabel?: string;
 }
 
 const STYLE_ELEMENT_ID = 'title-overlay-style';
@@ -195,6 +197,14 @@ const CSS = `
 
 .${ROOT_CLASS} .footer{position:absolute;left:40px;bottom:34px;font-size:10px;letter-spacing:.22em;color:#6a7687;z-index:4}
 .${ROOT_CLASS} .footer .kbd{padding:2px 7px;background:#0e1020;border:1px solid rgba(174,234,255,.3);color:#fff;margin:0 2px}
+.${ROOT_CLASS} .credits-link{
+  position:absolute;right:40px;bottom:34px;font-size:10px;letter-spacing:.22em;
+  color:#6a7687;z-index:5;pointer-events:auto;cursor:pointer;
+  background:none;border:none;padding:4px 8px;
+  font-family:inherit;text-transform:uppercase;
+  transition:color .15s ease;
+}
+.${ROOT_CLASS} .credits-link:hover{color:#aeeaff}
 
 /* Post-cyberpunk CRT scanlines + holographic glitch tear */
 .${ROOT_CLASS} .stage::after{
@@ -337,6 +347,7 @@ function buildStageHtml(opts: TitleOverlayOptions): string {
     ${hud}
 
     <div class="footer">PRESS <span class="kbd">SPACE</span> / NAV <span class="kbd">MOUSE</span></div>
+    <button class="credits-link" data-role="credits">${escapeHtml(opts.creditsLabel ?? 'CREDITS')}</button>
   </div>`;
 }
 
@@ -463,7 +474,7 @@ export function mountTitleOverlay(opts: TitleOverlayOptions): () => void {
   fit();
 
   // Button wiring
-  const onClick = (role: 'play' | 'collection' | 'settings', handler: () => void): void => {
+  const onClick = (role: 'play' | 'collection' | 'settings' | 'credits', handler: () => void): void => {
     const el = root.querySelector(`[data-role="${role}"]`) as HTMLElement | null;
     if (!el) return;
     el.addEventListener('click', () => handler());
@@ -471,6 +482,7 @@ export function mountTitleOverlay(opts: TitleOverlayOptions): () => void {
   onClick('play', opts.onPlay);
   onClick('collection', opts.onCollection);
   onClick('settings', opts.onSettings);
+  if (opts.onCredits) onClick('credits', opts.onCredits);
 
   // Fade in on next frame
   requestAnimationFrame(() => root.classList.add('visible'));

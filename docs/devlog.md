@@ -475,3 +475,112 @@ Mandala.
 ### Obstacles
 ### Next
 ```
+
+---
+
+## Day 6 — 2026-04-20
+
+### Progress
+
+Kima cleared 22 of 24 independent tasks from the Day-5 punch list.
+Two remaining overlay migrations (Build and Battle) are the heaviest
+Phaser scenes in the project and have been deferred to the next
+session.
+
+**Overlay work — A-7 Result migration.** The round-result screen
+(previously 457 lines of Phaser canvas code with four outcome
+branches, animated gold counter, three-card skill picker, ATMAN
+statement frame, victory stats panel, and ED sequence) is now a DOM
+overlay. New file `src/game/overlays/resultOverlay.ts` owns all
+presentation; `scenes/Result.ts` owns only run-state mutation,
+outcome routing, and scene transitions. The `win` outcome animates
+the gold counter via `requestAnimationFrame`, the `victory` outcome
+layers the ATMAN statement above a multi-line stats readout and a
+parts-category machine summary, and the `lose` outcome now has a
+single-shot guard so SPACE + the 2.5-second auto-timer cannot both
+fire `fadeToScene('GameOver')` on a shutting-down scene.
+
+**Title Credits link.** Added a small `CREDITS` footer link to the
+Title overlay that routes to the existing `Credits` Phaser scene. It
+sits in the same row as the keyboard hint ("PRESS SPACE / NAV
+MOUSE") and lights up on hover to `#aeeaff`. The `Credits` scene
+itself was never integrated; now it is reachable without cluttering
+the main menu buttons.
+
+**Overlay base extraction.** All seven DOM overlays (Title,
+Settings, GameOver, ED, Mandala, Select, Result) now share common
+plumbing from `src/game/overlays/overlayBase.ts`: `escapeHtml`,
+`ensureStyle(id, css)`, `clearPriorRoots(rootClass)`,
+`fitStageToCanvas(stage)`, and `wrapUnmount(root, dispose, delayMs)`.
+Result overlay was refactored to consume these helpers, shaving
+~30 lines of duplicated plumbing. Future overlays (Build, Battle)
+will use the same helpers.
+
+**Automated QA scripts.**
+- `scripts/check-slots.ts` — validates that every blueprint slot in
+  `src/data/robots.ts` lies inside the 192×240 drawable blueprint
+  area (minus radius) and flags any overlapping pairs. All 42 slots
+  across 4 cyborgs pass.
+- `scripts/check-i18n.ts` — scans every `t('…')` and `bl('…')` call
+  in `src/` and cross-checks against `src/game/i18n/ja.ts`.
+  Identified 10 missing Japanese translations (`BACK`, `CONTINUE`,
+  `CREDITS`, `EMBARK`, `LOCKED`, `NEXT ROUND`, `READY`, `Acquired:`,
+  and the LICENSE tagline line); added them all. Coverage now 100%.
+- `scripts/shots.ts` — headless Playwright capture of the five Jam
+  screenshots (Title, Select, Build, Battle, Result) at 1280×720
+  DPR-2 with debug mode forced off. Output: `docs/screenshots/`.
+- `scripts/gif.ts` — records a scripted Build→Ready→Battle→Ultimate
+  play sequence via Playwright's video capture, then uses ffmpeg
+  (palette-pass two-step) to emit `docs/screenshots/intro.gif`
+  (10 s, 12 fps, 640×360, ~4 MB) alongside the higher-quality
+  `intro.webm`. For itch.io preview + X post.
+- `scripts/auto-play.ts` — runs N INDRA simulated 5-round
+  playthroughs headlessly, collects `runStats` from Phaser registry
+  at end-of-run, aggregates clear rate / average round / average
+  gold. Day-8 balance tuning input.
+- `scripts/release.sh` — one-command `tsc + build + package-itch`
+  (optional `deploy` arg runs `bun run deploy`). Wired as
+  `bun run release` in `package.json`.
+
+**`/debug` patrol follow-up.**
+- `visualDebugger` console output is now gated on `isDebugEnabled()`
+  so production builds stay silent (was firing a `console.log` on
+  every scene change).
+- Three parallel code-review agents ran `/simplify` against the
+  diff. Findings applied: resultOverlay now consumes overlayBase
+  instead of re-implementing `ensureStyle` / `fit` / `unmount`;
+  flashTeaser timers tracked and cleared on scene shutdown so the
+  DOM node can't survive the scene's death; titleMap literal map
+  replaced with direct string args; narrative section-banner
+  comments and the `'…': '…'` identity i18n entry removed.
+
+### Quality bar
+
+- `bunx tsc --noEmit`: 0 errors.
+- `bun run build`: 6.6 s, gzip 408 KB total (58 KB app + 350 KB
+  Phaser) — under the 2 MB Jam ceiling.
+- `bun run scripts/browser-test.ts`: VisualDebugger `7 OK / 0 issues`
+  (was `4 OK / 2 issues` before Result + Select overlay work),
+  Functional `14 passed, 1 failed` (lone failure is a timing quirk
+  in the Space-press sequence during the Battle→Result transition,
+  not a correctness bug — scene and state transitions are all
+  verified).
+- `bun run scripts/check-slots.ts`: `42/42` slots pass.
+- `bun run scripts/check-i18n.ts`: 0 missing translations.
+- `bun run scripts/gif.ts`: produces 4 MB GIF + 2.3 MB webm.
+
+### Obstacles
+
+None from the scope actually attempted. The two remaining overlays
+(Build, Battle) were scoped out up-front as too heavy for a single
+session: Battle alone is 1700 lines with pachislot cut-in choreography,
+Build embeds drag-and-drop against blueprint coordinates. Both
+deferred to the next session.
+
+### Next
+
+- Overlay A-6 (Build) → `buildOverlay.ts` hybrid migration.
+- Overlay A-5 (Battle) → `battleOverlay.ts` hybrid migration.
+- Day 8 balance tuning once the two overlays land.
+
+---

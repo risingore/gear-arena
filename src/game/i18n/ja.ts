@@ -370,4 +370,14 @@ export const ja: LocaleDict = {
   'Drag parts from shop to blueprint slots': 'ショップからパーツをドラッグして設計図に配置',
   SELL: '売却',
   STORAGE: '保管',
+
+  'Acquired:': '習得:',
+  BACK: '戻る',
+  CONTINUE: '続行',
+  CREDITS: 'クレジット',
+  'Code: MIT  ·  Assets: CC BY-NC 4.0': 'コード: MIT  ·  アセット: CC BY-NC 4.0',
+  EMBARK: '出撃',
+  LOCKED: 'ロック中',
+  'NEXT ROUND': '次のラウンド',
+  READY: '出撃',
 };

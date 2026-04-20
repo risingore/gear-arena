@@ -27,9 +27,14 @@ tasks/
 # --- Internal working docs (Japanese-authored, not for public consumption) ---
 # docs/ contains designer + engineer working documents authored in Japanese.
 # The public-facing material (README.md at the repo root) is separate.
-docs/
-# Exception: devlog is public-facing for Jam judges
+docs/*
 !docs/devlog.md
+!docs/screenshots
+!docs/screenshots/**
+# Media exports: repo stores the 5 stills; GIF / webm live on itch.io only.
+docs/screenshots/*.gif
+docs/screenshots/*.webm
+docs/screenshots/*.mp4
 
 # --- Internal tests (kept private by explicit Heika decision) ---
 # The unit tests stay local only. They are not shipped in the public repo.

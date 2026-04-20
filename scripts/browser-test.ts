@@ -22,9 +22,20 @@ async function run(): Promise<void> {
   const debugLogs: string[] = [];
   const errors: string[] = [];
   const funcResults: { name: string; pass: boolean; detail: string }[] = [];
+  const DETAIL_RE = /^\s*\[[a-z_]+\]/i;
+  let inVisualDebuggerBlock = false;
   page.on('console', m => {
     const txt = m.text();
-    if (txt.includes('[VisualDebugger]')) debugLogs.push(txt);
+    if (txt.includes('[VisualDebugger]')) {
+      debugLogs.push(txt);
+      inVisualDebuggerBlock = txt.includes('issue(s) found');
+      return;
+    }
+    if (inVisualDebuggerBlock && DETAIL_RE.test(txt)) {
+      debugLogs.push('[VisualDebugger-detail] ' + txt.trim());
+    } else {
+      inVisualDebuggerBlock = false;
+    }
   });
   page.on('pageerror', e => {
     const stack = e.stack ?? '(no stack)';
@@ -326,42 +337,23 @@ async function run(): Promise<void> {
   const bossScene = await getActiveScene();
   console.log(`  Scene after boss: ${bossScene}`);
 
-  // Verify no text overlap by checking for CHOOSE A SKILL
+  // Result is now a DOM overlay — check via DOM selectors.
   const hasSkillUI = await page.evaluate(() => {
-    const game = (window as any).__PHASER_GAME__;
-    if (!game) return false;
-    const scenes = game.scene.scenes as any[];
-    for (const s of scenes) {
-      if (!s.scene.isActive) continue;
-      const texts = (s.children?.list ?? []).filter((c: any) => c.type === 'Text');
-      for (const t of texts) {
-        if (t.text?.includes('CHOOSE') || t.text?.includes('SKILL')) return true;
-      }
-    }
-    return false;
+    return !!document.querySelector('.soul-strike-result-overlay .skill-cards');
   });
   assert('Skill selection UI shown on boss round', hasSkillUI, `hasSkillUI=${hasSkillUI}`);
 
   // Take screenshot of skill selection
   await snap('boss_skill_selection');
 
-  // Select a skill (click first skill card area)
-  await click(340, 504, 1000); // Y=720*0.70=504
+  // Select first skill card via DOM
+  await clickDom('.soul-strike-result-overlay [data-skill="0"]', 1000);
   await snap('boss_after_skill_select');
 
-  // Verify buttons appeared and skills gone (no overlap)
+  // NEXT ROUND primary button in Result overlay after skill pick
   const hasNextRound = await page.evaluate(() => {
-    const game = (window as any).__PHASER_GAME__;
-    if (!game) return false;
-    const scenes = game.scene.scenes as any[];
-    for (const s of scenes) {
-      if (!s.scene.isActive) continue;
-      const texts = (s.children?.list ?? []).filter((c: any) => c.type === 'Text');
-      for (const t of texts) {
-        if (t.text?.includes('NEXT ROUND')) return true;
-      }
-    }
-    return false;
+    const btn = document.querySelector('.soul-strike-result-overlay [data-role="primary"]');
+    return !!btn && (btn.textContent ?? '').toUpperCase().includes('NEXT');
   });
   assert('NEXT ROUND button shown after skill pick', hasNextRound, `hasNextRound=${hasNextRound}`);
 

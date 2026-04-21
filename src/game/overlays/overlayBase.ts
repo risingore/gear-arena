@@ -27,10 +27,16 @@ export function escapeHtml(s: string): string {
 }
 
 /**
- * Inject a <style> tag once. Subsequent calls are no-ops.
+ * Inject or update a <style> tag. If an element with the given id already
+ * exists (previous mount, or hot-module-replacement during development),
+ * its textContent is replaced so the latest CSS wins.
  */
 export function ensureStyle(id: string, css: string): void {
-  if (document.getElementById(id)) return;
+  const existing = document.getElementById(id) as HTMLStyleElement | null;
+  if (existing) {
+    if (existing.textContent !== css) existing.textContent = css;
+    return;
+  }
   const style = document.createElement('style');
   style.id = id;
   style.textContent = css;
@@ -129,28 +135,6 @@ const FRAME_CSS = `
 .ss-stage{
   background:radial-gradient(60% 45% at 50% 42%,#142040 0%,#0a0a10 55%,#05060a 100%);
 }
-.ss-stage::after{
-  content:'';position:absolute;inset:0;pointer-events:none !important;z-index:99;
-  background:repeating-linear-gradient(0deg,
-    transparent 0,transparent 2px,
-    rgba(174,234,255,.035) 3px,transparent 4px);
-  opacity:.7;mix-blend-mode:overlay;
-  animation:ss-scanline 2.4s steps(40) infinite;
-}
-@keyframes ss-scanline{from{background-position:0 0}to{background-position:0 4px}}
-.ss-stage::before{
-  content:'';position:absolute;inset:-4px;pointer-events:none;z-index:98;
-  background:linear-gradient(90deg,transparent 0%,rgba(255,122,0,.18) 48%,rgba(174,234,255,.22) 52%,transparent 100%);
-  opacity:0;
-  animation:ss-glitch-tear 7.3s ease-in infinite;
-}
-@keyframes ss-glitch-tear{
-  0%,88%,100%{opacity:0;transform:translate(0,0) skewX(0deg)}
-  89%{opacity:.85;transform:translate(3px,18px) skewX(-2deg)}
-  91%{opacity:.55;transform:translate(-5px,-22px) skewX(3deg)}
-  93%{opacity:.75;transform:translate(2px,9px) skewX(-1deg)}
-  95%{opacity:0;transform:translate(0,0) skewX(0deg)}
-}
 .ss-frame-grid{position:absolute;inset:0;pointer-events:none;z-index:1;
   background-image:linear-gradient(rgba(174,234,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(174,234,255,.05) 1px,transparent 1px);
   background-size:40px 40px;
@@ -223,7 +207,11 @@ const FRAME_CSS = `
 
 /** Inject the shared Title-style frame CSS once per document. */
 export function ensureFrameStyle(): void {
-  if (document.getElementById(FRAME_STYLE_ID)) return;
+  const existing = document.getElementById(FRAME_STYLE_ID) as HTMLStyleElement | null;
+  if (existing) {
+    if (existing.textContent !== FRAME_CSS) existing.textContent = FRAME_CSS;
+    return;
+  }
   const style = document.createElement('style');
   style.id = FRAME_STYLE_ID;
   style.textContent = FRAME_CSS;

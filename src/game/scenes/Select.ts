@@ -7,11 +7,11 @@ import { setRunState, resetRunState } from '../systems/runState';
 import { PALETTE, ROBOT_COLORS } from '../systems/palette';
 import { generateShopOffer } from '../systems/shop';
 import { generateRunEnemies } from '../systems/enemyPool';
-import { isRobotUnlocked, isSuperBossUnlocked, loadSaveData } from '../systems/savedata';
+import { isRobotUnlocked, isSuperBossUnlocked } from '../systems/savedata';
 import { playSfx } from '../systems/audio';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { showDebugBadge } from '../helper/hiDpiText';
-import { isDebugEnabled } from '../systems/debug';
+import { isDebugEnabled, isBossModeEnabled } from '../systems/debug';
 import {
   mountSelectOverlay,
   type SelectOverlayHandle,
@@ -40,10 +40,16 @@ export class Select extends Scene {
 
     const keys = ALL_ROBOT_KEYS;
 
+    // Jam scope: only INDRA ('robot_knight') is playable this release.
+    // Other cyborgs are shown as COMING SOON teasers so players can see
+    // what's coming in future episodes without being able to select them.
+    const PLAYABLE_KEY: RobotKey = 'robot_knight';
     const characters: SelectOverlayCharacter[] = keys.map((key) => {
       const robot = ROBOTS[key];
       const ult = ROBOT_ULTIMATES[key];
-      const locked = !isRobotUnlocked(key);
+      const isPlayable = key === PLAYABLE_KEY;
+      const comingSoon = !isPlayable;
+      const locked = comingSoon ? true : !isRobotUnlocked(key);
       const colorInt = ROBOT_COLORS[robot.archetype];
       const hex = '#' + colorInt.toString(16).padStart(6, '0');
       const portraitSrc = this.textures.exists(robot.battleAssetKey)
@@ -61,6 +67,7 @@ export class Select extends Scene {
         ultName: ult ? t(ult.name) : null,
         quote: bl(CHARACTER_QUOTES[key]),
         locked,
+        comingSoon,
         portraitSrc,
         themeHex: hex,
       };
@@ -70,9 +77,10 @@ export class Select extends Scene {
       characters,
       initialIndex: this.selectedIndex,
       thesisPrologue: bl(THESIS_PROLOGUE),
-      embarkLabel: t('EMBARK'),
+      embarkLabel: t('SELECT'),
       backLabel: t('BACK'),
       lockedLabel: t('LOCKED'),
+      comingSoonLabel: t('COMING SOON'),
       lockedHint: t('Clear the previous character to unlock'),
       ultLabelPrefix: 'ULT:',
       onChange: (idx) => {
@@ -120,19 +128,20 @@ export class Select extends Scene {
   private confirm(): void {
     const keys = ALL_ROBOT_KEYS;
     const robotKey: RobotKey = keys[this.selectedIndex]!;
-    if (!isRobotUnlocked(robotKey)) {
+    // Jam scope: only INDRA is playable; other slots are teasers.
+    if (robotKey !== 'robot_knight' || !isRobotUnlocked(robotKey)) {
       playSfx('click');
       return;
     }
     playSfx('buy');
     const fresh = resetRunState(this);
-    const save = loadSaveData();
-    const isKnightFirstRun =
-      robotKey === 'robot_knight' && (save.perRobotClears[robotKey] ?? 0) === 0;
+    // Jam scope: every run is a 5-round short run (INDRA-only release).
+    const shortRun = true;
     const generatedRounds = generateRunEnemies(
       isSuperBossUnlocked(),
       undefined,
-      isKnightFirstRun,
+      shortRun,
+      isBossModeEnabled(),
     );
     const debugGold = isDebugEnabled() ? 100000 : fresh.gold;
     const next = {

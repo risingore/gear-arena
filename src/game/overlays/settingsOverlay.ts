@@ -7,7 +7,15 @@
  * current values and routes clicks back to the scene.
  */
 
-import { ensureFrameStyle, buildFrameHtml } from './overlayBase';
+import {
+  ensureFrameStyle,
+  buildFrameHtml,
+  ensureStyle,
+  escapeHtml as esc,
+  clearPriorRoots,
+  fitStageToCanvas,
+  wrapUnmount,
+} from './overlayBase';
 
 export interface SettingsRow {
   readonly label: string;
@@ -18,7 +26,7 @@ export interface SettingsRow {
 export interface SettingsOverlayOptions {
   readonly title: string;
   readonly rows: readonly SettingsRow[];
-  readonly debugRow: SettingsRow;
+  readonly debugRows: readonly SettingsRow[];
   readonly recommendedResolution: string;
   readonly resetLabel: string;
   readonly resetConfirmLabel: string;
@@ -46,12 +54,37 @@ const CSS = `
 .${ROOT_CLASS} .title{
   position:absolute;left:50%;top:28px;transform:translateX(-50%);
   font-family:'Bebas Neue',sans-serif;font-size:44px;letter-spacing:.06em;color:#fff;
+  line-height:1;margin:0;padding:0;
 }
 .${ROOT_CLASS} .panel{
   position:absolute;left:50%;top:100px;transform:translateX(-50%);
-  width:600px;padding:20px 40px 28px;
+  width:742px;max-height:540px;padding:20px 40px 28px;
+  overflow-y:auto;
   background:rgba(10,10,16,.55);
   border:1px solid rgba(174,234,255,.18);
+  scrollbar-width:thin;scrollbar-color:rgba(174,234,255,.35) rgba(10,10,16,.4);
+}
+.${ROOT_CLASS} .panel::-webkit-scrollbar{width:8px}
+.${ROOT_CLASS} .panel::-webkit-scrollbar-track{background:rgba(10,10,16,.4)}
+.${ROOT_CLASS} .panel::-webkit-scrollbar-thumb{background:rgba(174,234,255,.35);border-radius:3px}
+.${ROOT_CLASS} .panel::-webkit-scrollbar-thumb:hover{background:rgba(174,234,255,.55)}
+.${ROOT_CLASS} .section-title{
+  font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:.16em;
+  color:#ffd94a;margin:6px 4px 8px;text-transform:uppercase;
+}
+.${ROOT_CLASS} .shortcut-row{
+  display:flex;align-items:baseline;gap:16px;
+  padding:6px 10px;
+  font-size:16px;letter-spacing:.06em;color:#cfd8e4;
+}
+.${ROOT_CLASS} .shortcut-row .key{
+  flex:0 0 auto;min-width:170px;
+  font-family:'Rajdhani',sans-serif;font-weight:500;color:#aeeaff;
+}
+.${ROOT_CLASS} .shortcut-row .desc{color:#cfd8e4}
+.${ROOT_CLASS} .shortcut-group-label{
+  margin:12px 4px 4px;
+  font-size:13px;letter-spacing:.2em;color:#8da0ba;text-transform:uppercase;
 }
 .${ROOT_CLASS} .row{
   display:flex;align-items:center;justify-content:space-between;
@@ -90,23 +123,10 @@ const CSS = `
 .${ROOT_CLASS} .back:hover{background:rgba(85,85,119,.6)}
 `;
 
-function ensureStyle(): void {
-  if (document.getElementById(STYLE_ID)) return;
-  const style = document.createElement('style');
-  style.id = STYLE_ID;
-  style.textContent = CSS;
-  document.head.appendChild(style);
-}
-
-function esc(s: string): string {
-  return s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] ?? c));
-}
-
 export function mountSettingsOverlay(opts: SettingsOverlayOptions): () => void {
   ensureFrameStyle();
-  ensureStyle();
-
-  document.querySelectorAll(`.${ROOT_CLASS}`).forEach((el) => el.remove());
+  ensureStyle(STYLE_ID, CSS);
+  clearPriorRoots(ROOT_CLASS);
 
   const root = document.createElement('div');
   root.className = ROOT_CLASS;
@@ -129,13 +149,36 @@ export function mountSettingsOverlay(opts: SettingsOverlayOptions): () => void {
       })}
       <div class="title">${esc(opts.title)}</div>
       <div class="panel">
-        ${rowHtml}
         <div class="row"><div class="label">Recommended</div><div class="val readonly">${esc(opts.recommendedResolution)}</div></div>
+        ${rowHtml}
         <div class="divider"></div>
-        <div class="row">
-          <div class="label">${esc(opts.debugRow.label)}</div>
-          <div class="val" data-role="debug">${esc(opts.debugRow.value)}</div>
-        </div>
+        <div class="section-title">Shortcuts</div>
+        <div class="shortcut-group-label">Global</div>
+        <div class="shortcut-row"><div class="key">R</div><div class="desc">Return to Title (any scene)</div></div>
+        <div class="shortcut-row"><div class="key">ESC</div><div class="desc">Return to Title (menus)</div></div>
+        <div class="shortcut-group-label">Title</div>
+        <div class="shortcut-row"><div class="key">SPACE</div><div class="desc">Start game</div></div>
+        <div class="shortcut-group-label">Character Select</div>
+        <div class="shortcut-row"><div class="key">← →</div><div class="desc">Browse characters</div></div>
+        <div class="shortcut-row"><div class="key">ENTER / SPACE</div><div class="desc">Confirm selection</div></div>
+        <div class="shortcut-group-label">Build</div>
+        <div class="shortcut-row"><div class="key">1 – 5</div><div class="desc">Buy shop item</div></div>
+        <div class="shortcut-row"><div class="key">SPACE</div><div class="desc">Enter battle</div></div>
+        <div class="shortcut-group-label">Battle</div>
+        <div class="shortcut-row"><div class="key">SPACE / Click</div><div class="desc">Fire SOUL STRIKE</div></div>
+        <div class="shortcut-row"><div class="key">S</div><div class="desc">Cycle battle speed</div></div>
+        <div class="shortcut-group-label">Result / Game Over</div>
+        <div class="shortcut-row"><div class="key">SPACE</div><div class="desc">Continue / Restart</div></div>
+        <div class="divider"></div>
+        ${opts.debugRows
+          .map(
+            (r, i) => `
+        <div class="row" data-debug-idx="${i}">
+          <div class="label">${esc(r.label)}</div>
+          <div class="val" data-role="debug" data-debug-idx="${i}">${esc(r.value)}</div>
+        </div>`,
+          )
+          .join('')}
         <div class="divider"></div>
         <button class="reset" data-role="reset">${esc(opts.resetLabel)}</button>
       </div>
@@ -145,25 +188,8 @@ export function mountSettingsOverlay(opts: SettingsOverlayOptions): () => void {
 
   document.body.appendChild(root);
 
-  // Fit stage to canvas
-  const fit = (): void => {
-    const stage = root.querySelector('.stage') as HTMLElement | null;
-    const canvas = document.querySelector('#game-container canvas') as HTMLCanvasElement | null;
-    if (!stage || !canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const s = Math.min(rect.width / 1280, rect.height / 720);
-    stage.style.left = `${rect.left + rect.width / 2}px`;
-    stage.style.top = `${rect.top + rect.height / 2}px`;
-    stage.style.transform = `translate(-50%, -50%) scale(${s})`;
-  };
-  window.addEventListener('resize', fit);
-  let ro: ResizeObserver | null = null;
-  const canvasEl = document.querySelector('#game-container canvas');
-  if (canvasEl && typeof ResizeObserver !== 'undefined') {
-    ro = new ResizeObserver(() => fit());
-    ro.observe(canvasEl);
-  }
-  fit();
+  const stage = root.querySelector('.stage') as HTMLElement;
+  const disposeFit = fitStageToCanvas(stage);
 
   // Wire rows
   root.querySelectorAll<HTMLElement>('[data-role="cycle"]').forEach((el) => {
@@ -174,11 +200,13 @@ export function mountSettingsOverlay(opts: SettingsOverlayOptions): () => void {
     });
   });
 
-  // Debug row
-  const debugBtn = root.querySelector('[data-role="debug"]') as HTMLElement | null;
-  debugBtn?.addEventListener('click', () => {
-    const next = opts.debugRow.onCycle();
-    debugBtn.textContent = next;
+  // Debug rows
+  root.querySelectorAll<HTMLElement>('[data-role="debug"]').forEach((el) => {
+    el.addEventListener('click', () => {
+      const idx = Number(el.getAttribute('data-debug-idx'));
+      const next = opts.debugRows[idx]!.onCycle();
+      el.textContent = next;
+    });
   });
 
   // Reset button (two-step confirm)
@@ -207,13 +235,8 @@ export function mountSettingsOverlay(opts: SettingsOverlayOptions): () => void {
 
   requestAnimationFrame(() => root.classList.add('visible'));
 
-  return (): void => {
-    root.classList.remove('visible');
-    window.removeEventListener('resize', fit);
-    if (ro) ro.disconnect();
+  return wrapUnmount(root, () => {
+    disposeFit();
     if (confirmTimer) clearTimeout(confirmTimer);
-    window.setTimeout(() => {
-      if (root.parentNode) root.parentNode.removeChild(root);
-    }, 240);
-  };
+  });
 }

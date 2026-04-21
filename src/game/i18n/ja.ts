@@ -16,7 +16,8 @@ export const ja: LocaleDict = {
   'SELECT YOUR MACHINE': 'サイボーグを選択',
   '← →  to browse    ENTER  to confirm': '← →  で選択    ENTER  で決定',
   'Click a cyborg to deploy': 'クリックで出撃',
-  'EMBARK  ▶': '出撃  ▶',
+  SELECT: '選択',
+  'COMING SOON': '近日公開',
   'Clear the previous character to unlock': '前のキャラクターをクリアして解放',
 
   // Build
@@ -29,7 +30,6 @@ export const ja: LocaleDict = {
   SHOP: 'ショップ',
   SOLD: '売却済',
   REROLL: 'リロール',
-  'READY  ▶': '出撃  ▶',
   'MAX HP': '最大HP',
   HP: 'HP',
   'DR flat': 'DR固定',
@@ -128,7 +128,11 @@ export const ja: LocaleDict = {
   Language: '言語',
   Fullscreen: 'フルスクリーン',
   'Battle Speed': 'バトル速度',
+  'Background Audio': 'バックグラウンド再生',
   'Debug Mode': 'デバッグモード',
+  'Boss Mode': 'ボスモード',
+  'One-Shot': '一撃',
+  Ending: 'エンディング',
   Recommended: '推奨解像度',
   'RESET ALL DATA': '全データリセット',
   'Click again to confirm': 'もう一度クリックで確定',
@@ -368,6 +372,7 @@ export const ja: LocaleDict = {
   'Survive and charge your SOUL STRIKE! SPACE / Click to fire!': '耐えてSOUL STRIKEを溜めろ！ SPACE / クリック で発動！',
   'READY!': 'READY!',
   'Drag parts from shop to blueprint slots': 'ショップからパーツをドラッグして設計図に配置',
+  'DRAG parts into slots  ·  MATCH types for synergy  ·  PRESS READY to fight': 'スロットにパーツを配置  ·  同種でシナジー  ·  READYで出撃',
   SELL: '売却',
   STORAGE: '保管',
 
@@ -376,8 +381,7 @@ export const ja: LocaleDict = {
   CONTINUE: '続行',
   CREDITS: 'クレジット',
   'Code: MIT  ·  Assets: CC BY-NC 4.0': 'コード: MIT  ·  アセット: CC BY-NC 4.0',
-  EMBARK: '出撃',
   LOCKED: 'ロック中',
   'NEXT ROUND': '次のラウンド',
-  READY: '出撃',
+  READY: '準備完了',
 };

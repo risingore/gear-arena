@@ -94,8 +94,14 @@ export interface GeneratedRound {
 /**
  * Generate enemy lineup.
  * @param shortRun true = 5 rounds (INDRA first clear), false = 10 rounds (standard)
+ * @param bossOnly true = debug mode, 3 rounds (mid-boss, mid-boss, big-boss)
  */
-export function generateRunEnemies(_superBossUnlocked: boolean, seed?: number, shortRun = false): GeneratedRound[] {
+export function generateRunEnemies(
+  _superBossUnlocked: boolean,
+  seed?: number,
+  shortRun = false,
+  bossOnly = false,
+): GeneratedRound[] {
   const prevRng = rng;
   rng = seed !== undefined ? createSeededRandom(seed) : Math.random;
   const rounds: GeneratedRound[] = [];
@@ -105,14 +111,42 @@ export function generateRunEnemies(_superBossUnlocked: boolean, seed?: number, s
   const midPool = sortedNormals.filter((e) => e.tier >= BALANCE.midTierMin && e.tier <= BALANCE.midTierMax);
   const hardPool = sortedNormals.filter((e) => e.tier >= BALANCE.hardTierMin);
 
-  if (shortRun) {
-    // 5-round intro run: R1-R2 normal, R3 mid-boss, R4 hard, R5 big boss
-    rounds.push({ index: 1, enemy: defToEnemy(pickRandom(easyPool), true), enemyId: pickRandom(easyPool).id, goldReward: 8, isBoss: false, isSuperBoss: false });
-    rounds.push({ index: 2, enemy: defToEnemy(pickRandom(easyPool), true), enemyId: pickRandom(easyPool).id, goldReward: 10, isBoss: false, isSuperBoss: false });
-    const mb = pickRandom(MID_BOSSES);
-    rounds.push({ index: 3, enemy: defToEnemy(mb, false), enemyId: mb.id, goldReward: 14, isBoss: true, isSuperBoss: false });
-    rounds.push({ index: 4, enemy: defToEnemy(pickRandom(hardPool), true), enemyId: pickRandom(hardPool).id, goldReward: 12, isBoss: false, isSuperBoss: false });
+  if (bossOnly) {
+    // Debug: skip normal enemies entirely. Mid-boss -> mid-boss -> big-boss -> ending.
+    const mb1 = pickRandom(MID_BOSSES);
+    rounds.push({ index: 1, enemy: defToEnemy(mb1, false), enemyId: mb1.id, goldReward: 12, isBoss: true, isSuperBoss: false });
+    const mb2 = pickRandom(MID_BOSSES);
+    rounds.push({ index: 2, enemy: defToEnemy(mb2, false), enemyId: mb2.id, goldReward: 14, isBoss: true, isSuperBoss: false });
     const bb = pickRandom(BIG_BOSSES);
+    rounds.push({ index: 3, enemy: defToEnemy(bb, false), enemyId: bb.id, goldReward: 0, isBoss: true, isSuperBoss: false });
+    rng = prevRng;
+    return rounds;
+  }
+
+  if (shortRun) {
+    const JAM_NORMAL_IDS = new Set<string>(['enemy_scrap_drone', 'enemy_rust_walker', 'enemy_heavy_bipod']);
+    const JAM_MIDBOSS_IDS = new Set<string>(['midboss_iron_sentinel']);
+    const JAM_BIGBOSS_IDS = new Set<string>(['boss_leviathan']);
+    const jamEasyPool = easyPool.filter((e) => JAM_NORMAL_IDS.has(e.id));
+    const jamHardPool = hardPool.filter((e) => JAM_NORMAL_IDS.has(e.id));
+    const jamMidBosses = MID_BOSSES.filter((e) => JAM_MIDBOSS_IDS.has(e.id));
+    const jamBigBosses = BIG_BOSSES.filter((e) => JAM_BIGBOSS_IDS.has(e.id));
+    // Fall back to the full pool when the jam subset is empty, so the run
+    // never lands on `pickRandom([])`.
+    const eP = jamEasyPool.length > 0 ? jamEasyPool : easyPool;
+    const hP = jamHardPool.length > 0 ? jamHardPool : hardPool;
+    const mP = jamMidBosses.length > 0 ? jamMidBosses : MID_BOSSES;
+    const bP = jamBigBosses.length > 0 ? jamBigBosses : BIG_BOSSES;
+
+    const r1 = pickRandom(eP);
+    rounds.push({ index: 1, enemy: defToEnemy(r1, true), enemyId: r1.id, goldReward: 8, isBoss: false, isSuperBoss: false });
+    const r2 = pickRandom(eP);
+    rounds.push({ index: 2, enemy: defToEnemy(r2, true), enemyId: r2.id, goldReward: 10, isBoss: false, isSuperBoss: false });
+    const mb = pickRandom(mP);
+    rounds.push({ index: 3, enemy: defToEnemy(mb, false), enemyId: mb.id, goldReward: 14, isBoss: true, isSuperBoss: false });
+    const r4 = pickRandom(hP);
+    rounds.push({ index: 4, enemy: defToEnemy(r4, true), enemyId: r4.id, goldReward: 12, isBoss: false, isSuperBoss: false });
+    const bb = pickRandom(bP);
     rounds.push({ index: 5, enemy: defToEnemy(bb, false), enemyId: bb.id, goldReward: 0, isBoss: true, isSuperBoss: false });
   } else {
     // Full 10-round run: R1-R3 easy, R4 mid-boss, R5-R6 mid, R7 mid-boss, R8-R9 hard, R10 big boss

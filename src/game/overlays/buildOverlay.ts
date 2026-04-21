@@ -48,6 +48,12 @@ const CSS = `
   overflow:hidden;
 }
 .${ROOT_CLASS} .stage.ss-stage{background:transparent}
+/* The blueprint PNG already has its own grid pattern; hide the shared one. */
+.${ROOT_CLASS} .stage .ss-frame-grid{display:none}
+/* Workshop reads too dark with the default 55% vignette — weaken to 18%. */
+.${ROOT_CLASS} .stage .ss-frame-vignette{
+  background:radial-gradient(70% 60% at 50% 50%, transparent 0%, rgba(0,0,0,.18) 100%);
+}
 .${ROOT_CLASS} .round{
   position:absolute;left:50%;top:22px;transform:translateX(-50%);z-index:3;
   font-family:'Bebas Neue',sans-serif;font-size:44px;letter-spacing:.05em;color:#fff;
@@ -81,14 +87,8 @@ export function mountBuildOverlay(opts: BuildOverlayOptions): BuildOverlayHandle
     <div class="stage ss-stage">
       ${buildFrameHtml({
         tagLeft: '<b>SS</b>-<b>003</b> / BLUEPRINT <span class="bar"></span> BUILD',
-        tagRight: 'BUILD PHASE <span class="bar"></span> ROUND <b data-role="tagRound"></b>',
+        tagRight: 'BUILD PHASE',
       })}
-      <div class="round">
-        <span class="label">${esc(opts.roundLabel)}</span>
-        <span class="current">${opts.round}</span>
-        <span class="sep">/</span>
-        <span class="total">${opts.totalRounds}</span>
-      </div>
       <div class="monologue"></div>
       ${opts.tutorialHint ? `<div class="hint">${esc(opts.tutorialHint)}</div>` : ''}
     </div>
@@ -96,11 +96,7 @@ export function mountBuildOverlay(opts: BuildOverlayOptions): BuildOverlayHandle
   document.body.appendChild(root);
 
   const stage = root.querySelector('.stage') as HTMLElement;
-  const current = root.querySelector('.current') as HTMLElement;
-  const total = root.querySelector('.total') as HTMLElement;
   const mono = root.querySelector('.monologue') as HTMLElement;
-  const tagRound = root.querySelector('[data-role="tagRound"]') as HTMLElement;
-  tagRound.textContent = String(opts.round).padStart(2, '0');
 
   if (opts.monologue) {
     mono.textContent = `— ${opts.monologue} —`;
@@ -111,10 +107,7 @@ export function mountBuildOverlay(opts: BuildOverlayOptions): BuildOverlayHandle
   requestAnimationFrame(() => root.classList.add('visible'));
 
   return {
-    update(round, totalRounds, monologue): void {
-      current.textContent = String(round);
-      total.textContent = String(totalRounds);
-      tagRound.textContent = String(round).padStart(2, '0');
+    update(_round, _totalRounds, monologue): void {
       if (monologue && monologue !== mono.textContent?.replace(/^— |— $/g, '')) {
         mono.classList.remove('show');
         mono.textContent = `— ${monologue} —`;

@@ -73,8 +73,22 @@ class AudioBus {
     }
   }
 
+  /**
+   * Per-sound debounce table. If the same SFX was played within
+   * `SFX_DEBOUNCE_MS` we skip the duplicate so overlapping triggers
+   * (DOM click + Phaser pointerdown, click + bubbled ENTER on a
+   * focused button, mobile synthetic double-click, etc.) never
+   * double-fire as an audible "click-click".
+   */
+  private lastPlayAt: Partial<Record<SfxName, number>> = {};
+
   play(name: SfxName, pitch = 1): void {
     if (!this.ensure() || !this.ctx || !this.master) return;
+    const nowMs = performance.now();
+    const prev = this.lastPlayAt[name] ?? -Infinity;
+    const SFX_DEBOUNCE_MS = 40;
+    if (nowMs - prev < SFX_DEBOUNCE_MS) return;
+    this.lastPlayAt[name] = nowMs;
     const now = this.ctx.currentTime;
     switch (name) {
       case 'click':

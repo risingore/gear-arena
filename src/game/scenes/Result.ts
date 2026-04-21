@@ -8,7 +8,6 @@ import {
   ATMAN_NORMAL_STATEMENTS,
   ATMAN_MIDBOSS_STATEMENTS,
   ATMAN_BIGBOSS_STATEMENTS,
-  HYAKKI_YAKOU_TEASER,
 } from '@/data/storyText';
 import { getRunState, setRunState } from '../systems/runState';
 import { PALETTE } from '../systems/palette';
@@ -23,8 +22,9 @@ import {
   recordUsedPart,
   recordAcquiredSkill,
   recordScrap,
+  loadSaveData,
 } from '../systems/savedata';
-import { mountEdOverlay } from '../overlays/edOverlay';
+import { mountEndingScrollOverlay } from '../overlays/endingScrollOverlay';
 import {
   mountResultOverlay,
   type ResultOverlayAtmanStatement,
@@ -36,8 +36,7 @@ import { isDebugEnabled } from '../systems/debug';
 
 export class Result extends Scene {
   private unmountOverlay: (() => void) | null = null;
-  private teaserEl: HTMLElement | null = null;
-  private teaserTimers: number[] = [];
+  private unmountEnding: (() => void) | null = null;
 
   constructor() {
     super('Result');
@@ -49,7 +48,7 @@ export class Result extends Scene {
 
     const state = getRunState(this);
     const outcome = state.battleOutcome;
-    if (outcome === 'victory') playMusic(this, MUSIC_KEYS.victory);
+    if (outcome === 'victory') playMusic(this, MUSIC_KEYS.victory, false);
 
     // Track defeated enemies and used parts in the collection.
     if ((outcome === 'win' || outcome === 'victory') && state.lastDefeatedEnemyId) {
@@ -65,8 +64,6 @@ export class Result extends Scene {
       this.renderWin(state);
     } else if (outcome === 'victory') {
       this.renderVictory(state, t('VICTORY'), '#ffd94a');
-    } else if (outcome === 'lose') {
-      this.renderLose(t('DEFEATED'), '#ff4444');
     } else {
       this.renderPending('...', '#aeeaff');
     }
@@ -74,10 +71,17 @@ export class Result extends Scene {
     const cleanup = (): void => {
       this.unmountOverlay?.();
       this.unmountOverlay = null;
-      this.clearTeaser();
+      this.unmountEnding?.();
+      this.unmountEnding = null;
     };
     this.events.once('shutdown', cleanup);
     this.events.once('destroy', cleanup);
+
+    // Global R shortcut: matches every other scene — bail to Title.
+    this.input.keyboard?.on('keydown-R', () => {
+      playSfx('click');
+      fadeToScene(this, 'Title');
+    });
 
     showDebugBadge(this, isDebugEnabled());
   }
@@ -129,16 +133,11 @@ export class Result extends Scene {
       skillChoices: skillRoll.length > 0 ? skillRoll : undefined,
       skillLabel: t('CHOOSE A SKILL'),
       primaryLabel: skillRoll.length > 0 ? undefined : t('NEXT ROUND'),
-      secondaryLabel: skillRoll.length > 0 ? undefined : t('QUIT TO TITLE'),
       primaryAccentHex: '#3aff7a',
       acquiredLabelPrefix: t('Acquired:'),
       onPrimary: () => {
         playSfx('click');
         fadeToScene(this, 'Build');
-      },
-      onSecondary: () => {
-        playSfx('click');
-        fadeToScene(this, 'Title');
       },
       onSkillPick: (choice) => {
         const skill = skillChoices.find((s) => s.id === choice.id);
@@ -153,26 +152,46 @@ export class Result extends Scene {
         handle.showAcquired(t(skill.name));
         handle.showContinue(
           t('NEXT ROUND'),
-          t('QUIT TO TITLE'),
+          undefined,
           '#3aff7a',
           () => {
             playSfx('click');
             fadeToScene(this, 'Build');
           },
-          () => {
-            playSfx('click');
-            fadeToScene(this, 'Title');
-          },
+          undefined,
         );
       },
     });
     this.unmountOverlay = () => handle.unmount();
 
-    this.input.keyboard?.once('keydown-SPACE', () => {
-      if (skillRoll.length > 0) return; // wait for skill pick
+    // SPACE advances to the next round. While the skill cards are still
+    // on screen we ignore it so the player has to actually pick a skill
+    // with 1/2/3 first; once the skill-cards block is gone SPACE is the
+    // "NEXT ROUND" shortcut again.
+    this.input.keyboard?.on('keydown-SPACE', () => {
+      const cardsStillUp = document.querySelector(
+        '.soul-strike-result-overlay .skill-cards',
+      );
+      if (cardsStillUp) return;
       playSfx('click');
       fadeToScene(this, 'Build');
     });
+
+    // Boss-clear skill selection: 1 / 2 / 3 keys map to the three cards
+    // from left to right so the player never has to reach for the mouse.
+    if (skillRoll.length > 0) {
+      const numberKeys = ['ONE', 'TWO', 'THREE'] as const;
+      numberKeys.forEach((key, i) => {
+        this.input.keyboard?.once(`keydown-${key}`, () => {
+          const choice = skillRoll[i];
+          if (!choice) return;
+          const card = document.querySelector(
+            `.soul-strike-result-overlay [data-skill="${i}"]`,
+          ) as HTMLElement | null;
+          card?.click();
+        });
+      });
+    }
   }
 
   private renderVictory(
@@ -180,6 +199,7 @@ export class Result extends Scene {
     title: string,
     titleColor: string,
   ): void {
+    const priorClears = loadSaveData().totalClears;
     if (state.robotKey) recordVictory(state.robotKey);
     const scrapEarned = Math.floor(state.gold * BALANCE.scrapConversionRate);
     if (scrapEarned > 0) recordScrap(scrapEarned);
@@ -203,43 +223,33 @@ export class Result extends Scene {
       statsLines: [victoryLine, '', ...statsLines],
       machineSummary: summary || undefined,
       atman: this.findAtmanStatement(state.lastDefeatedEnemyId),
-      primaryLabel: t('RETURN TO TITLE'),
-      primaryAccentHex: '#ffd94a',
-      onPrimary: () => {
-        playSfx('click');
-        fadeToScene(this, 'Title');
-      },
     });
     this.unmountOverlay = () => handle.unmount();
 
-    this.showEdSequence();
+    // Start the typewriter immediately so players watch ATMAN's final
+    // statement unfold during the Victory screen.
+    handle.startAtmanTypewriter(8000);
+    this.scheduleEndingScroll(priorClears > 0, handle);
   }
 
-  private renderLose(title: string, titleColor: string): void {
-    const handle = mountResultOverlay({
-      outcome: 'lose',
-      title,
-      titleColor,
-      primaryLabel: t('CONTINUE'),
-      primaryAccentHex: '#ff4444',
-      onPrimary: () => {
-        playSfx('click');
-        fadeToScene(this, 'GameOver');
-      },
+  private scheduleEndingScroll(showSkip: boolean, handle: import('../overlays/resultOverlay').ResultOverlayHandle): void {
+    this.time.delayedCall(10000, () => {
+      handle.startGlitch();
     });
-    this.unmountOverlay = () => handle.unmount();
-
-    // Shared single-shot guard so SPACE + auto-timer cannot both fire
-    // `fadeToScene` on a shutting-down scene.
-    let fired = false;
-    const goGameOver = (): void => {
-      if (fired) return;
-      fired = true;
-      autoTimer.remove(false);
-      fadeToScene(this, 'GameOver');
-    };
-    const autoTimer = this.time.delayedCall(2500, goGameOver);
-    this.input.keyboard?.once('keydown-SPACE', goGameOver);
+    this.time.delayedCall(12000, () => {
+      this.unmountEnding = mountEndingScrollOverlay({
+        returnLabel: t('← RETURN TO TITLE'),
+        showSkip,
+        onReturn: () => {
+          playSfx('click');
+          fadeToScene(this, 'Title');
+        },
+      });
+    });
+    this.time.delayedCall(12800, () => {
+      this.unmountOverlay?.();
+      this.unmountOverlay = null;
+    });
   }
 
   private renderPending(title: string, titleColor: string): void {
@@ -257,56 +267,6 @@ export class Result extends Scene {
     this.unmountOverlay = () => handle.unmount();
 
     this.input.keyboard?.once('keydown-SPACE', () => fadeToScene(this, 'Title'));
-  }
-
-  private showEdSequence(): void {
-    // Phase 1 (delay 1800ms): HYAKKI YAKOU glitch teaser text (the DOM
-    // overlay flashes it over the victory panel at the bottom).
-    this.time.delayedCall(1800, () => {
-      const teaser = bl(HYAKKI_YAKOU_TEASER);
-      this.flashTeaser(teaser);
-    });
-
-    // Phase 2 (delay 3600ms): SOUL BREAKER reveal via edOverlay.
-    this.time.delayedCall(3600, () => {
-      mountEdOverlay({
-        continuedLabel: t('TO BE CONTINUED:'),
-        heroText: 'SOUL BREAKER',
-        holdMs: 3500,
-      });
-    });
-  }
-
-  private flashTeaser(text: string): void {
-    this.clearTeaser();
-    const el = document.createElement('div');
-    el.textContent = text;
-    el.style.cssText = `
-      position:fixed;left:50%;bottom:80px;transform:translateX(-50%);
-      font-family:'Rajdhani',sans-serif;font-style:italic;
-      font-size:14px;letter-spacing:.12em;color:#aeeaff;
-      opacity:0;pointer-events:none;z-index:105;
-      transition:opacity 200ms ease;
-    `;
-    document.body.appendChild(el);
-    this.teaserEl = el;
-    requestAnimationFrame(() => {
-      el.style.opacity = '0.6';
-      this.teaserTimers.push(window.setTimeout(() => {
-        el.style.opacity = '0';
-        this.teaserTimers.push(window.setTimeout(() => {
-          el.remove();
-          if (this.teaserEl === el) this.teaserEl = null;
-        }, 300));
-      }, 500));
-    });
-  }
-
-  private clearTeaser(): void {
-    this.teaserTimers.forEach((id) => window.clearTimeout(id));
-    this.teaserTimers = [];
-    this.teaserEl?.remove();
-    this.teaserEl = null;
   }
 
   private findAtmanStatement(enemyId: string | null | undefined): ResultOverlayAtmanStatement | undefined {

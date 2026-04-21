@@ -19,10 +19,4 @@
     <text x="256" y="240" font-size="92" fill="#ffffff" letter-spacing="2">SOUL</text>
     <text x="256" y="320" font-size="92" fill="#ff7a00" letter-spacing="2" style="filter: drop-shadow(0 0 10px #ff7a00)">STRIKE</text>
   </g>
-  <g stroke="#ff7a00" stroke-width="3" fill="none">
-    <path d="M64 64 L64 96 M64 64 L96 64"/>
-    <path d="M448 64 L448 96 M448 64 L416 64"/>
-    <path d="M64 448 L64 416 M64 448 L96 448"/>
-    <path d="M448 448 L448 416 M448 448 L416 448"/>
-  </g>
 </svg>

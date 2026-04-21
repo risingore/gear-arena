@@ -21,8 +21,10 @@ import type { Scene } from 'phaser';
 const DEFAULT_VOLUME = 0.35;
 const CROSSFADE_MS = 600;
 
+type TweenableSound = Phaser.Sound.BaseSound & { volume: number; rate: number };
+
 let currentKey: string | null = null;
-let currentSound: Phaser.Sound.BaseSound | null = null;
+let currentSound: TweenableSound | null = null;
 let muted = false;
 
 /**
@@ -34,6 +36,7 @@ export const MUSIC_KEYS = {
   title: 'bgm_title',
   build: 'bgm_build',
   battle: 'bgm_battle',
+  boss: 'bgm_bossbattle',
   victory: 'bgm_victory'
 } as const;
 
@@ -48,33 +51,34 @@ const hasAsset = (scene: Scene, key: string): boolean => {
 };
 
 export const playMusic = (scene: Scene, key: MusicKey, loop = true): void => {
-  if (muted) return;
   if (!hasAsset(scene, key)) {
     // Asset not loaded yet (file missing or still in generation). Skip silently.
     return;
   }
   if (currentKey === key && currentSound && currentSound.isPlaying) return;
 
-  const next = scene.sound.add(key, { loop, volume: 0 });
+  const next = scene.sound.add(key, { loop, volume: 0 }) as TweenableSound;
   try {
     next.play();
   } catch {
     return;
   }
 
-  const nextAsWithVolume = next as unknown as { volume: number };
+  // Snap to 0 while muted so unmute-via-setMusicMuted can raise it later.
+  const targetVolume = muted ? 0 : DEFAULT_VOLUME;
+  scene.tweens.killTweensOf(next);
   scene.tweens.add({
-    targets: nextAsWithVolume,
-    volume: DEFAULT_VOLUME,
+    targets: next,
+    volume: targetVolume,
     duration: CROSSFADE_MS,
     ease: 'Linear'
   });
 
   const prev = currentSound;
   if (prev) {
-    const prevAsWithVolume = prev as unknown as { volume: number };
+    scene.tweens.killTweensOf(prev);
     scene.tweens.add({
-      targets: prevAsWithVolume,
+      targets: prev,
       volume: 0,
       duration: CROSSFADE_MS,
       ease: 'Linear',
@@ -108,14 +112,15 @@ export const stopMusic = (): void => {
 
 export const setMusicMuted = (flag: boolean): void => {
   muted = flag;
-  if (flag) stopMusic();
+  if (currentSound) {
+    currentSound.volume = flag ? 0 : DEFAULT_VOLUME;
+  }
 };
 
-/** Adjust the playback rate of the current BGM track (1.0 = normal). */
 export const setMusicPlaybackRate = (rate: number): void => {
   if (!currentSound) return;
   try {
-    (currentSound as unknown as { rate: number }).rate = rate;
+    currentSound.rate = rate;
   } catch {
     // ignore — not all backends support rate
   }

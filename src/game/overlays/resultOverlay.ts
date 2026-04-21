@@ -49,7 +49,26 @@ export interface ResultOverlayOptions {
 
 export interface ResultOverlayHandle {
   showAcquired(skillName: string): void;
-  showContinue(primaryLabel: string, secondaryLabel: string, primaryAccentHex: string, onPrimary: () => void, onSecondary: () => void): void;
+  showContinue(
+    primaryLabel: string,
+    secondaryLabel: string | undefined,
+    primaryAccentHex: string,
+    onPrimary: () => void,
+    onSecondary: (() => void) | undefined,
+  ): void;
+  /**
+   * Kick off the pre-ending glitch buildup: text RGB split, stage
+   * jitter, and scanline intensification. Used by the Result scene
+   * right before it hands off to the credits scroll.
+   */
+  startGlitch(): void;
+  /**
+   * Reveal the ATMAN statement one character at a time over
+   * `durationMs` milliseconds. Called on the victory panel so the
+   * player watches the closing monologue instead of reading it in a
+   * single glance.
+   */
+  startAtmanTypewriter(durationMs: number): void;
   unmount(): void;
 }
 
@@ -75,7 +94,10 @@ const CSS = `
 .${ROOT_CLASS} .title{
   position:absolute;left:50%;top:110px;transform:translateX(-50%);
   font-family:'Bebas Neue',sans-serif;font-size:72px;letter-spacing:.05em;
-  color:#fff;margin:0;text-shadow:0 0 20px rgba(255,217,74,.3);
+  color:#fff;margin:0;
+  /* Glow follows title colour via currentColor so lose (red) / win (green)
+     / victory (gold) each get their own matching shadow. */
+  text-shadow:0 0 20px currentColor;
 }
 .${ROOT_CLASS} .round{
   position:absolute;left:50%;top:200px;transform:translateX(-50%);
@@ -156,7 +178,7 @@ const CSS = `
   display:flex;flex-direction:column;gap:12px;align-items:center;
 }
 .${ROOT_CLASS} .btn-primary{
-  width:280px;height:52px;border:none;
+  width:280px;height:48px;border:none;
   font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:.14em;color:#fff;
   background:linear-gradient(90deg,var(--accent,#3aff7a),rgba(0,0,0,0));
   border:1px solid var(--accent,#3aff7a);border-left:3px solid var(--accent,#3aff7a);
@@ -171,6 +193,66 @@ const CSS = `
   transition:background .15s;
 }
 .${ROOT_CLASS} .btn-secondary:hover{background:rgba(85,85,119,.6)}
+
+/* Victory -> ending glitch buildup: applied via JS just before the
+   scroll overlay fades in. Three 1-second phases intensify the RGB
+   split on the title, add positional jitter on the whole stage, and
+   crank the scanline opacity so the screen visibly corrupts. */
+.${ROOT_CLASS}.glitching .title{
+  animation:ss-res-glitch-text 2s linear 1 forwards;
+}
+.${ROOT_CLASS}.glitching .atman,
+.${ROOT_CLASS}.glitching .stats,
+.${ROOT_CLASS}.glitching .machine-summary{
+  animation:ss-res-glitch-jitter 2s linear 1 forwards;
+}
+.${ROOT_CLASS}.glitching .stage{
+  animation:ss-res-glitch-filter 2s linear 1 forwards;
+}
+.${ROOT_CLASS}.glitching .stage::after{
+  animation:ss-res-glitch-scan 2s linear 1 forwards !important;
+}
+.${ROOT_CLASS} .atman .text{
+  /* soft cursor-like pulse at the end of the current typewriter chunk */
+  min-height:1em;
+}
+@keyframes ss-res-glitch-text{
+  0%   { text-shadow:0 0 20px currentColor; }
+  20%  { text-shadow:-1px 0 rgba(255,0,60,.4), 1px 0 rgba(0,220,255,.4), 0 0 20px currentColor; }
+  40%  { text-shadow:-2px 0 rgba(255,0,60,.6),-1px 0 rgba(0,220,255,.6), 0 0 24px currentColor; transform:translate(calc(-50% + 1px),1px); }
+  55%  { text-shadow:3px 0 rgba(255,0,60,.8), -3px 0 rgba(0,220,255,.8), 0 0 26px currentColor; transform:translate(calc(-50% - 2px),-1px); }
+  70%  { text-shadow:-4px 0 rgba(255,0,60,.9), 5px 0 rgba(0,220,255,.9), 0 0 30px currentColor; transform:translate(calc(-50% + 3px),2px); }
+  85%  { text-shadow:-6px 0 rgba(255,0,60,1),  6px 0 rgba(0,220,255,1),  0 0 36px currentColor; transform:translate(calc(-50% - 4px),-2px); }
+  100% { text-shadow:-8px 0 rgba(255,0,60,1),  8px 0 rgba(0,220,255,1),  0 0 44px currentColor; transform:translate(calc(-50% + 5px),0); opacity:.85; }
+}
+@keyframes ss-res-glitch-filter{
+  /* Scale-safe: only mutate filter on .stage so the JS-set
+     translate/scale on the stage transform is not clobbered. */
+  0%,55% { filter:none; }
+  60% { filter:hue-rotate(6deg) saturate(1.2); }
+  65% { filter:none; }
+  75% { filter:hue-rotate(-8deg) contrast(1.1); }
+  85% { filter:hue-rotate(12deg) saturate(1.4); }
+  95% { filter:hue-rotate(-14deg) contrast(1.2); }
+  100%{ filter:hue-rotate(20deg) saturate(1.6) contrast(1.3); }
+}
+@keyframes ss-res-glitch-jitter{
+  /* Applied to individual info blocks so each can slide without
+     affecting the stage wrapper (which is JS-scaled). */
+  0%,55% { transform:translateX(-50%); }
+  60% { transform:translate(calc(-50% + 2px),0); }
+  65% { transform:translate(calc(-50% - 3px),1px); }
+  72% { transform:translate(calc(-50% + 4px),-2px); }
+  80% { transform:translate(calc(-50% - 5px),0); }
+  88% { transform:translate(calc(-50% + 6px),1px); }
+  95% { transform:translate(calc(-50% - 4px),-1px); }
+  100%{ transform:translate(-50%,0); opacity:.85; }
+}
+@keyframes ss-res-glitch-scan{
+  0%   { opacity:.7; }
+  50%  { opacity:.9; }
+  100% { opacity:1; }
+}
 `;
 
 export function mountResultOverlay(opts: ResultOverlayOptions): ResultOverlayHandle {
@@ -183,8 +265,8 @@ export function mountResultOverlay(opts: ResultOverlayOptions): ResultOverlayHan
   const showSkills = (opts.skillChoices?.length ?? 0) > 0;
   const skillsBlock = showSkills
     ? `
-      <div class="skill-label" style="top:400px">${esc(opts.skillLabel ?? 'CHOOSE A SKILL')}</div>
-      <div class="skill-cards" style="top:450px">
+      <div class="skill-label" style="top:450px">${esc(opts.skillLabel ?? 'CHOOSE A SKILL')}</div>
+      <div class="skill-cards" style="top:500px">
         ${opts.skillChoices!
           .map(
             (s, i) => `
@@ -313,7 +395,7 @@ export function mountResultOverlay(opts: ResultOverlayOptions): ResultOverlayHan
       // Inject acquired label at the previous skill-label position
       const label = document.createElement('div');
       label.className = 'acquired';
-      label.style.top = '430px';
+      label.style.top = '470px';
       label.textContent = `${opts.acquiredLabelPrefix ?? 'Acquired:'} ${skillName}`;
       stage.appendChild(label);
     },
@@ -322,13 +404,38 @@ export function mountResultOverlay(opts: ResultOverlayOptions): ResultOverlayHan
       const container = document.createElement('div');
       container.className = 'actions';
       container.style.top = '570px';
+      const secondaryHtml = secondaryLabel
+        ? `<button class="btn-secondary" data-role="secondary">${esc(secondaryLabel)}</button>`
+        : '';
       container.innerHTML = `
         <button class="btn-primary" data-role="primary" style="--accent:${esc(primaryAccentHex)}">${esc(primaryLabel)}</button>
-        <button class="btn-secondary" data-role="secondary">${esc(secondaryLabel)}</button>
+        ${secondaryHtml}
       `;
       stage.appendChild(container);
       (container.querySelector('[data-role="primary"]') as HTMLElement).addEventListener('click', onPrimary);
-      (container.querySelector('[data-role="secondary"]') as HTMLElement).addEventListener('click', onSecondary);
+      const secondaryBtn = container.querySelector('[data-role="secondary"]') as HTMLElement | null;
+      if (secondaryBtn && onSecondary) {
+        secondaryBtn.addEventListener('click', onSecondary);
+      }
+    },
+    startGlitch(): void {
+      root.classList.add('glitching');
+    },
+    startAtmanTypewriter(durationMs: number): void {
+      const textEl = root.querySelector('.atman .text') as HTMLElement | null;
+      if (!textEl) return;
+      const full = textEl.textContent ?? '';
+      if (full.length === 0) return;
+      textEl.textContent = '';
+      const start = performance.now();
+      const step = (now: number): void => {
+        const elapsed = now - start;
+        const ratio = Math.min(1, elapsed / durationMs);
+        const shown = Math.floor(ratio * full.length);
+        textEl.textContent = full.slice(0, shown);
+        if (ratio < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
     },
     unmount: wrapUnmount(root, disposeFit),
   };

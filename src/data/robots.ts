@@ -30,8 +30,8 @@ export const ROBOTS = {
     baseDamageReductionPct: 0,
     baseAttackSpeedMultiplier: 1.0,
     passiveText: 'No passive — raw striking power.',
-    blueprintAssetKey: 'blueprint_knight',
-    battleAssetKey: 'battle_knight',
+    blueprintAssetKey: 'blueprint_indra',
+    battleAssetKey: 'battle_indra',
     buffSlots: 2,
     slots: [
       // Right arm gauntlet — shoulder to fist (top to bottom, 32-unit vertical spacing)

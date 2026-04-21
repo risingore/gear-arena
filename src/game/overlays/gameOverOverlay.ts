@@ -5,7 +5,15 @@
  * scene transitions so keyboard shortcuts keep working.
  */
 
-import { ensureFrameStyle, buildFrameHtml } from './overlayBase';
+import {
+  ensureFrameStyle,
+  buildFrameHtml,
+  ensureStyle,
+  escapeHtml as esc,
+  clearPriorRoots,
+  fitStageToCanvas,
+  wrapUnmount,
+} from './overlayBase';
 
 export interface GameOverOverlayOptions {
   round: number;
@@ -37,7 +45,7 @@ const CSS = `
   gap:18px;
 }
 .${ROOT_CLASS} .title{
-  font-family:'Bebas Neue',sans-serif;font-size:88px;letter-spacing:.04em;
+  font-family:'Bebas Neue',sans-serif;font-size:72px;letter-spacing:.05em;
   color:#ff4444;text-shadow:0 0 20px rgba(255,68,68,.4);margin:0;
 }
 .${ROOT_CLASS} .round{
@@ -76,22 +84,10 @@ const CSS = `
 .${ROOT_CLASS} .credits b{color:#aeeaff;font-weight:500;letter-spacing:.16em}
 `;
 
-function ensureStyle(): void {
-  if (document.getElementById(STYLE_ID)) return;
-  const style = document.createElement('style');
-  style.id = STYLE_ID;
-  style.textContent = CSS;
-  document.head.appendChild(style);
-}
-
-function esc(s: string): string {
-  return s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] ?? c));
-}
-
 export function mountGameOverOverlay(opts: GameOverOverlayOptions): () => void {
-  ensureStyle();
-
-  document.querySelectorAll(`.${ROOT_CLASS}`).forEach((el) => el.remove());
+  ensureFrameStyle();
+  ensureStyle(STYLE_ID, CSS);
+  clearPriorRoots(ROOT_CLASS);
 
   const root = document.createElement('div');
   root.className = ROOT_CLASS;
@@ -101,7 +97,6 @@ export function mountGameOverOverlay(opts: GameOverOverlayOptions): () => void {
     ? `<div class="scrap">+${opts.scrapEarned} Scrap</div>`
     : '';
 
-  ensureFrameStyle();
   root.innerHTML = `
     <div class="stage ss-stage">
       ${buildFrameHtml({
@@ -123,36 +118,13 @@ export function mountGameOverOverlay(opts: GameOverOverlayOptions): () => void {
 
   document.body.appendChild(root);
 
-  const fit = (): void => {
-    const stage = root.querySelector('.stage') as HTMLElement | null;
-    const canvas = document.querySelector('#game-container canvas') as HTMLCanvasElement | null;
-    if (!stage || !canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const s = Math.min(rect.width / 1280, rect.height / 720);
-    stage.style.left = `${rect.left + rect.width / 2}px`;
-    stage.style.top = `${rect.top + rect.height / 2}px`;
-    stage.style.transform = `translate(-50%, -50%) scale(${s})`;
-  };
-  window.addEventListener('resize', fit);
-  let ro: ResizeObserver | null = null;
-  const canvasEl = document.querySelector('#game-container canvas');
-  if (canvasEl && typeof ResizeObserver !== 'undefined') {
-    ro = new ResizeObserver(() => fit());
-    ro.observe(canvasEl);
-  }
-  fit();
+  const stage = root.querySelector('.stage') as HTMLElement;
+  const disposeFit = fitStageToCanvas(stage);
 
   const btn = root.querySelector('[data-role="return"]') as HTMLElement | null;
   btn?.addEventListener('click', () => opts.onReturnToTitle());
 
   requestAnimationFrame(() => root.classList.add('visible'));
 
-  return (): void => {
-    root.classList.remove('visible');
-    window.removeEventListener('resize', fit);
-    if (ro) ro.disconnect();
-    window.setTimeout(() => {
-      if (root.parentNode) root.parentNode.removeChild(root);
-    }, 240);
-  };
+  return wrapUnmount(root, disposeFit);
 }

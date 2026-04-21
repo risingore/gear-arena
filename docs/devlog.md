@@ -867,3 +867,96 @@ while developing it no longer argues with the frame.
 - Integrate art + audio assets as they arrive (Tasks A–E).
 
 ---
+
+## Day 8 — 2026-04-21 (session 2)
+
+**Theme: chase the drift.** Seven DOM overlays had forked the
+same 30-line scaffold (`ensureStyle`, `escapeHtml`, prior-root
+clear, `fitStageToCanvas` inline, unmount timeout). Fixing any
+cross-scene bug meant editing seven files. Two shipping bugs had
+already slipped through that drift. Today was cleanup + bug-fix
+before the Build-screen redesign drops from Claude Design.
+
+### Three parallel review agents
+
+Fed the working-tree diff (+1179 / −1049 across 33 files) to
+three sub-agents in one `/simplify` pass: reuse, quality,
+efficiency. Scoring was binary — is this actually breaking
+something at the jam, or is it cosmetic? Acted only on the
+former.
+
+Three real bugs fell out:
+
+- **Music crossfade stutter.** `playMusic()` added a new tween
+  to `sound.volume` without killing the prior one, so rapid
+  scene switches could stack two tweens on the same track and
+  audibly ratchet. Added `scene.tweens.killTweensOf(sound)`
+  before both the incoming and outgoing fades.
+- **Shop tween thrash.** `refreshShop()` was calling
+  `this.tweens.killTweensOf(container)` on every card every
+  refresh (buy, sell, reroll, hover), then unconditionally
+  re-creating the merge-pulse tween for `merge2` / `merge3`
+  cards. Tween churn spiked to ~24 create/kill per hover pass.
+  Stashed the last `placeState` as container data and only
+  kill + recreate when the state actually changed.
+- **One-shot debug write to a `readonly` field.** Battle's
+  `fireUltimate` one-shot branch was mutating
+  `AttackEvent.killed` directly — `tsc` had been flagging this
+  as `TS2540` for days. Fixed by splatting a fresh
+  `{ ...last, killed: true }` into the attacks array.
+
+### Helper migration
+
+Six overlays (`collectionOverlay`, `creditsOverlay`,
+`endingScrollOverlay`, `gameOverOverlay`, `selectOverlay`,
+`settingsOverlay`, `titleOverlay`) were each carrying their own
+`ensureStyle`, `esc` (some with the 4-char variant that silently
+skips `"` and `'`), their own 18-line `fit()` + `ResizeObserver`
+block, and a bespoke unmount timeout. Routed them all through
+`overlayBase`'s exports: `ensureStyle(id, css)`,
+`escapeHtml as esc`, `clearPriorRoots`, `fitStageToCanvas`, and
+`wrapUnmount`. Net: roughly 150 lines removed; any future tweak
+to transition timing or DPR handling now lands in one place.
+
+`endingScrollOverlay` got an extra polish pass — the scroll raf
+was scheduling itself forever after the credits reached the
+hero frame. Swapped to an early return so the loop actually
+stops burning frames when idle. Unused `speedMult` /
+`finished` variables deleted.
+
+### Window globals
+
+Promoted `window.__PHASER_GAME__` and
+`window.__APPLY_BG_AUDIO__` to proper `declare global` types in
+`main.ts`. Settings.ts and main.ts were each casting
+`(window as unknown as { __APPLY_BG_AUDIO__?: ... })` with
+slightly different signatures. Now just `window.__APPLY_BG_AUDIO__?.(next)`.
+
+### Build-scene dead-code amputation
+
+`drawSkillSlots` had been reduced to `void this.drawSkillSlots;`
+to silence TS6133 since Day 6 when the SKILL column got
+reclaimed for STORAGE. The 50-line method body plus `SKILL_COL_W`
+/ `SKILL_COL_X` aliases are now deleted outright. When the
+column comes back post-jam it'll be easier to restore from git
+than to keep the dead body warm.
+
+### Quality bar
+
+- `bun run tsc --noEmit`: 0 errors. (The pre-existing
+  `attacks[...].killed` TS2540 is gone.)
+- `bun run build`: 229 kB / 66 kB gzip main bundle (+Phaser 350
+  kB gzip). No regression.
+- Narrative comments stripped where they restated the code
+  below (Build placement-state block, enemyPool jam subset,
+  Result.ts 13-line Timeline comment, buildOverlay vignette
+  commentary).
+
+### Next
+
+- Ship the redesigned Build screen from Claude Design (spec
+  lives at `docs/design/build-spec.md`, waiting on the HTML
+  handoff).
+- Day 8 balance tuning over the weekend; Jam closes Sunday.
+
+---

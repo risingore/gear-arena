@@ -37,9 +37,12 @@ import { mountBuildOverlay, type BuildOverlayHandle } from '../overlays/buildOve
 // Layout constants
 // ---------------------------------------------------------------------------
 
-const SKILL_COL_W = 56;
-const BLUEPRINT_BOX_W = 340;
-const BLUEPRINT_BOX_H = 480;
+const STORAGE_COL_W = 100;
+
+// Blueprint box sized to the PNG aspect (880:1168 ≈ 0.753) so the raw
+// lineart renders without distortion.
+const BLUEPRINT_BOX_W = 450;
+const BLUEPRINT_BOX_H = 598;
 const SLOT_RADIUS = 19;
 const SHOP_CARD_W = 140;
 const SHOP_CARD_H = 86;
@@ -48,10 +51,10 @@ const SHOP_COLS = 2;
 const STATS_W = 260;
 const COL_GAP = 20;
 const SHOP_W = SHOP_COLS * SHOP_CARD_W + (SHOP_COLS - 1) * SHOP_CARD_GAP;
-const TOTAL_W = SKILL_COL_W + COL_GAP + BLUEPRINT_BOX_W + COL_GAP + SHOP_W + COL_GAP + STATS_W;
+const TOTAL_W = STORAGE_COL_W + COL_GAP + BLUEPRINT_BOX_W + COL_GAP + SHOP_W + COL_GAP + STATS_W;
 const LEFT_MARGIN = Math.floor((1280 - TOTAL_W) / 2);
-const SKILL_COL_X = LEFT_MARGIN;
-const BLUEPRINT_X = SKILL_COL_X + SKILL_COL_W + COL_GAP;
+const STORAGE_COL_X = LEFT_MARGIN;
+const BLUEPRINT_X = STORAGE_COL_X + STORAGE_COL_W + COL_GAP;
 const SHOP_AREA_X = BLUEPRINT_X + BLUEPRINT_BOX_W + COL_GAP;
 const STATS_X = SHOP_AREA_X + SHOP_W + COL_GAP;
 
@@ -62,13 +65,17 @@ const BUFF_SLOT_Y_OFFSET = 20;
 const BUFF_SLOT_RADIUS = 16;
 const BUFF_SLOT_GAP = 44;
 
-/** Trash / basket zone below blueprint. */
-const ZONE_Y = BP_TOP + BLUEPRINT_BOX_H + 14;
-const ZONE_W = 80;
-const ZONE_H = 50;
-const BASKET_ITEM_W = 56;
-const BASKET_ITEM_H = 28;
-const BASKET_GAP = 4;
+// --- Storage column (vertical, 7 items) + SELL box below ------------------
+const STORAGE_TOP = BP_TOP;
+const STORAGE_ITEM_W = STORAGE_COL_W - 10;   // 10 = 5px padding each side
+const STORAGE_ITEM_H = 40;
+const STORAGE_ITEM_GAP = 4;
+const STORAGE_MAX = 7;
+const STORAGE_STACK_H = STORAGE_MAX * STORAGE_ITEM_H + (STORAGE_MAX - 1) * STORAGE_ITEM_GAP;
+const SELL_BOX_W = STORAGE_COL_W - 10;
+const SELL_BOX_H = 60;
+const SELL_BOX_Y = STORAGE_TOP + STORAGE_STACK_H + 20;
+
 
 // ---------------------------------------------------------------------------
 // Drag source enum
@@ -131,6 +138,11 @@ export class Build extends Scene {
   private dragBasketIndex = -1;
   private dragGhost: GameObjects.Rectangle | null = null;
   private dragLabel: GameObjects.Text | null = null;
+  /** Pointer position when drag began — used to discriminate click vs drag. */
+  private dragStartX = 0;
+  private dragStartY = 0;
+  /** Pointer movement (px) above which a slot release is treated as a drag. */
+  private static readonly DRAG_CLICK_THRESHOLD = 10;
 
   constructor() {
     super('Build');
@@ -151,16 +163,9 @@ export class Build extends Scene {
     fadeInCurrent(this);
     playMusic(this, MUSIC_KEYS.build);
 
-    // Header is rendered as a DOM overlay (see overlays/buildOverlay.ts).
-
-    // Left column — acquired skills
-    this.drawSkillSlots(state.acquiredSkills);
-
-    // Blueprint panel (slots + buff slots)
     this.drawBlueprintPanel(state.robotKey);
 
-    // Trash & basket below blueprint
-    this.drawTrashAndBasket();
+    this.drawStorageAndSell();
 
     // Right column — stats panel background + gold + stats + preview
     createPanel(this, STATS_X + STATS_W / 2, 330, STATS_W + 16, 520, { fillAlpha: 0.5, depth: 0 });
@@ -179,23 +184,29 @@ export class Build extends Scene {
       .setOrigin(0, 0)
       .setColor('#3ab0ff');
 
-    // Buttons
-    const btnX = STATS_X + STATS_W / 2;
+    // REROLL — anchored at the bottom of the shop column, full-width so it
+    // reads as the last shop-offer row.
+    const rerollX = SHOP_AREA_X + SHOP_W / 2;
+    const shopRows = Math.ceil(ECONOMY.shopSlotCount / SHOP_COLS);
+    const rerollY = 108 + shopRows * (SHOP_CARD_H + SHOP_CARD_GAP) + 12;
     const rerollCost = getRerollCost(getRunState(this));
-    const rerollBtn = createButton(this, btnX, 500, 200, 44, `${t('REROLL')} (${rerollCost} g)`, () => {
-      const s = getRunState(this);
-      const rerolled = attemptReroll(s, generateShopOffer(s.currentRound));
-      if (rerolled) {
-        setRunState(this, rerolled);
-        this.refreshShop();
-        this.refreshHud();
-        playSfx('reroll');
-      } else {
-        playSfx('click');
-      }
-    });
+    const rerollBtn = createButton(this, rerollX, rerollY, SHOP_W, 44,
+      `${t('REROLL')} (${rerollCost} g)`, () => {
+        const s = getRunState(this);
+        const rerolled = attemptReroll(s, generateShopOffer(s.currentRound));
+        if (rerolled) {
+          setRunState(this, rerolled);
+          this.refreshShop();
+          this.refreshHud();
+          playSfx('reroll');
+        } else {
+          playSfx('click');
+        }
+      });
     this.rerollBtnText = rerollBtn.text;
 
+    // READY stays in the stats column.
+    const btnX = STATS_X + STATS_W / 2;
     createButton(this, btnX, 556, 200, 50, t('READY'), () => {
       playSfx('click');
       fadeToScene(this, 'Battle');
@@ -210,7 +221,7 @@ export class Build extends Scene {
       playSfx('click');
       fadeToScene(this, 'Battle');
     });
-    const numberKeys = ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE'] as const;
+    const numberKeys = ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX'] as const;
     numberKeys.forEach((key, i) => {
       this.input.keyboard?.on(`keydown-${key}`, () => this.handleShopKeypress(i));
     });
@@ -243,7 +254,7 @@ export class Build extends Scene {
       totalRounds,
       roundLabel: t('ROUND'),
       monologue,
-      tutorialHint: state.currentRound === 1 ? t('Drag parts from shop to blueprint slots') : undefined,
+      tutorialHint: state.currentRound === 1 ? t('DRAG parts into slots  ·  MATCH types for synergy  ·  PRESS READY to fight') : undefined,
     });
 
     this.events.once('shutdown', () => {
@@ -270,21 +281,33 @@ export class Build extends Scene {
     const { textStyles } = gameOptions;
     const robot = ROBOTS[robotKey];
 
-    this.add
-      .rectangle(BLUEPRINT_X, BP_TOP, BLUEPRINT_BOX_W, BLUEPRINT_BOX_H, PALETTE.blueprintBg, 1)
-      .setOrigin(0, 0)
-      .setStrokeStyle(2, PALETTE.blueprintLine);
+    // Panel background removed — the scene's shared grid background shows
+    // through around the blueprint image so the Build area reads as part of
+    // the same frame as other scenes.
 
     this.add
       .text(BLUEPRINT_X + 12, BP_TOP + 10, `${t(robot.name)}  :  ${t('BLUEPRINT')}`, textStyles.small)
       .setColor('#aeeaff');
 
-    // Silhouette placeholder
     const silhouetteX = BLUEPRINT_X + BLUEPRINT_BOX_W / 2;
     const silhouetteY = BP_TOP + BLUEPRINT_BOX_H / 2;
+
+    // Blueprint image — scaled proportionally to fit the panel without
+    // stretching. Distortion (which smears the internal grid and makes the
+    // panel look dirty) is avoided at the cost of a small top/bottom margin
+    // when the source aspect doesn't match the panel exactly.
+    if (this.textures.exists(robot.blueprintAssetKey)) {
+      const img = this.add.image(silhouetteX, silhouetteY, robot.blueprintAssetKey);
+      const scale = Math.min(BLUEPRINT_BOX_W / img.width, BLUEPRINT_BOX_H / img.height);
+      img.setScale(scale);
+    }
+
+    // Outer frame — sized to the full panel. Invisible (no stroke) while
+    // slots are unfilled; refreshSlots paints a gold glow stroke here once
+    // every slot is equipped, signalling the mech is "awakened".
     this.silhouetteRect = this.add
-      .rectangle(silhouetteX, silhouetteY, BLUEPRINT_BOX_W * 0.88, BLUEPRINT_BOX_H * 0.88, 0x000000, 0)
-      .setStrokeStyle(2, PALETTE.blueprintLine);
+      .rectangle(BLUEPRINT_X, BP_TOP, BLUEPRINT_BOX_W, BLUEPRINT_BOX_H, 0x000000, 0)
+      .setOrigin(0, 0);
 
     // Coordinate mapping: virtual 192x240 -> panel
     const virtualW = 192;
@@ -353,29 +376,43 @@ export class Build extends Scene {
   // Trash & Basket
   // ==========================================================================
 
-  private drawTrashAndBasket(): void {
+  private drawStorageAndSell(): void {
     const { textStyles } = gameOptions;
-    const trashX = BLUEPRINT_X;
-    const basketX = BLUEPRINT_X + ZONE_W + 16;
+    const colX = STORAGE_COL_X + 5;
 
-    // Trash zone
+    // STORAGE header label (above the column)
+    this.add
+      .text(STORAGE_COL_X + STORAGE_COL_W / 2, STORAGE_TOP - 12, t('STORAGE'),
+        { ...textStyles.small, fontSize: '11px', color: '#3ab0ff' })
+      .setOrigin(0.5, 0.5);
+
+    // Storage column — outer container rectangle. Also serves as the
+    // basket hit area; fills the full 7-slot stack height.
+    this.basketZone = this.add
+      .rectangle(STORAGE_COL_X, STORAGE_TOP - 2, STORAGE_COL_W, STORAGE_STACK_H + 4, 0x0a0a14, 0.4)
+      .setOrigin(0, 0)
+      .setStrokeStyle(1, PALETTE.accentBlue);
+
+    // 7 ghost slot outlines inside the storage column (visual capacity hint).
+    for (let i = 0; i < STORAGE_MAX; i += 1) {
+      const y = STORAGE_TOP + i * (STORAGE_ITEM_H + STORAGE_ITEM_GAP);
+      this.add
+        .rectangle(colX, y, STORAGE_ITEM_W, STORAGE_ITEM_H, 0x000000, 0)
+        .setOrigin(0, 0)
+        .setStrokeStyle(1, 0x2a4a7e, 0.55);
+    }
+
+    // SELL drop box below the storage stack. Kept as `trashZone` in the
+    // field so existing hit-test code continues to work; semantically it's
+    // the sell-target now.
     this.trashZone = this.add
-      .rectangle(trashX, ZONE_Y, ZONE_W, ZONE_H, 0x331515, 1)
+      .rectangle(colX, SELL_BOX_Y, SELL_BOX_W, SELL_BOX_H, 0x331515, 1)
       .setOrigin(0, 0)
       .setStrokeStyle(2, PALETTE.danger);
     this.add
-      .text(trashX + ZONE_W / 2, ZONE_Y + ZONE_H / 2, t('SELL'), { ...textStyles.small, color: '#ff4444' })
+      .text(colX + SELL_BOX_W / 2, SELL_BOX_Y + SELL_BOX_H / 2, t('SELL'),
+        { ...textStyles.small, color: '#ff4444' })
       .setOrigin(0.5);
-
-    // Basket zone
-    const basketW = BLUEPRINT_BOX_W - ZONE_W - 16;
-    this.basketZone = this.add
-      .rectangle(basketX, ZONE_Y, basketW, ZONE_H, 0x1a1a28, 1)
-      .setOrigin(0, 0)
-      .setStrokeStyle(2, PALETTE.accentBlue);
-    this.add
-      .text(basketX + 10, ZONE_Y + 8, t('STORAGE'), { ...textStyles.small, fontSize: '11px', color: '#3ab0ff' })
-      .setOrigin(0, 0);
   }
 
   private refreshBasketItems(): void {
@@ -385,21 +422,18 @@ export class Build extends Scene {
 
     const { textStyles } = gameOptions;
     const state = getRunState(this);
-    const basketX = BLUEPRINT_X + ZONE_W + 16;
-    const startX = basketX + 4;
-    const startY = ZONE_Y + 18;
+    const itemX = STORAGE_COL_X + 5;
 
-    state.storedParts.forEach((stored, i) => {
+    // Stack items vertically, one per slot, cap at STORAGE_MAX.
+    state.storedParts.slice(0, STORAGE_MAX).forEach((stored, i) => {
       const part = PARTS[stored.key];
       if (!part) return;
-      const col = i % 4;
-      const row = Math.floor(i / 4);
-      const x = startX + col * (BASKET_ITEM_W + BASKET_GAP) + BASKET_ITEM_W / 2;
-      const y = startY + row * (BASKET_ITEM_H + BASKET_GAP) + BASKET_ITEM_H / 2;
+      const cx = itemX + STORAGE_ITEM_W / 2;
+      const cy = STORAGE_TOP + i * (STORAGE_ITEM_H + STORAGE_ITEM_GAP) + STORAGE_ITEM_H / 2;
 
-      const container = this.add.container(x, y);
+      const container = this.add.container(cx, cy);
       const bg = this.add
-        .rectangle(0, 0, BASKET_ITEM_W, BASKET_ITEM_H, CATEGORY_COLORS[part.category], 0.3)
+        .rectangle(0, 0, STORAGE_ITEM_W, STORAGE_ITEM_H, CATEGORY_COLORS[part.category], 0.3)
         .setStrokeStyle(1, CATEGORY_COLORS[part.category]);
       bg.setInteractive({ useHandCursor: true });
       bg.on('pointerdown', () => this.startDragFromBasket(i));
@@ -412,67 +446,13 @@ export class Build extends Scene {
       container.add(bg);
 
       const lbl = this.add
-        .text(0, 0, CATEGORY_LABEL[part.category], { ...textStyles.small, fontSize: '10px' })
+        .text(0, 0, `${CATEGORY_LABEL[part.category]}  ${t(part.name).slice(0, 12)}`,
+          { ...textStyles.small, fontSize: '10px' })
         .setOrigin(0.5);
       container.add(lbl);
 
       this.basketItems.push(container);
     });
-  }
-
-  // ==========================================================================
-  // Skill slots (left column)
-  // ==========================================================================
-
-  private drawSkillSlots(acquiredSkills: readonly string[]): void {
-    const { textStyles } = gameOptions;
-    const slotSize = SKILL_COL_W;
-    const gap = 8;
-    const centerX = SKILL_COL_X + SKILL_COL_W / 2;
-    const startY = 80;
-    const maxSlots = 3;
-
-    this.add
-      .text(centerX, startY - 18, t('SKILLS'), { ...textStyles.small, fontSize: '12px' })
-      .setOrigin(0.5)
-      .setAlpha(0.4);
-
-    for (let i = 0; i < maxSlots; i += 1) {
-      const y = startY + i * (slotSize + gap) + slotSize / 2;
-      const skillId = acquiredSkills[i];
-      const skill = skillId ? findSkillDef(skillId) : null;
-
-      const bg = this.add
-        .rectangle(centerX, y, slotSize, slotSize, skill ? 0x1a1a28 : 0x0d0d14, 1)
-        .setStrokeStyle(skill ? 2 : 1, skill ? PALETTE.accentOrange : 0x333344);
-
-      if (skill) {
-        const words = skill.name.split(' ');
-        this.add
-          .text(centerX, y - 10, words[0]!, { ...textStyles.small, fontSize: '13px' })
-          .setOrigin(0.5)
-          .setColor('#ffd94a');
-        if (words.length > 1) {
-          this.add
-            .text(centerX, y + 10, words.slice(1).join(' '), { ...textStyles.small, fontSize: '11px' })
-            .setOrigin(0.5)
-            .setColor('#ffd94a')
-            .setAlpha(0.7);
-        }
-        bg.setInteractive({ useHandCursor: true });
-        bg.on('pointerover', () => {
-          this.previewText.setText(`${t('SKILL')}: ${t(skill.name)}\n  ${t(skill.description)}`);
-          bg.setStrokeStyle(2, 0xffffff);
-        });
-        bg.on('pointerout', () => {
-          this.previewText.setText('');
-          bg.setStrokeStyle(2, PALETTE.accentOrange);
-        });
-      } else {
-        this.add
-          .rectangle(centerX, y, slotSize * 0.4, 2, 0x333344, 0.5);
-      }
-    }
   }
 
   // ==========================================================================
@@ -505,7 +485,12 @@ export class Build extends Scene {
         .rectangle(0, 0, SHOP_CARD_W, SHOP_CARD_H, PALETTE.cardBg, 1)
         .setStrokeStyle(2, PALETTE.cardStroke);
       bg.setInteractive({ useHandCursor: true });
-      bg.on('pointerdown', () => this.startDragFromShop(i));
+      bg.on('pointerup', () => {
+        // Ignore if a drag from elsewhere is in progress (slot/basket drag
+        // release can land over a shop card).
+        if (this.dragSource !== DragSource.None) return;
+        this.handleShopKeypress(i);
+      });
       bg.on('pointerover', () => {
         bg.setFillStyle(PALETTE.cardBgHover, 1);
         this.hoverShopIndex = i;
@@ -559,13 +544,24 @@ export class Build extends Scene {
       container.list.slice(1).forEach((child) => child.destroy());
       const key = state.shopOffer[i] as string | undefined;
       if (!key) {
+        if (container.getData('placeState') !== 'sold') {
+          this.tweens.killTweensOf(container);
+          container.setData('placeState', 'sold');
+        }
         bg.setFillStyle(PALETTE.buttonDisabled, 1);
+        bg.setStrokeStyle(2, PALETTE.cardStroke);
+        container.setAlpha(0.45);
         container.add(this.add.text(0, 0, t('SOLD'), textStyles.small).setOrigin(0.5));
         return;
       }
       if (isItemKey(key)) {
         const item = ITEMS[key];
         const canAffordItem = state.gold >= item.price;
+        const itemState = canAffordItem ? 'item' : 'item-locked';
+        if (container.getData('placeState') !== itemState) {
+          this.tweens.killTweensOf(container);
+          container.setData('placeState', itemState);
+        }
         bg.setFillStyle(canAffordItem ? PALETTE.itemCardBg : PALETTE.buttonDisabled, 1);
         container.setAlpha(canAffordItem ? 1 : 0.45);
         container.add(
@@ -592,7 +588,65 @@ export class Build extends Scene {
       const part = PARTS[key as PartKey];
       const canAfford = state.gold >= part.price;
       bg.setFillStyle(canAfford ? PALETTE.cardBg : PALETTE.buttonDisabled, 1);
-      container.setAlpha(canAfford ? 1 : 0.45);
+
+      let placeState: 'equip' | 'merge2' | 'merge3' | 'full' = 'full';
+      if (canAfford && state.robotKey) {
+        const partKey = key as PartKey;
+        const free = this.findFreeSlotFor(state.robotKey, partKey, state.equipped);
+        if (free) {
+          placeState = 'equip';
+        } else {
+          const mSlotId = this.findMergeSlotFor(partKey, state.equipped);
+          if (mSlotId) {
+            const resultStar = (state.equipped[mSlotId]?.star ?? 0) + 1;
+            placeState = resultStar >= BALANCE.maxStarLevel ? 'merge3' : 'merge2';
+          }
+        }
+      }
+      const effectiveState = canAfford ? placeState : 'locked';
+      const prevState = container.getData('placeState') as string | undefined;
+      if (prevState !== effectiveState) {
+        this.tweens.killTweensOf(container);
+        container.setData('placeState', effectiveState);
+      }
+
+      if (!canAfford) {
+        bg.setStrokeStyle(2, PALETTE.cardStroke);
+        container.setAlpha(0.45);
+      } else if (placeState === 'merge3') {
+        bg.setStrokeStyle(4, PALETTE.goldText);
+        if (prevState !== effectiveState) {
+          container.setAlpha(1);
+          this.tweens.add({
+            targets: container,
+            alpha: { from: 0.68, to: 1 },
+            duration: 420,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut',
+          });
+        }
+      } else if (placeState === 'merge2') {
+        bg.setStrokeStyle(3, PALETTE.accentOrange);
+        if (prevState !== effectiveState) {
+          container.setAlpha(1);
+          this.tweens.add({
+            targets: container,
+            alpha: { from: 0.82, to: 1 },
+            duration: 620,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut',
+          });
+        }
+      } else if (placeState === 'equip') {
+        bg.setStrokeStyle(2, PALETTE.cardStroke);
+        container.setAlpha(1);
+      } else {
+        bg.setStrokeStyle(2, 0x555577);
+        container.setAlpha(0.45);
+      }
+
       container.add(
         this.add.rectangle(0, -SHOP_CARD_H / 2 + 6, SHOP_CARD_W - 8, 4, CATEGORY_COLORS[part.category], canAfford ? 1 : 0.3)
       );
@@ -618,25 +672,6 @@ export class Build extends Scene {
   // Drag & Drop — start
   // ==========================================================================
 
-  private startDragFromShop(shopIndex: number): void {
-    const state = getRunState(this);
-    const key = state.shopOffer[shopIndex];
-    if (!key) return;
-
-    // Block drag if can't afford
-    const price = isItemKey(key) ? ITEMS[key].price : PARTS[key as PartKey].price;
-    if (state.gold < price) { playSfx('click'); return; }
-
-    this.dragSource = DragSource.Shop;
-    this.dragShopIndex = shopIndex;
-    const itemMode = isItemKey(key);
-    const color = itemMode ? PALETTE.itemBar : PALETTE.accentBlue;
-    const name = itemMode ? ITEMS[key].name : PARTS[key as PartKey].name;
-    const ptr = this.input.activePointer;
-    this.createGhost(ptr.x, ptr.y, color, name);
-    this.highlightDropTargetsForShop(shopIndex);
-  }
-
   private startDragFromSlot(slotId: string): void {
     const state = getRunState(this);
     const entry = state.equipped[slotId];
@@ -647,27 +682,80 @@ export class Build extends Scene {
     this.dragSource = DragSource.Slot;
     this.dragSlotId = slotId;
     const ptr = this.input.activePointer;
+    this.dragStartX = ptr.x;
+    this.dragStartY = ptr.y;
     this.createGhost(ptr.x, ptr.y, CATEGORY_COLORS[part.category], part.name);
-    this.highlightTrashAndBasket();
+    // Only the trash zone is a valid drag target now (basket is click-only);
+    // highlight trash alone.
+    this.trashZone.setStrokeStyle(3, 0xffffff);
   }
 
   private startDragFromBuffSlot(_buffIndex: number): void {
     // Buffs cannot be removed once equipped. Block drag.
   }
 
+  /**
+   * Start a drag from a storage basket item. On release, handleDrop
+   * discriminates: short move = click = re-equip to first matching slot,
+   * longer move = drag = check SELL box for sell-from-basket.
+   */
   private startDragFromBasket(basketIndex: number): void {
     const state = getRunState(this);
     const stored = state.storedParts[basketIndex];
     if (!stored) return;
-    const partKey = stored.key;
-    const part = PARTS[partKey];
+    const part = PARTS[stored.key];
     if (!part) return;
 
     this.dragSource = DragSource.Basket;
     this.dragBasketIndex = basketIndex;
     const ptr = this.input.activePointer;
+    this.dragStartX = ptr.x;
+    this.dragStartY = ptr.y;
     this.createGhost(ptr.x, ptr.y, CATEGORY_COLORS[part.category], part.name);
-    this.highlightDropTargetsForPart(partKey);
+    // Highlight SELL box as the only valid drag target.
+    this.trashZone.setStrokeStyle(3, 0xffffff);
+  }
+
+  /**
+   * On basket-drag release, accept only drops inside the SELL box.
+   */
+  private dropFromBasket(basketIndex: number, x: number, y: number): void {
+    if (this.isInsideRect(x, y, this.trashZone)) {
+      this.executeSellFromBasket(basketIndex);
+    }
+    // Otherwise snap back (no-op).
+  }
+
+  /**
+   * Sell a part from basket: remove from storedParts, refund gold.
+   */
+  private executeSellFromBasket(basketIndex: number): void {
+    const state = getRunState(this);
+    const stored = state.storedParts[basketIndex];
+    if (!stored) return;
+    const part = PARTS[stored.key];
+    if (!part) return;
+    const refund = Math.floor(part.price * ECONOMY.sellRefundRatio);
+    const nextStored = [...state.storedParts];
+    nextStored.splice(basketIndex, 1);
+    setRunState(this, { ...state, gold: state.gold + refund, storedParts: nextStored });
+    this.refreshAll();
+    playSfx('sell');
+  }
+
+  /**
+   * Click a basket item to re-equip it: auto-selects the first free
+   * matching slot, or falls back to a merge-eligible one.
+   */
+  private reequipFromBasket(basketIndex: number): void {
+    const state = getRunState(this);
+    const stored = state.storedParts[basketIndex];
+    if (!stored || !state.robotKey) return;
+    const partKey = stored.key;
+    const slotId = this.findFreeSlotFor(state.robotKey, partKey, state.equipped)
+      ?? this.findMergeSlotFor(partKey, state.equipped);
+    if (!slotId) { playSfx('click'); return; }
+    this.executeReequip(basketIndex, partKey, slotId);
   }
 
   private createGhost(x: number, y: number, color: number, name: string): void {
@@ -691,20 +779,38 @@ export class Build extends Scene {
     const slotId = this.dragSlotId;
     const buffIdx = this.dragBuffIndex;
     const basketIdx = this.dragBasketIndex;
+    const startX = this.dragStartX;
+    const startY = this.dragStartY;
     this.cancelDrag();
+
+    const moveDist = Math.sqrt((x - startX) ** 2 + (y - startY) ** 2);
+    const wasClick = moveDist < Build.DRAG_CLICK_THRESHOLD;
 
     switch (source) {
       case DragSource.Shop:
         this.dropFromShop(shopIdx, x, y);
         break;
       case DragSource.Slot:
-        this.dropFromSlot(slotId, x, y);
+        if (wasClick) {
+          // Click an equipped slot -> send to basket (unequip).
+          this.executeStore(slotId);
+        } else {
+          // Drag from equipped slot is now a no-op; SELL is storage-only.
+          // (dropFromSlot remains as a harmless snap-back.)
+          this.dropFromSlot(slotId, x, y);
+        }
         break;
       case DragSource.BuffSlot:
         this.dropFromBuffSlot(buffIdx, x, y);
         break;
       case DragSource.Basket:
-        this.dropFromBasket(basketIdx, x, y);
+        if (wasClick) {
+          // Click a basket item -> auto re-equip to the first matching slot.
+          this.reequipFromBasket(basketIdx);
+        } else {
+          // Drag -> only SELL box accepts; otherwise snap back.
+          this.dropFromBasket(basketIdx, x, y);
+        }
         break;
     }
   }
@@ -736,41 +842,12 @@ export class Build extends Scene {
       this.executeSell(slotId);
       return;
     }
-    // Check basket zone
-    if (this.isInsideRect(x, y, this.basketZone)) {
-      this.executeStore(slotId);
-      return;
-    }
-    // Check drop on another blueprint slot (merge or move)
-    const targetSlot = this.findSlotUnder(x, y);
-    if (targetSlot && targetSlot.slot.id !== slotId) {
-      this.executeSlotToSlot(slotId, targetSlot.slot.id);
-      return;
-    }
-    // Dropped nowhere valid -> snap back (no-op)
+    // Other drop targets (basket / slot-to-slot merge) are now click-only,
+    // so a drag that doesn't hit trash is just a cancel.
   }
 
   private dropFromBuffSlot(_buffIndex: number, _x: number, _y: number): void {
     // Buffs cannot be removed once equipped. No-op.
-  }
-
-  private dropFromBasket(basketIndex: number, x: number, y: number): void {
-    const state = getRunState(this);
-    const stored = state.storedParts[basketIndex];
-    if (!stored) return;
-    const partKey = stored.key;
-
-    // Drop on a blueprint slot -> re-equip (no cost)
-    const targetSlot = this.findSlotUnder(x, y);
-    if (targetSlot) {
-      this.executeReequip(basketIndex, partKey, targetSlot.slot.id);
-      return;
-    }
-    // Drop on trash -> sell from basket
-    if (this.isInsideRect(x, y, this.trashZone)) {
-      this.executeSellFromBasket(basketIndex);
-      return;
-    }
   }
 
   // ==========================================================================
@@ -859,6 +936,11 @@ export class Build extends Scene {
     const state = getRunState(this);
     const entry = state.equipped[slotId];
     if (!entry) return;
+    // Storage is capped at STORAGE_MAX — reject stores that would exceed.
+    if (state.storedParts.length >= STORAGE_MAX) {
+      playSfx('click');
+      return;
+    }
     const nextEquipped = { ...state.equipped };
     delete nextEquipped[slotId];
     const next: RunState = {
@@ -869,48 +951,6 @@ export class Build extends Scene {
     setRunState(this, next);
     this.refreshAll();
     playSfx('click');
-  }
-
-  private executeSlotToSlot(fromSlotId: string, toSlotId: string): void {
-    const state = getRunState(this);
-    if (!state.robotKey) return;
-    const fromEntry = state.equipped[fromSlotId];
-    if (!fromEntry) return;
-
-    const robot = ROBOTS[state.robotKey];
-    const toSlotDef = robot.slots.find((s) => s.id === toSlotId);
-    if (!toSlotDef) { playSfx('click'); return; }
-
-    const fromPart = PARTS[fromEntry.key];
-    if (!fromPart || fromPart.category !== toSlotDef.accepts) { playSfx('click'); return; }
-
-    const toEntry = state.equipped[toSlotId];
-
-    if (toEntry) {
-      // Target occupied — try merge (same part key, star < max)
-      if (toEntry.key === fromEntry.key && toEntry.star < BALANCE.maxStarLevel) {
-        const merged: EquippedEntry = { key: toEntry.key, star: toEntry.star + fromEntry.star };
-        const clampedStar = Math.min(merged.star, BALANCE.maxStarLevel);
-        const nextEquipped = { ...state.equipped, [toSlotId]: { key: merged.key, star: clampedStar } };
-        delete (nextEquipped as Record<string, EquippedEntry | undefined>)[fromSlotId];
-        setRunState(this, { ...state, equipped: nextEquipped });
-        this.refreshAll();
-        playSfx('buy');
-        this.flashSlot(toSlotId);
-        return;
-      }
-      // Different part or max star -> reject
-      playSfx('click');
-      return;
-    }
-
-    // Target empty — move part
-    const nextEquipped = { ...state.equipped, [toSlotId]: fromEntry };
-    delete (nextEquipped as Record<string, EquippedEntry | undefined>)[fromSlotId];
-    setRunState(this, { ...state, equipped: nextEquipped });
-    this.refreshAll();
-    playSfx('buy');
-    this.flashSlot(toSlotId);
   }
 
   private executeReequip(basketIndex: number, partKey: PartKey, slotId: string): void {
@@ -952,25 +992,6 @@ export class Build extends Scene {
     this.refreshAll();
     playSfx('buy');
     this.flashSlot(slotId);
-  }
-
-  private executeSellFromBasket(basketIndex: number): void {
-    const state = getRunState(this);
-    const stored = state.storedParts[basketIndex];
-    if (!stored) return;
-    const part = PARTS[stored.key];
-    if (!part) return;
-    const refund = Math.floor(part.price * ECONOMY.sellRefundRatio);
-    const nextStored = [...state.storedParts];
-    nextStored.splice(basketIndex, 1);
-    const next: RunState = {
-      ...state,
-      gold: state.gold + refund,
-      storedParts: nextStored,
-    };
-    setRunState(this, next);
-    this.refreshAll();
-    playSfx('sell');
   }
 
   // ==========================================================================
@@ -1031,45 +1052,6 @@ export class Build extends Scene {
   // ==========================================================================
   // Drag visuals
   // ==========================================================================
-
-  private highlightDropTargetsForShop(shopIndex: number): void {
-    const state = getRunState(this);
-    const key = state.shopOffer[shopIndex];
-    if (!key) return;
-
-    if (isItemKey(key)) {
-      // Highlight buff slots
-      this.buffSlotVisuals.forEach((bsv) => {
-        if (bsv.index < (state.equippedBuffs?.length ?? 0)) return;
-        bsv.circle.setStrokeStyle(3, PALETTE.accentGreen);
-      });
-      return;
-    }
-    this.highlightDropTargetsForPart(key as PartKey);
-  }
-
-  private highlightDropTargetsForPart(partKey: PartKey): void {
-    const part = PARTS[partKey];
-    if (!part) return;
-    const state = getRunState(this);
-    this.slotVisuals.forEach((sv) => {
-      const valid = part.category === sv.slot.accepts;
-      if (!valid) return;
-      const existing = state.equipped[sv.slot.id];
-      if (!existing) {
-        // Empty compatible slot
-        sv.circle.setStrokeStyle(3, PALETTE.accentGreen);
-      } else if (existing.key === partKey && existing.star < BALANCE.maxStarLevel) {
-        // Merge-eligible slot — highlight in gold
-        sv.circle.setStrokeStyle(3, 0xffd94a);
-      }
-    });
-  }
-
-  private highlightTrashAndBasket(): void {
-    this.trashZone.setStrokeStyle(3, 0xffffff);
-    this.basketZone.setStrokeStyle(3, 0xffffff);
-  }
 
   private cancelDrag(): void {
     this.dragSource = DragSource.None;
@@ -1202,11 +1184,28 @@ export class Build extends Scene {
     // Awakened glow: all slots filled → inner silhouette glows
     const allFilled = this.slotVisuals.every((sv) => !!state.equipped[sv.slot.id]);
     if (allFilled && this.slotVisuals.length > 0) {
-      this.silhouetteRect.setFillStyle(0x1a2a40, 1);
-      this.silhouetteRect.setStrokeStyle(2, 0xffd94a);
+      // Outer-frame awakened glow — thick gold stroke around the full panel.
+      this.silhouetteRect.setStrokeStyle(4, 0xffd94a);
+      // Subtle alpha pulse for "shining" feel. Only start the tween once.
+      if (!this.silhouetteRect.getData('awakenedTweenStarted')) {
+        this.silhouetteRect.setData('awakenedTweenStarted', true);
+        this.tweens.add({
+          targets: this.silhouetteRect,
+          alpha: { from: 1, to: 0.55 },
+          duration: 900,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+        });
+      }
     } else {
-      this.silhouetteRect.setFillStyle(0x000000, 0);
-      this.silhouetteRect.setStrokeStyle(2, PALETTE.blueprintLine);
+      // Reset to invisible + stop any pulse tween.
+      this.silhouetteRect.setStrokeStyle();
+      this.silhouetteRect.setAlpha(1);
+      if (this.silhouetteRect.getData('awakenedTweenStarted')) {
+        this.tweens.killTweensOf(this.silhouetteRect);
+        this.silhouetteRect.setData('awakenedTweenStarted', false);
+      }
     }
   }
 
@@ -1262,6 +1261,21 @@ export class Build extends Scene {
         : [];
 
     const evasionPct = Math.round(stats.evasionChance * 100);
+    // Acquired skills get a dedicated section at the end of the stats panel
+    // so players can see their boss-reward picks and the effect each grants.
+    const skillLines = state.acquiredSkills.length > 0
+      ? [
+          '',
+          t('SKILLS'),
+          ...state.acquiredSkills
+            .map((id) => {
+              const def = findSkillDef(id);
+              return def ? `  ${t(def.name)}: ${t(def.description)}` : '';
+            })
+            .filter(Boolean),
+        ]
+      : [];
+
     this.statsText.setText(
       [
         '\u2605 SOUL STRIKE \u2605',
@@ -1276,6 +1290,7 @@ export class Build extends Scene {
         `  DR ${stats.damageReductionFlat} + ${(stats.damageReductionPct * 100).toFixed(0)}%`,
         `  Shield ${stats.shieldCharges}x` + (evasionPct > 0 ? `  |  Evasion ${evasionPct}%` : ''),
         ...buffLines,
+        ...skillLines,
       ].join('\n')
     );
 

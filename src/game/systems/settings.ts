@@ -11,8 +11,9 @@ export interface GameSettings {
   bgmVolume: number;          // 0.0 – 1.0
   sfxVolume: number;          // 0.0 – 1.0
   locale: string;             // 'en' | 'ja'
-  defaultBattleSpeed: number; // 1 | 2 | 4 | 6
+  defaultBattleSpeed: number; // 1 | 1.5 | 2
   fullscreen: boolean;
+  backgroundAudio: boolean;   // keep BGM/SFX playing while tab is unfocused
 }
 
 const DEFAULTS: GameSettings = {
@@ -20,7 +21,8 @@ const DEFAULTS: GameSettings = {
   sfxVolume: 1.0,
   locale: 'en',
   defaultBattleSpeed: 2,
-  fullscreen: false
+  fullscreen: false,
+  backgroundAudio: true
 };
 
 let cached: GameSettings | null = null;
@@ -37,7 +39,8 @@ export const loadSettings = (): GameSettings => {
       sfxVolume: typeof parsed.sfxVolume === 'number' ? parsed.sfxVolume : DEFAULTS.sfxVolume,
       locale: typeof parsed.locale === 'string' ? parsed.locale : DEFAULTS.locale,
       defaultBattleSpeed: typeof parsed.defaultBattleSpeed === 'number' ? parsed.defaultBattleSpeed : DEFAULTS.defaultBattleSpeed,
-      fullscreen: typeof parsed.fullscreen === 'boolean' ? parsed.fullscreen : DEFAULTS.fullscreen
+      fullscreen: typeof parsed.fullscreen === 'boolean' ? parsed.fullscreen : DEFAULTS.fullscreen,
+      backgroundAudio: typeof parsed.backgroundAudio === 'boolean' ? parsed.backgroundAudio : DEFAULTS.backgroundAudio
     };
     return cached;
   } catch {

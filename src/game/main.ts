@@ -1,6 +1,13 @@
 import { AUTO, Game, Scale } from 'phaser';
 import type { Types } from 'phaser';
 
+declare global {
+  interface Window {
+    __PHASER_GAME__?: Game;
+    __APPLY_BG_AUDIO__?: (enabled: boolean) => void;
+  }
+}
+
 // High-DPI text resolution is applied per-scene via helper/hiDpiText.ts.
 // Each scene calls applyHiDpiToScene(this) at the end of create().
 
@@ -16,6 +23,7 @@ import { Collection } from './scenes/Collection';
 import { Settings } from './scenes/Settings';
 import { Credits } from './scenes/Credits';
 import gameOptions from './helper/gameOptions';
+import { loadSettings } from './systems/settings';
 
 // Render-time pixel density for the canvas backing store.
 // We force at least 2x so scenes stay crisp even on DPR=1 displays
@@ -66,12 +74,28 @@ const config: Types.Core.GameConfig = {
 
 export const startGame = (parent: string): Game => {
   const game = new Game({ ...config, parent });
-  // Expose game instance for debug/test tools
-  (window as any).__PHASER_GAME__ = game;
+  window.__PHASER_GAME__ = game;
 
-  // Global F key toggles browser fullscreen. The Settings screen still has
-  // an explicit Fullscreen switch; this shortcut is a convenience for
-  // itch.io / judges who won't visit Settings mid-play.
+  const applyBackgroundAudio = (enabled: boolean): void => {
+    try {
+      game.sound.pauseOnBlur = !enabled;
+    } catch {
+      /* sound manager may not be ready yet */
+    }
+  };
+  applyBackgroundAudio(loadSettings().backgroundAudio);
+  window.__APPLY_BG_AUDIO__ = applyBackgroundAudio;
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && loadSettings().backgroundAudio) {
+      try {
+        game.sound.pauseOnBlur = false;
+      } catch {
+        /* no-op */
+      }
+    }
+  });
+
   window.addEventListener('keydown', (ev) => {
     // Ignore if user is typing in an input/textarea.
     const target = ev.target as HTMLElement | null;

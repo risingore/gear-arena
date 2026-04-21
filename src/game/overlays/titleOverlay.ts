@@ -12,6 +12,14 @@
  * click handlers are wired to the game runtime.
  */
 
+import {
+  ensureStyle,
+  escapeHtml,
+  clearPriorRoots,
+  fitStageToCanvas,
+  wrapUnmount,
+} from './overlayBase';
+
 export interface TitleOverlaySaveData {
   readonly bestRound: number;
   readonly victories: number;
@@ -123,11 +131,11 @@ const CSS = `
 .${ROOT_CLASS} .soul-dial{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:260px;height:260px;z-index:2;pointer-events:none}
 
 .${ROOT_CLASS} .menu{
-  position:absolute;left:50%;bottom:180px;transform:translateX(-50%);
+  position:absolute;left:50%;bottom:150px;transform:translateX(-50%);
   display:flex;flex-direction:column;gap:10px;align-items:center;z-index:4;
 }
 .${ROOT_CLASS} .menu-backing{
-  position:absolute;left:50%;bottom:170px;transform:translateX(-50%);
+  position:absolute;left:50%;bottom:140px;transform:translateX(-50%);
   width:530px;height:130px;
   background:rgba(10,10,16,.7);
   border:1px solid rgba(174,234,255,.12);
@@ -206,31 +214,6 @@ const CSS = `
 }
 .${ROOT_CLASS} .credits-link:hover{color:#aeeaff}
 
-/* Post-cyberpunk CRT scanlines + holographic glitch tear */
-.${ROOT_CLASS} .stage::after{
-  content:'';position:absolute;inset:0;pointer-events:none !important;z-index:99;
-  background:repeating-linear-gradient(0deg,
-    transparent 0,transparent 2px,
-    rgba(174,234,255,.035) 3px,transparent 4px);
-  opacity:.7;mix-blend-mode:overlay;
-  animation:ss-scanline 2.4s steps(40) infinite;
-}
-@keyframes ss-scanline{from{background-position:0 0}to{background-position:0 4px}}
-
-.${ROOT_CLASS} .stage::before{
-  content:'';position:absolute;inset:-4px;pointer-events:none;z-index:98;
-  background:linear-gradient(90deg,transparent 0%,rgba(255,122,0,.18) 48%,rgba(174,234,255,.22) 52%,transparent 100%);
-  opacity:0;
-  animation:ss-glitch-tear 7.3s ease-in infinite;
-}
-@keyframes ss-glitch-tear{
-  0%,88%,100%{opacity:0;transform:translate(0,0) skewX(0deg)}
-  89%{opacity:.85;transform:translate(3px,18px) skewX(-2deg)}
-  91%{opacity:.55;transform:translate(-5px,-22px) skewX(3deg)}
-  93%{opacity:.75;transform:translate(2px,9px) skewX(-1deg)}
-  95%{opacity:0;transform:translate(0,0) skewX(0deg)}
-}
-
 .${ROOT_CLASS} .stage > *{animation-fill-mode:both}
 .${ROOT_CLASS}.visible .stage .center{animation:titleIn .7s cubic-bezier(.2,.9,.25,1.15) both}
 .${ROOT_CLASS}.visible .stage .menu{animation:fadeUp .5s ease both .5s}
@@ -243,14 +226,6 @@ const CSS = `
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 `;
 
-function ensureStyle(): void {
-  if (document.getElementById(STYLE_ELEMENT_ID)) return;
-  const style = document.createElement('style');
-  style.id = STYLE_ELEMENT_ID;
-  style.textContent = CSS;
-  document.head.appendChild(style);
-}
-
 function buildStageHtml(opts: TitleOverlayOptions): string {
   const primary = opts.primaryLabel ?? 'PLAY';
   const collection = opts.collectionLabel ?? 'COLLECTION';
@@ -258,10 +233,6 @@ function buildStageHtml(opts: TitleOverlayOptions): string {
   const q1 = opts.atmanQuoteLine1 ?? '&ldquo;The soul is a myth.';
   const q2 = opts.atmanQuoteLine2 ?? "What you call &lsquo;soul&rsquo; is merely unprocessed data.&rdquo;";
   const attr = opts.atmanAttribution ?? '— ATMAN, broadcast';
-
-  const pilotLine = opts.saveData?.playerTitle
-    ? `<div class="pilot-title">— ${escapeHtml(opts.saveData.playerTitle)} —</div>`
-    : '';
 
   const hud = opts.saveData && (opts.saveData.bestRound > 0 || opts.saveData.victories > 0)
     ? `
@@ -281,7 +252,7 @@ function buildStageHtml(opts: TitleOverlayOptions): string {
 
     <div class="bracket tl"></div><div class="bracket tr"></div>
     <div class="bracket bl"></div><div class="bracket br"></div>
-    <div class="tag" style="top:18px;left:22px"><b>SS</b>-<b>001</b> / BLUEPRINT <span class="bar"></span> REV.05</div>
+    <div class="tag" style="top:18px;left:22px"><b>MUDRA</b>-<b>001</b> / NEURAL UPLINK <span class="bar"></span> ACTIVE</div>
     <div class="tag" style="top:18px;right:22px">GAMEDEV.JS JAM <b>2026</b> · THEME <span class="bar"></span> <b>MACHINES</b></div>
 
     <div class="mandala-wrap">
@@ -315,8 +286,8 @@ function buildStageHtml(opts: TitleOverlayOptions): string {
 
       <svg class="soul-dial" width="260" height="260" viewBox="0 0 260 260">
         <circle cx="130" cy="130" r="108" fill="none" stroke="#0e1020" stroke-width="12"/>
-        <circle cx="130" cy="130" r="108" fill="none" stroke="#ff7a00" stroke-width="12"
-          stroke-dasharray="393.4 678.6"
+        <circle class="soul-dial-arc" cx="130" cy="130" r="108" fill="none" stroke="#ff7a00" stroke-width="12"
+          stroke-dasharray="0 678.584"
           transform="rotate(-90 130 130)"
           style="filter:drop-shadow(0 0 8px #ff7a00)"/>
         <g class="dialTicks"></g>
@@ -327,8 +298,6 @@ function buildStageHtml(opts: TitleOverlayOptions): string {
         <div class="strike">STRIKE</div>
       </div>
     </div>
-
-    ${pilotLine}
 
     <div class="menu-backing"></div>
     <div class="menu">
@@ -349,14 +318,6 @@ function buildStageHtml(opts: TitleOverlayOptions): string {
     <div class="footer">PRESS <span class="kbd">SPACE</span> / NAV <span class="kbd">MOUSE</span></div>
     <button class="credits-link" data-role="credits">${escapeHtml(opts.creditsLabel ?? 'CREDITS')}</button>
   </div>`;
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }
 
 function drawNotches(root: HTMLElement): void {
@@ -428,12 +389,8 @@ function drawDialTicks(root: HTMLElement): void {
 }
 
 export function mountTitleOverlay(opts: TitleOverlayOptions): () => void {
-  ensureStyle();
-
-  // If a previous overlay is still animating out from the last mount,
-  // remove it immediately — otherwise its DOM tree intercepts pointer
-  // events for ~240 ms, breaking click-to-play on rapid scene loops.
-  document.querySelectorAll(`.${ROOT_CLASS}`).forEach((el) => el.remove());
+  ensureStyle(STYLE_ELEMENT_ID, CSS);
+  clearPriorRoots(ROOT_CLASS);
 
   const root = document.createElement('div');
   root.className = ROOT_CLASS;
@@ -444,34 +401,8 @@ export function mountTitleOverlay(opts: TitleOverlayOptions): () => void {
   drawZodiac(root);
   drawDialTicks(root);
 
-  // Track the Phaser canvas' on-screen rect so the overlay stage overlaps it
-  // exactly — Phaser uses Scale.FIT + flex-center on #game-container, which
-  // puts the canvas at an offset that window-relative math won't match.
-  const stage = root.querySelector('.stage') as HTMLElement | null;
-  const canvasEl = document.querySelector(
-    '#game-container canvas'
-  ) as HTMLCanvasElement | null;
-
-  const fit = (): void => {
-    if (!stage) return;
-    const rect = canvasEl?.getBoundingClientRect();
-    const w = rect && rect.width > 0 ? rect.width : window.innerWidth;
-    const h = rect && rect.height > 0 ? rect.height : window.innerHeight;
-    const cx = rect ? rect.left + w / 2 : window.innerWidth / 2;
-    const cy = rect ? rect.top + h / 2 : window.innerHeight / 2;
-    const s = Math.min(w / 1280, h / 720);
-    stage.style.left = `${cx}px`;
-    stage.style.top = `${cy}px`;
-    stage.style.transform = `translate(-50%, -50%) scale(${s})`;
-  };
-  window.addEventListener('resize', fit);
-  // Phaser can resize the canvas without firing window resize — observe it.
-  let ro: ResizeObserver | null = null;
-  if (canvasEl && typeof ResizeObserver !== 'undefined') {
-    ro = new ResizeObserver(() => fit());
-    ro.observe(canvasEl);
-  }
-  fit();
+  const stage = root.querySelector('.stage') as HTMLElement;
+  const disposeFit = fitStageToCanvas(stage);
 
   // Button wiring
   const onClick = (role: 'play' | 'collection' | 'settings' | 'credits', handler: () => void): void => {
@@ -487,12 +418,25 @@ export function mountTitleOverlay(opts: TitleOverlayOptions): () => void {
   // Fade in on next frame
   requestAnimationFrame(() => root.classList.add('visible'));
 
-  return (): void => {
-    root.classList.remove('visible');
-    window.removeEventListener('resize', fit);
-    if (ro) ro.disconnect();
-    window.setTimeout(() => {
-      if (root.parentNode) root.parentNode.removeChild(root);
-    }, 240);
+  // Drive the orange soul-dial arc as a 12-hour clock: the arc grows
+  // from 12 o'clock (top, via the existing -90deg rotation) clockwise
+  // so that at 3:00 it covers a quarter, at 6:00 half, and so on.
+  const arc = root.querySelector('.soul-dial-arc') as SVGElement | null;
+  const RADIUS = 108;
+  const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+  const updateClock = (): void => {
+    if (!arc) return;
+    const now = new Date();
+    const sec = (now.getHours() % 12) * 3600 + now.getMinutes() * 60 + now.getSeconds();
+    const frac = sec / (12 * 3600);
+    const dash = frac * CIRCUMFERENCE;
+    arc.setAttribute('stroke-dasharray', `${dash.toFixed(2)} ${(CIRCUMFERENCE - dash).toFixed(2)}`);
   };
+  updateClock();
+  const clockTimer = window.setInterval(updateClock, 1000);
+
+  return wrapUnmount(root, () => {
+    disposeFit();
+    window.clearInterval(clockTimer);
+  });
 }

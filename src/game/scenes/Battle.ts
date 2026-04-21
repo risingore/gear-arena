@@ -33,7 +33,7 @@ import { applyHiDpiToScene, TEXT_DPR, showDebugBadge } from '../helper/hiDpiText
 import { runVisualChecks } from '../systems/visualDebugger';
 import { attachFpsMeter } from '../systems/fpsMeter';
 import { setupLayoutDebug } from '../systems/layoutDebug';
-import { isDebugEnabled } from '../systems/debug';
+import { isDebugEnabled, isOneShotModeEnabled } from '../systems/debug';
 import {
   createSlotState,
   tickSlotMachine,
@@ -115,7 +115,7 @@ export class Battle extends Scene {
   /** Real seconds elapsed before auto fast-forward kicks in. */
   private static readonly AUTO_FF_SEC = 15;
   /** Speed multiplier applied after AUTO_FF_SEC elapses. */
-  private static readonly AUTO_FF_SPEED = 6;
+  private static readonly AUTO_FF_SPEED = 2;
 
   constructor() {
     super('Battle');
@@ -131,7 +131,6 @@ export class Battle extends Scene {
 
     this.cameras.main.setBackgroundColor(PALETTE.bg);
     fadeInCurrent(this);
-    playMusic(this, MUSIC_KEYS.battle);
     this.finished = false;
     this.finishDelay = 0;
     this.logLines = [];
@@ -155,6 +154,7 @@ export class Battle extends Scene {
       this.scene.start('Title');
       return;
     }
+    playMusic(this, genRound.isBoss ? MUSIC_KEYS.boss : MUSIC_KEYS.battle);
     const totalRounds = state.generatedRounds.length;
     const roundEnemy = genRound.enemy;
 
@@ -205,20 +205,22 @@ export class Battle extends Scene {
       }
     }
 
+    const oneShot = isOneShotModeEnabled();
+    const enemyHp = oneShot ? 1 : roundEnemy.hp;
     this.enemy = {
       name: roundEnemy.name,
-      maxHp: roundEnemy.hp,
-      hp: roundEnemy.hp,
+      maxHp: enemyHp,
+      hp: enemyHp,
       damageReductionFlat: 0,
-      damageReductionPct: roundEnemy.damageReductionPct,
+      damageReductionPct: oneShot ? 0 : roundEnemy.damageReductionPct,
       weapons: enemyWeapons,
       overdriveMultiplier: 0,
       overdriveThresholdHp: 0,
       overdriveActive: false,
-      repairIntervalSec: originalDef?.repairIntervalSec ?? 0,
-      repairAmount: originalDef?.repairAmount ?? 0,
-      repairTimer: originalDef?.repairIntervalSec ?? 0,
-      shieldCharges: originalDef?.shieldCharges ?? 0,
+      repairIntervalSec: oneShot ? 0 : (originalDef?.repairIntervalSec ?? 0),
+      repairAmount: oneShot ? 0 : (originalDef?.repairAmount ?? 0),
+      repairTimer: oneShot ? 0 : (originalDef?.repairIntervalSec ?? 0),
+      shieldCharges: oneShot ? 0 : (originalDef?.shieldCharges ?? 0),
       ultimate: originalDef ? (ENEMY_ULTIMATES[originalDef.category] ?? null) : null,
       ultimateGauge: 0,
       ultimateUsed: false,
@@ -492,7 +494,7 @@ export class Battle extends Scene {
   }
 
   private cycleSpeed(): void {
-    const sequence = [1, 2, 4, 6];
+    const sequence = [1, 1.5, 2];
     const idx = sequence.indexOf(this.timeScale);
     this.timeScale = sequence[(idx + 1) % sequence.length]!;
     this.battleOverlay?.setSpeed(this.timeScale);
@@ -1036,9 +1038,13 @@ export class Battle extends Scene {
       allParts.push(panel);
 
       const battleKey = robot?.battleAssetKey ?? '';
+      // Cut-in prefers the ULT-pose sprite when available (convention:
+      // `<battleKey>_ult`). Falls back to the default battle sprite.
+      const ultKey = battleKey ? `${battleKey}_ult` : '';
+      const portraitKey = ultKey && this.textures.exists(ultKey) ? ultKey : battleKey;
       let portrait: GameObjects.Image | GameObjects.Rectangle;
-      if (this.textures.exists(battleKey)) {
-        portrait = this.add.image(-600, panelTargetY, battleKey)
+      if (this.textures.exists(portraitKey)) {
+        portrait = this.add.image(-600, panelTargetY, portraitKey)
           .setScale(0.6).setDepth(D + 4);
       } else {
         portrait = this.add
@@ -1098,7 +1104,11 @@ export class Battle extends Scene {
         this.cameras.main.shake(isCritical ? 300 : 160, isCritical ? 0.022 : 0.012);
       });
 
-      this.time.delayedCall(900, () => {
+      // Hold the cut-in for an extra beat after the shockwave so the ULT
+      // name + portrait read clearly before the screen clears. Combat
+      // stays frozen during the entire window (see triggerPlayerUltimate
+      // 's delayedCall below — its timeout must match this fade window).
+      this.time.delayedCall(1900, () => {
         this.cameras.main.zoomTo(1, 250, 'Cubic.easeOut');
         this.tweens.add({
           targets: allParts.filter((p) => p.active),
@@ -1519,14 +1529,24 @@ export class Battle extends Scene {
     // Restore original damage
     this.player.ultimateDmgPerStrike = origDmg;
 
+    // Debug: One-Shot mode force-kills the enemy regardless of damage rolls.
+    if (isOneShotModeEnabled()) {
+      this.enemy.hp = 0;
+      if (attacks.length > 0) {
+        const last = attacks[attacks.length - 1]!;
+        attacks[attacks.length - 1] = { ...last, killed: true };
+      }
+    }
+
     // Play cut-in animation (combat stays frozen during this)
     const ultDisplayName = (this.player.isAwakened && this.player.ultimate.awakenedName)
       ? this.player.ultimate.awakenedName
       : this.player.ultimate.name;
     this.spawnUltimateFlash(ultDisplayName, true, isCritical);
 
-    // After full animation: apply damage, then unfreeze combat
-    this.time.delayedCall(1800, () => {
+    // After full animation (including the extended hold in
+    // spawnUltimateFlash): apply damage, then unfreeze combat.
+    this.time.delayedCall(2800, () => {
       attacks.forEach((e) => this.onAttack(e, this.enemySprite, true));
       this.refreshHp();
 
@@ -1541,6 +1561,8 @@ export class Battle extends Scene {
   }
 
   private goToResult(): void {
-    fadeToScene(this, 'Result');
+    const state = getRunState(this);
+    const nextScene = state.battleOutcome === 'lose' ? 'GameOver' : 'Result';
+    fadeToScene(this, nextScene);
   }
 }

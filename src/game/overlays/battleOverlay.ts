@@ -64,7 +64,7 @@ const CSS = `
 }
 .${ROOT_CLASS} .subheading.boss{color:#ff7a00;text-shadow:0 0 12px rgba(255,122,0,.5)}
 .${ROOT_CLASS} .speed{
-  position:absolute;right:24px;top:22px;
+  position:absolute;right:24px;top:48px;
   font-size:14px;letter-spacing:.18em;color:#cfd8e4;opacity:.85;
   font-variant-numeric:tabular-nums;
 }

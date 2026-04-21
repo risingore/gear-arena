@@ -5,10 +5,14 @@
  * text. Every scene should use these instead of raw rectangles/text so that
  * visual identity stays consistent across the entire game.
  *
- * Design Rules:
- * - Panel bg: 0x12121e, border: 0x334466 (2px)
- * - Button bg: 0x1a2a44, hover: 0x2a3a55, border: 0x4466aa
- * - Danger button: 0x441a1a, hover: 0x552a2a, border: 0xaa4444
+ * Design Rules (kept in sync with the DOM overlays used by Title / Settings
+ * / Collection / Credits / GameOver). Canvas-rendered panels approximate
+ * the DOM look: near-black bg with cyan low-alpha accent borders, and
+ * neutral grey-violet buttons with cyan accent edges.
+ *
+ * - Panel bg: 0x0a0a10 (near-black), border: 0xaeeaff @ ~0.3 alpha (2px)
+ * - Button bg: 0x3a3a55 (grey-violet), hover: 0x5a5a77, border: 0xaeeaff @ ~0.4 alpha
+ * - Danger button: 0x441a1a, hover: 0x552a2a, border: 0xff4444
  * - Accent button: uses character/context color as fill, text is dark (#0a0a10)
  * - Spacing: 8px minimum between elements
  * - All interactive: useHandCursor, hover scale 1.03
@@ -26,17 +30,20 @@ import { TEXT_DPR } from './hiDpiText';
 // Color constants
 // ---------------------------------------------------------------------------
 
-const PANEL_BG = 0x16203a;
-const PANEL_BORDER = 0x5a8ec4;
+const PANEL_BG = 0x0a0a10;
+const PANEL_BG_ALPHA = 0.55;
+const PANEL_BORDER = 0xaeeaff;
+const PANEL_BORDER_ALPHA = 0.3;
 
-const BUTTON_BG = 0x1a2a44;
-const BUTTON_HOVER = 0x2a3a55;
-const BUTTON_BORDER = 0x4466aa;
+const BUTTON_BG = 0x3a3a55;
+const BUTTON_HOVER = 0x5a5a77;
+const BUTTON_BORDER = 0xaeeaff;
+const BUTTON_BORDER_ALPHA = 0.4;
 const BUTTON_PRESS_SCALE = 0.97;
 
 const DANGER_BG = 0x441a1a;
 const DANGER_HOVER = 0x552a2a;
-const DANGER_BORDER = 0xaa4444;
+const DANGER_BORDER = 0xff4444;
 
 const HOVER_SCALE = 1.03;
 
@@ -69,14 +76,14 @@ export function createPanel(
   options?: PanelOptions
 ): GameObjects.Rectangle {
   const fill = options?.fillColor ?? PANEL_BG;
-  const fillAlpha = options?.fillAlpha ?? 1;
+  const fillAlpha = options?.fillAlpha ?? PANEL_BG_ALPHA;
   const border = options?.borderColor ?? PANEL_BORDER;
-  const borderW = options?.borderWidth ?? 2;
+  const borderW = options?.borderWidth ?? 1;
   const depth = options?.depth ?? -1;
 
   return scene.add
     .rectangle(x, y, w, h, fill, fillAlpha)
-    .setStrokeStyle(borderW, border)
+    .setStrokeStyle(borderW, border, PANEL_BORDER_ALPHA)
     .setDepth(depth);
 }
 
@@ -148,9 +155,10 @@ export function createButton(
       break;
   }
 
+  const borderAlpha = variant === 'default' ? BUTTON_BORDER_ALPHA : 1;
   const bg = scene.add
-    .rectangle(x, y, w, h, bgColor, 1)
-    .setStrokeStyle(2, borderColor)
+    .rectangle(x, y, w, h, bgColor, variant === 'default' ? 0.6 : 1)
+    .setStrokeStyle(variant === 'default' ? 1 : 2, borderColor, borderAlpha)
     .setDepth(depth)
     .setInteractive({ useHandCursor: true });
 
@@ -182,7 +190,7 @@ export function createButton(
     if (variant === 'accent') {
       bg.setStrokeStyle(2, borderColor);
     } else {
-      bg.setFillStyle(bgColor, 1);
+      bg.setFillStyle(bgColor, variant === 'default' ? 0.6 : 1);
     }
   });
 

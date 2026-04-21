@@ -87,7 +87,7 @@ export const BALANCE = {
   /** Player HP ratio at which BGM tempo increases. */
   bgmUrgentHpRatio: 0.3,
   /** BGM playback rate when HP is critical. */
-  bgmUrgentRate: 1.15,
+  bgmUrgentRate: 1.08,
   /** Normal auto-attack damage ratio for player (0 = no auto-attacks). */
   playerAutoAttackRatio: 0,
 

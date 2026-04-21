@@ -10,7 +10,7 @@ export const ECONOMY: EconomyData = {
   startingGold: 15,
   rerollCost: 1,
   sellRefundRatio: 0.5,
-  shopSlotCount: 5,
+  shopSlotCount: 6,
   roundRewardBase: 6,
   roundRewardPerRound: 1
 };

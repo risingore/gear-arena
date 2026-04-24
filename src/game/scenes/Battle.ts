@@ -26,7 +26,7 @@ import {
 } from '../systems/combat';
 import { playSfx } from '../systems/audio';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
-import { recordRoundReached } from '../systems/savedata';
+import { recordRoundReached, recordBattleCompleted } from '../systems/savedata';
 import { t } from '../systems/i18n';
 import { playMusic, MUSIC_KEYS, setMusicPlaybackRate } from '../systems/music';
 import { applyHiDpiToScene, TEXT_DPR, showDebugBadge } from '../helper/hiDpiText';
@@ -59,6 +59,8 @@ const HP_BAR_W = 280;
 const HP_BAR_H = 20;
 const SPRITE_W = 280;
 const SPRITE_H = 360;
+/** Frame rate for optional `${battleAssetKey}_ult_sheet` one-shot animation. */
+const BATTLE_ULT_SHEET_FPS = 12;
 const LOG_LINE_COUNT = 3;
 const POPUP_RISE_PX = 48;
 const POPUP_DURATION_MS = 600;
@@ -80,7 +82,11 @@ export class Battle extends Scene {
   private finished = false;
   private finishDelay = 0;
   private overdriveLabel: GameObjects.Text | null = null;
-  private playerImg: GameObjects.Image | null = null;
+  private playerImg: GameObjects.Image | GameObjects.Sprite | null = null;
+  /** Set when the player uses a multi-frame battle spritesheet (idle strip). */
+  private playerBattleSprite: GameObjects.Sprite | null = null;
+  /** Robot `battleAssetKey` (e.g. battle_indra) for optional `${key}_ult_sheet` texture. */
+  private playerBattleAssetKey = '';
   private enemyImg: GameObjects.Image | null = null;
   private playerBaseX = 0;
   private enemyBaseX = 0;
@@ -273,10 +279,27 @@ export class Battle extends Scene {
     this.playerBaseX = playerX;
     this.playerImg = null;
     const battleKey = robot.battleAssetKey;
+    this.playerBattleAssetKey = battleKey;
+    this.playerBattleSprite = null;
+    let playerUsesPixelIdle = false;
     if (this.textures.exists(battleKey)) {
-      this.playerImg = this.add.image(playerX, arenaY, battleKey);
-      const scale = Math.min(SPRITE_W / this.playerImg.width, SPRITE_H / this.playerImg.height);
-      this.playerImg.setScale(scale);
+      const tex = this.textures.get(battleKey);
+      if (tex.frameTotal > 1) {
+        const spr = this.add.sprite(playerX, arenaY, battleKey);
+        spr.anims.stop();
+        spr.setFrame(0);
+        this.playerImg = spr;
+        this.playerBattleSprite = spr;
+        playerUsesPixelIdle = true;
+        const f = this.textures.getFrame(battleKey, 0);
+        const scale = Math.min(SPRITE_W / f.width, SPRITE_H / f.height);
+        spr.setScale(scale);
+      } else {
+        const img = this.add.image(playerX, arenaY, battleKey);
+        this.playerImg = img;
+        const scale = Math.min(SPRITE_W / img.width, SPRITE_H / img.height);
+        img.setScale(scale);
+      }
     }
     this.playerSprite = this.add
       .rectangle(playerX, arenaY, SPRITE_W, SPRITE_H, this.playerImg ? 0x000000 : ROBOT_COLORS[robot.archetype], this.playerImg ? 0 : 1);
@@ -293,17 +316,25 @@ export class Battle extends Scene {
       .rectangle(enemyX, arenaY, SPRITE_W, SPRITE_H, PALETTE.accentRed, 1)
       .setStrokeStyle(3, PALETTE.textPrimary);
 
-    // --- Idle breathing animation ---
-    for (const target of [this.playerImg ?? this.playerSprite, this.enemySprite]) {
+    // --- Idle breathing animation (skip player when pixel idle anim is running) ---
+    if (!playerUsesPixelIdle) {
       this.tweens.add({
-        targets: target,
-        y: (target as { y: number }).y - 5,
+        targets: this.playerImg ?? this.playerSprite,
+        y: (this.playerImg ?? this.playerSprite).y - 5,
         duration: 1400 + Math.random() * 400,
         yoyo: true,
         repeat: -1,
         ease: 'Sine.easeInOut'
       });
     }
+    this.tweens.add({
+      targets: this.enemySprite,
+      y: this.enemySprite.y - 5,
+      duration: 1400 + Math.random() * 400,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
 
     this.add
       .text(enemyX, arenaY - SPRITE_H / 2 - 28, t(roundEnemy.name), textStyles.body)
@@ -1042,10 +1073,16 @@ export class Battle extends Scene {
       // `<battleKey>_ult`). Falls back to the default battle sprite.
       const ultKey = battleKey ? `${battleKey}_ult` : '';
       const portraitKey = ultKey && this.textures.exists(ultKey) ? ultKey : battleKey;
-      let portrait: GameObjects.Image | GameObjects.Rectangle;
+      let portrait: GameObjects.Image | GameObjects.Sprite | GameObjects.Rectangle;
       if (this.textures.exists(portraitKey)) {
-        portrait = this.add.image(-600, panelTargetY, portraitKey)
-          .setScale(0.6).setDepth(D + 4);
+        const pt = this.textures.get(portraitKey);
+        if (pt.frameTotal > 1) {
+          portrait = this.add.sprite(-600, panelTargetY, portraitKey, 0)
+            .setScale(0.6).setDepth(D + 4);
+        } else {
+          portrait = this.add.image(-600, panelTargetY, portraitKey)
+            .setScale(0.6).setDepth(D + 4);
+        }
       } else {
         portrait = this.add
           .rectangle(-600, panelTargetY, 320, 420,
@@ -1498,6 +1535,49 @@ export class Battle extends Scene {
 
   private ultFiring = false;
 
+  /**
+   * If `textures` has `<battleAssetKey>_ult_sheet` (optional spritesheet, same frame layout as idle),
+   * swap texture and play it once; then restore idle frame 0. No-op when the sheet is missing or single-frame.
+   */
+  private playPlayerUltimateSpriteMotion(): void {
+    const spr = this.playerBattleSprite;
+    const baseKey = this.playerBattleAssetKey;
+    if (!spr || !baseKey) return;
+
+    const ultKey = `${baseKey}_ult_sheet`;
+    if (!this.textures.exists(ultKey)) return;
+
+    const tex = this.textures.get(ultKey);
+    if (tex.frameTotal <= 1) return;
+
+    const animKey = `${ultKey}_play_once`;
+    if (!this.anims.exists(animKey)) {
+      this.anims.create({
+        key: animKey,
+        frames: this.anims.generateFrameNumbers(ultKey, { start: 0, end: tex.frameTotal - 1 }),
+        frameRate: BATTLE_ULT_SHEET_FPS,
+        repeat: 0
+      });
+    }
+
+    const fitScale = (textureKey: string, frameIdx: number): number => {
+      const f = this.textures.getFrame(textureKey, frameIdx);
+      return Math.min(SPRITE_W / f.width, SPRITE_H / f.height);
+    };
+
+    spr.anims.stop();
+    spr.setTexture(ultKey);
+    spr.setScale(fitScale(ultKey, 0));
+    spr.play(animKey);
+
+    spr.once('animationcomplete', () => {
+      spr.anims.stop();
+      spr.setTexture(baseKey, 0);
+      spr.setScale(fitScale(baseKey, 0));
+      spr.setFrame(0);
+    });
+  }
+
   private triggerPlayerUltimate(): void {
     if (!this.ultReady) return;
     if (this.ultFiring) return;
@@ -1542,6 +1622,7 @@ export class Battle extends Scene {
     const ultDisplayName = (this.player.isAwakened && this.player.ultimate.awakenedName)
       ? this.player.ultimate.awakenedName
       : this.player.ultimate.name;
+    this.playPlayerUltimateSpriteMotion();
     this.spawnUltimateFlash(ultDisplayName, true, isCritical);
 
     // After full animation (including the extended hold in
@@ -1561,6 +1642,7 @@ export class Battle extends Scene {
   }
 
   private goToResult(): void {
+    recordBattleCompleted();
     const state = getRunState(this);
     const nextScene = state.battleOutcome === 'lose' ? 'GameOver' : 'Result';
     fadeToScene(this, nextScene);

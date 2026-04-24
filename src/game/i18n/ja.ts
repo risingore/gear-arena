@@ -141,6 +141,17 @@ export const ja: LocaleDict = {
   'BACK TO TITLE': 'タイトルに戻る',
   '← BACK TO TITLE': '← タイトルに戻る',
 
+  // Sanctum (加持堂) — meta-progression buff shop
+  SANCTUM: '加持堂',
+  'Spend scrap to consecrate your next loadout.':
+    'スクラップでバフを授かり次戦に備える',
+  'Scrap:': 'スクラップ:',
+  'Consecrate': '授かる',
+  'Consecrated:': '授かった:',
+  'Not enough scrap.': 'スクラップが足りない',
+  'BUFFS READIED': '次戦バフ',
+  'No buffs readied.': 'バフは授かっていない',
+
   // Collection
   COLLECTION: 'コレクション',
   CYBORGS: 'サイボーグ',

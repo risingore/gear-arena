@@ -28,6 +28,10 @@ export interface SaveData {
   usedParts: string[];
   acquiredSkillsEver: string[];
   scrap: number;
+  /** Total completed battles (any outcome). Gates SANCTUM unlock on Title. */
+  battlesCompleted: number;
+  /** Buff items purchased at SANCTUM, waiting to be auto-applied at next Build → Battle. */
+  ownedBuffItems: string[];
 }
 
 const emptySave = (): SaveData => {
@@ -41,7 +45,9 @@ const emptySave = (): SaveData => {
     defeatedEnemies: [],
     usedParts: [],
     acquiredSkillsEver: [],
-    scrap: 0
+    scrap: 0,
+    battlesCompleted: 0,
+    ownedBuffItems: [],
   };
 };
 
@@ -63,7 +69,9 @@ export const loadSaveData = (): SaveData => {
           defeatedEnemies: [],
           usedParts: [],
           acquiredSkillsEver: [],
-          scrap: 0
+          scrap: 0,
+          battlesCompleted: 0,
+          ownedBuffItems: [],
         };
         // Compute unlocks from existing clears
         recomputeUnlocks(migrated);
@@ -82,7 +90,9 @@ export const loadSaveData = (): SaveData => {
       defeatedEnemies: Array.isArray(parsed.defeatedEnemies) ? parsed.defeatedEnemies : [],
       usedParts: Array.isArray(parsed.usedParts) ? parsed.usedParts : [],
       acquiredSkillsEver: Array.isArray(parsed.acquiredSkillsEver) ? parsed.acquiredSkillsEver : [],
-      scrap: typeof parsed.scrap === 'number' ? parsed.scrap : 0
+      scrap: typeof parsed.scrap === 'number' ? parsed.scrap : 0,
+      battlesCompleted: typeof parsed.battlesCompleted === 'number' ? parsed.battlesCompleted : 0,
+      ownedBuffItems: Array.isArray(parsed.ownedBuffItems) ? parsed.ownedBuffItems : [],
     };
   } catch {
     return emptySave();
@@ -161,6 +171,38 @@ export const recordScrap = (amount: number): SaveData => {
   data.scrap += amount;
   saveSaveData(data);
   return data;
+};
+
+/**
+ * Incremented every time the Battle scene completes (win OR lose). First
+ * battle completion unlocks the SANCTUM button on the Title screen.
+ */
+export const recordBattleCompleted = (): SaveData => {
+  const data = loadSaveData();
+  data.battlesCompleted += 1;
+  saveSaveData(data);
+  return data;
+};
+
+/** Purchase: deduct scrap and append buff item to pending inventory. Returns
+ *  `null` if the player cannot afford it (save data untouched). */
+export const purchaseSanctumBuff = (itemKey: string, scrapCost: number): SaveData | null => {
+  const data = loadSaveData();
+  if (data.scrap < scrapCost) return null;
+  data.scrap -= scrapCost;
+  data.ownedBuffItems.push(itemKey);
+  saveSaveData(data);
+  return data;
+};
+
+/** Drain the pending buff inventory (called when Battle starts). */
+export const consumeOwnedBuffs = (): readonly string[] => {
+  const data = loadSaveData();
+  const drained = [...data.ownedBuffItems];
+  if (drained.length === 0) return drained;
+  data.ownedBuffItems = [];
+  saveSaveData(data);
+  return drained;
 };
 
 export const isRobotUnlocked = (robotKey: RobotKey): boolean => {

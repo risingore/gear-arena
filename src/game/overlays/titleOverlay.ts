@@ -32,6 +32,8 @@ export interface TitleOverlayOptions {
   onCollection(): void;
   onSettings(): void;
   onCredits?(): void;
+  /** Unlocked after the first completed battle. Button sits next to PLAY. */
+  onSanctum?(): void;
   saveData?: TitleOverlaySaveData;
   atmanQuoteLine1?: string;
   atmanQuoteLine2?: string;
@@ -40,6 +42,7 @@ export interface TitleOverlayOptions {
   collectionLabel?: string;
   settingsLabel?: string;
   creditsLabel?: string;
+  sanctumLabel?: string;
 }
 
 const STYLE_ELEMENT_ID = 'title-overlay-style';
@@ -155,6 +158,20 @@ const CSS = `
 .${ROOT_CLASS} .menu .primary:hover{background:linear-gradient(90deg,#ff7a00,rgba(255,122,0,.55));filter:drop-shadow(0 0 14px rgba(255,122,0,.7))}
 .${ROOT_CLASS} .menu .primary:hover .lbl{color:#0a0a10;text-shadow:none}
 .${ROOT_CLASS} .menu .primary .lbl{font-family:'Bebas Neue',sans-serif;font-size:30px;letter-spacing:.1em;color:#fff;text-shadow:0 0 10px rgba(255,122,0,.55);transition:all .15s}
+
+.${ROOT_CLASS} .primary-row{display:flex;gap:10px;align-items:center}
+.${ROOT_CLASS} .menu .sanctum{
+  width:200px;height:56px;padding:0 18px;
+  display:flex;align-items:center;justify-content:center;gap:12px;
+  background:linear-gradient(90deg,rgba(196,155,255,.22),rgba(196,155,255,.04));
+  border:1px solid #c49bff;border-left:3px solid #c49bff;
+  filter:drop-shadow(0 0 10px rgba(196,155,255,.35));
+  clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px));
+  cursor:pointer;transition:all .15s ease;pointer-events:auto;
+}
+.${ROOT_CLASS} .menu .sanctum:hover{background:linear-gradient(90deg,#c49bff,rgba(196,155,255,.55));filter:drop-shadow(0 0 14px rgba(196,155,255,.7))}
+.${ROOT_CLASS} .menu .sanctum:hover .lbl{color:#0a0a10;text-shadow:none}
+.${ROOT_CLASS} .menu .sanctum .lbl{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:.14em;color:#fff;text-shadow:0 0 10px rgba(196,155,255,.55);transition:all .15s}
 
 .${ROOT_CLASS} .secondary-row{display:flex;gap:10px}
 .${ROOT_CLASS} .secondary{
@@ -301,7 +318,10 @@ function buildStageHtml(opts: TitleOverlayOptions): string {
 
     <div class="menu-backing"></div>
     <div class="menu">
-      <div class="primary" data-role="play"><span class="lbl">${escapeHtml(primary)}</span></div>
+      <div class="primary-row">
+        <div class="primary" data-role="play"><span class="lbl">${escapeHtml(primary)}</span></div>
+        ${opts.onSanctum ? `<div class="sanctum" data-role="sanctum"><span class="lbl">${escapeHtml(opts.sanctumLabel ?? 'SANCTUM')}</span></div>` : ''}
+      </div>
       <div class="secondary-row">
         <div class="secondary" data-role="collection"><span class="lbl">${escapeHtml(collection)}</span></div>
         <div class="secondary" data-role="settings"><span class="lbl">${escapeHtml(settings)}</span></div>
@@ -405,7 +425,7 @@ export function mountTitleOverlay(opts: TitleOverlayOptions): () => void {
   const disposeFit = fitStageToCanvas(stage);
 
   // Button wiring
-  const onClick = (role: 'play' | 'collection' | 'settings' | 'credits', handler: () => void): void => {
+  const onClick = (role: 'play' | 'collection' | 'settings' | 'credits' | 'sanctum', handler: () => void): void => {
     const el = root.querySelector(`[data-role="${role}"]`) as HTMLElement | null;
     if (!el) return;
     el.addEventListener('click', () => handler());
@@ -414,6 +434,7 @@ export function mountTitleOverlay(opts: TitleOverlayOptions): () => void {
   onClick('collection', opts.onCollection);
   onClick('settings', opts.onSettings);
   if (opts.onCredits) onClick('credits', opts.onCredits);
+  if (opts.onSanctum) onClick('sanctum', opts.onSanctum);
 
   // Fade in on next frame
   requestAnimationFrame(() => root.classList.add('visible'));

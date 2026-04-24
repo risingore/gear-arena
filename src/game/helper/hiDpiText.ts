@@ -17,19 +17,35 @@ export const TEXT_DPR =
     ? Math.max(2, Math.min(window.devicePixelRatio || 1, 3))
     : 2;
 
-/**
- * Walk the scene's display list and set the resolution of every Text
- * object to the device pixel ratio. Safe to call repeatedly — already-
- * patched objects simply receive the same value again.
- */
-export function applyHiDpiToScene(scene: {
-  children: { list: readonly { type?: string; setResolution?: (r: number) => void }[] };
-}): void {
-  for (const child of scene.children.list) {
+interface WalkableChild {
+  type?: string;
+  setResolution?: (r: number) => void;
+  list?: readonly WalkableChild[];
+}
+
+function walkTextChildren(list: readonly WalkableChild[]): void {
+  for (const child of list) {
     if (child.type === 'Text' && child.setResolution) {
       child.setResolution(TEXT_DPR);
+    } else if (child.type === 'Container' && child.list) {
+      // Containers nest their own display list — recurse so text inside
+      // shop cards / dialog panels / ult cut-ins gets the DPR bump too.
+      walkTextChildren(child.list);
     }
   }
+}
+
+/**
+ * Walk the scene's display list and set the resolution of every Text
+ * object to the device pixel ratio. Recurses into Phaser Containers so
+ * nested text objects (shop cards, popup contents) are covered. Safe to
+ * call repeatedly — already-patched objects simply receive the same
+ * value again.
+ */
+export function applyHiDpiToScene(scene: {
+  children: { list: readonly WalkableChild[] };
+}): void {
+  walkTextChildren(scene.children.list);
 }
 
 /**

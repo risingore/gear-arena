@@ -55,6 +55,10 @@ export class Title extends Scene {
         playSfx('click');
         fadeToScene(this, 'Credits');
       },
+      onSanctum: save.battlesCompleted > 0 ? () => {
+        playSfx('click');
+        fadeToScene(this, 'Sanctum');
+      } : undefined,
       saveData: {
         bestRound: save.bestRound,
         victories: save.totalClears,
@@ -65,6 +69,7 @@ export class Title extends Scene {
       collectionLabel: t('COLLECTION'),
       settingsLabel: t('SETTINGS'),
       creditsLabel: t('CREDITS'),
+      sanctumLabel: t('SANCTUM'),
     });
 
     this.events.once('shutdown', () => {

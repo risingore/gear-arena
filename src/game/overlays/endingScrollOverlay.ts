@@ -186,7 +186,8 @@ export function mountEndingScrollOverlay(opts: EndingScrollOverlayOptions): () =
   const scrollEl = root.querySelector('.scroll') as HTMLElement;
   const returnBtn = root.querySelector('[data-role="return"]') as HTMLElement;
   // Default tuned so the scroll finishes a few seconds before bgm_victory
-  // (158s) ends, leaving a musical tail on the SOUL BREAKER hero screen.
+  // (~158 s) ends, leaving a musical tail on the SOUL BREAKER hero screen.
+  // bgm_victory is non-looping — one play covers the whole roll.
   const baseSpeed = opts.scrollSpeed ?? 22;
   let scrollOffset = 0;
   let raf = 0;

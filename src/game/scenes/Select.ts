@@ -7,7 +7,8 @@ import { setRunState, resetRunState } from '../systems/runState';
 import { PALETTE, ROBOT_COLORS } from '../systems/palette';
 import { generateShopOffer } from '../systems/shop';
 import { generateRunEnemies } from '../systems/enemyPool';
-import { isRobotUnlocked, isSuperBossUnlocked } from '../systems/savedata';
+import { isRobotUnlocked, isSuperBossUnlocked, consumeOwnedBuffs } from '../systems/savedata';
+import { isItemKey, type ItemKey } from '@/data';
 import { playSfx } from '../systems/audio';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { showDebugBadge } from '../helper/hiDpiText';
@@ -144,12 +145,16 @@ export class Select extends Scene {
       isBossModeEnabled(),
     );
     const debugGold = isDebugEnabled() ? 100000 : fresh.gold;
+    // Drain SANCTUM-purchased buff items into the fresh run's equippedBuffs.
+    // Battle.ts consumes them at battle start.
+    const drainedBuffs = consumeOwnedBuffs().filter(isItemKey) as ItemKey[];
     const next = {
       ...fresh,
       robotKey,
       gold: debugGold,
       shopOffer: generateShopOffer(),
       generatedRounds,
+      equippedBuffs: drainedBuffs,
     };
     setRunState(this, next);
     fadeToScene(this, 'Build');

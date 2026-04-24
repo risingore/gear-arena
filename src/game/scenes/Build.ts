@@ -17,7 +17,13 @@ import {
 import { BALANCE } from '@/data/balance';
 import { ROUND_TRANSITION_MONOLOGUES } from '@/data/storyText';
 import { getRunState, setRunState, type RunState, type EquippedEntry } from '../systems/runState';
-import { PALETTE, CATEGORY_COLORS, CATEGORY_LABEL } from '../systems/palette';
+import {
+  PALETTE,
+  CATEGORY_COLORS,
+  CATEGORY_LABEL,
+  SANCTUM_KIND_COLORS,
+  type SanctumKind,
+} from '../systems/palette';
 import { computeLoadoutStats } from '../systems/stats';
 import { generateShopOffer } from '../systems/shop';
 import { attemptReroll, getRerollCost } from '../systems/loadout';
@@ -42,10 +48,20 @@ const STORAGE_COL_W = 100;
 // lineart renders without distortion.
 const BLUEPRINT_BOX_W = 450;
 const BLUEPRINT_BOX_H = 598;
-const SLOT_RADIUS = 19;
+// Capped at the largest radius that keeps every robot's slot layout
+// non-overlapping. LILITH's vertical column has 32-unit spacing
+// (≈ 63.7 px after scale), so center-to-center distance bounds 2r ≤ 63.7
+// → r ≤ 31. Aim is "≈2x of the original 19 px"; 30 px lands ~1.6x while
+// holding the no-overlap promise across all four cyborgs.
+const SLOT_RADIUS = 30;
 const SHOP_CARD_W = 140;
 const SHOP_CARD_H = 86;
-const SHOP_CARD_GAP = 8;
+const SHOP_CARD_GAP = 14;
+/** Y of first shop card CENTER. Must sit below the DOM panel-head strip
+ *  (which ends at y=74). First-card top = SHOP_GRID_TOP - SHOP_CARD_H/2. */
+const SHOP_GRID_TOP = 130;
+/** REROLL button width — narrower than the shop column for visual breathing. */
+const REROLL_W = 180;
 const SHOP_COLS = 2;
 const STATS_W = 260;
 const COL_GAP = 20;
@@ -57,8 +73,30 @@ const BLUEPRINT_X = STORAGE_COL_X + STORAGE_COL_W + COL_GAP;
 const SHOP_AREA_X = BLUEPRINT_X + BLUEPRINT_BOX_W + COL_GAP;
 const STATS_X = SHOP_AREA_X + SHOP_W + COL_GAP;
 
-/** Blueprint panel top offset. */
-const BP_TOP = 58;
+/** Blueprint panel top offset — shifted so it sits below the 30-px tall
+ *  DOM panel-head strip (which starts at frame top y=44 and ends y=74). */
+const BP_TOP = 80;
+
+/**
+ * Stats-column children line up with the header `OUTPUT · SS-NN` text
+ * above them by sharing the same left edge as the header's ident span.
+ * The DOM `.panel-head` uses padding: 8 px and sits at STATS_X - 8
+ * (the outer frame edge), so header text lands at STATS_X and any
+ * child placed at STATS_X lines up perfectly — no per-child inset
+ * constant needed.
+ */
+
+// --- Shop-card chrome matching SANCTUM's Consecrate-card taste -----------
+// SANCTUM's cards sit on a darkened panel, so 0.85 alpha reads bright
+// against the panel. Build cards sit directly on the pure-black scene
+// bg (no column-fill), so we go fully opaque with a slightly brighter
+// navy so they still feel "lit" against the void.
+// Border: 0xaeeaff at 0.3 alpha — subtle cyan hairline, never competes
+// with the state-driven equip / merge2 / merge3 loud strokes.
+const SHOP_CARD_FILL = 0x1c2840;
+const SHOP_CARD_FILL_ALPHA = 1;
+const SHOP_CARD_BORDER = 0xaeeaff;
+const SHOP_CARD_BORDER_ALPHA = 0.3;
 
 // --- Owned-buffs column (leftmost, display-only) --------------------------
 // Lists the buff items the player consecrated at SANCTUM and brought into
@@ -67,7 +105,7 @@ const BUFFS_TOP = BP_TOP;
 const BUFFS_ITEM_W = STORAGE_COL_W - 10;
 const BUFFS_ITEM_H = 44;
 const BUFFS_ITEM_GAP = 6;
-const BUFFS_MAX = 7;
+const BUFFS_MAX = 9;
 
 // ---------------------------------------------------------------------------
 // Interfaces
@@ -77,7 +115,10 @@ interface SlotVisual {
   readonly slot: SlotDef;
   circle: GameObjects.Arc;
   label: GameObjects.Text;
-  icon: GameObjects.Rectangle | null;
+  /** Rotating dashed ring shown when star ≥ 2 (yellow at 2, orange at 3). */
+  starRing: GameObjects.Graphics | null;
+  starRingTween: Phaser.Tweens.Tween | null;
+  starRingState: 0 | 2 | 3;
 }
 
 // ---------------------------------------------------------------------------
@@ -91,9 +132,7 @@ export class Build extends Scene {
   private goldDeltaText!: GameObjects.Text;
   private statsOffRows!: GameObjects.Text;
   private statsDefRows!: GameObjects.Text;
-  private statsBuffTitle!: GameObjects.Text;
   private statsBuffRows!: GameObjects.Text;
-  private statsSkillTitle!: GameObjects.Text;
   private statsSkillRows!: GameObjects.Text;
   private chargeBarFill!: GameObjects.Rectangle;
   private previewText!: GameObjects.Text;
@@ -103,6 +142,7 @@ export class Build extends Scene {
   private blueprintOriginY = 0;
   private blueprintScale = 1;
   private silhouetteRect!: GameObjects.Rectangle;
+  private blueprintImg: GameObjects.Image | null = null;
   private hoverShopIndex: number | null = null;
 
   constructor() {
@@ -139,7 +179,7 @@ export class Build extends Scene {
     // REROLL — custom-drawn with cyan-left-accent matching the design brief.
     const rerollX = SHOP_AREA_X + SHOP_W / 2;
     const shopRows = Math.ceil(ECONOMY.shopSlotCount / SHOP_COLS);
-    const rerollY = 108 + shopRows * (SHOP_CARD_H + SHOP_CARD_GAP) + 12;
+    const rerollY = SHOP_GRID_TOP + shopRows * (SHOP_CARD_H + SHOP_CARD_GAP) + 30;
     this.drawRerollButton(rerollX, rerollY, () => {
       const s = getRunState(this);
       const rerolled = attemptReroll(s, generateShopOffer(s.currentRound));
@@ -155,8 +195,10 @@ export class Build extends Scene {
 
     // READY — chamfered custom button matching the design brief. The
     // [SPACE] KBD pill sits inside the button silhouette on the right.
+    // Pushed down to free vertical room for up to 9 BUFFS rows + the
+    // hover-preview text in the stats column above.
     const btnX = STATS_X + STATS_W / 2;
-    this.drawReadyButton(btnX, 556, () => {
+    this.drawReadyButton(btnX, 626, () => {
       playSfx('click');
       fadeToScene(this, 'Battle');
     });
@@ -194,6 +236,7 @@ export class Build extends Scene {
       totalRounds,
       roundLabel: t('ROUND'),
       pilotName,
+      rerollCost: getRerollCost(state),
       monologue,
       tutorialHint: state.currentRound === 1 ? t('DRAG parts into slots  ·  MATCH types for synergy  ·  PRESS READY to fight') : undefined,
     });
@@ -220,9 +263,24 @@ export class Build extends Scene {
 
   /** Build the stats column: gold, SOUL STRIKE + DEFENSE blocks, preview. */
   private drawStatsBlocks(textStyles: typeof gameOptions.textStyles): void {
+    // Children align with the header's ident text — both sit at the
+    // content-column left edge (STATS_X). The column frame adds its own
+    // 8-px outer cushion; header padding (8 px) offsets the frame edge
+    // back to STATS_X, so ident text and gold numerals share a vertical.
+    const contentLeft = STATS_X;
+    const contentRight = STATS_X + STATS_W;
+    const contentWidth = STATS_W;
+    const headingX = contentLeft + 14;   // after the diamond bullet
+    // Diamond bullet sits flush with the content edge; drawBlockBullet
+    // draws a 7-px rect at (x+4, y+6), so the diamond's visible center
+    // is 4 px right of STATS_X — safely inside the frame (which starts
+    // 8 px further left) but still reading as a leading bullet before
+    // the heading text at headingX (= STATS_X + 14).
+    const bulletX = contentLeft;
+
     // --- Gold row ---------------------------------------------------------
     this.goldText = this.add
-      .text(STATS_X, 82, '', {
+      .text(contentLeft, 82, '', {
         fontFamily: '"Bebas Neue", system-ui, sans-serif',
         fontSize: '30px',
         color: '#ffd94a',
@@ -231,7 +289,7 @@ export class Build extends Scene {
       .setOrigin(0, 0)
       .setLetterSpacing(1);
     this.goldDeltaText = this.add
-      .text(STATS_X + STATS_W - 4, 92, '', {
+      .text(contentRight, 92, '', {
         fontFamily: '"Rajdhani", system-ui, sans-serif',
         fontSize: '11px',
         color: '#3aff7a',
@@ -245,9 +303,9 @@ export class Build extends Scene {
     this.drawStatsDivider(118);
 
     // --- SOUL STRIKE block ----------------------------------------------
-    this.drawBlockBullet(STATS_X, 124);
+    this.drawBlockBullet(bulletX, 124);
     this.add
-      .text(STATS_X + 14, 122, t('SOUL STRIKE'), {
+      .text(headingX, 122, t('SOUL STRIKE'), {
         fontFamily: '"Bebas Neue", system-ui, sans-serif',
         fontSize: '13px',
         color: '#aeeaff',
@@ -256,7 +314,7 @@ export class Build extends Scene {
       .setOrigin(0, 0)
       .setLetterSpacing(4);
     this.statsOffRows = this.add
-      .text(STATS_X + 4, 144, '', {
+      .text(contentLeft, 144, '', {
         fontFamily: '"Rajdhani", system-ui, sans-serif',
         fontSize: '12px',
         color: '#cfd8e4',
@@ -270,20 +328,20 @@ export class Build extends Scene {
     // Charge bar — thin horizontal meter showing ult charge rate visually.
     const chargeBarY = 210;
     this.add
-      .rectangle(STATS_X + 4, chargeBarY, STATS_W - 8, 6, 0x0b121e, 1)
+      .rectangle(contentLeft, chargeBarY, contentWidth, 6, 0x0b121e, 1)
       .setOrigin(0, 0)
       .setStrokeStyle(1, 0x39557c);
     this.chargeBarFill = this.add
-      .rectangle(STATS_X + 5, chargeBarY + 1, 1, 4, 0xff7a00, 1)
+      .rectangle(contentLeft + 1, chargeBarY + 1, 1, 4, 0xff7a00, 1)
       .setOrigin(0, 0);
 
     // Divider between SOUL STRIKE block and DEFENSE block.
     this.drawStatsDivider(226);
 
     // --- DEFENSE block --------------------------------------------------
-    this.drawBlockBullet(STATS_X, 232);
+    this.drawBlockBullet(bulletX, 232);
     this.add
-      .text(STATS_X + 14, 230, t('DEFENSE'), {
+      .text(headingX, 230, t('DEFENSE'), {
         fontFamily: '"Bebas Neue", system-ui, sans-serif',
         fontSize: '13px',
         color: '#aeeaff',
@@ -292,7 +350,7 @@ export class Build extends Scene {
       .setOrigin(0, 0)
       .setLetterSpacing(4);
     this.statsDefRows = this.add
-      .text(STATS_X + 4, 252, '', {
+      .text(contentLeft, 252, '', {
         fontFamily: '"Rajdhani", system-ui, sans-serif',
         fontSize: '12px',
         color: '#cfd8e4',
@@ -303,51 +361,73 @@ export class Build extends Scene {
       .setOrigin(0, 0)
       .setLetterSpacing(1);
 
-    // --- BUFFS block (optional, shown when active) ----------------------
-    this.statsBuffTitle = this.add
-      .text(STATS_X + 14, 330, '', {
-        fontFamily: '"Bebas Neue", system-ui, sans-serif',
-        fontSize: '12px',
-        color: '#aeeaff',
-        resolution: TEXT_DPR,
-      })
-      .setOrigin(0, 0)
-      .setLetterSpacing(4);
-    this.statsBuffRows = this.add
-      .text(STATS_X + 4, 348, '', {
-        fontFamily: '"Rajdhani", system-ui, sans-serif',
-        fontSize: '11px',
-        color: '#cfd8e4',
-        resolution: TEXT_DPR,
-        lineSpacing: 3,
-        wordWrap: { width: STATS_W - 8 },
-      })
-      .setOrigin(0, 0);
+    // --- SKILLS + BUFFS blocks (side-by-side, DEFENSE-style chrome) -----
+    // Two parallel mini-blocks under DEFENSE: each gets its own bullet,
+    // heading, and rows — same UI vocabulary as DEFENSE, just split into
+    // two half-width columns.
+    this.drawStatsDivider(322);
 
-    // --- SKILLS block (optional) ----------------------------------------
-    this.statsSkillTitle = this.add
-      .text(STATS_X + 14, 398, '', {
+    const outputColGap = 12;
+    const outputColW = (contentWidth - outputColGap) / 2;
+    const skillsBulletX = contentLeft;
+    const skillsHeadingX = skillsBulletX + 14;
+    const buffsBulletX = contentLeft + outputColW + outputColGap;
+    const buffsHeadingX = buffsBulletX + 14;
+    const headerY = 328;
+    const bulletY = 330;
+    const rowsY = 350;
+
+    this.drawBlockBullet(skillsBulletX, bulletY);
+    this.add
+      .text(skillsHeadingX, headerY, t('SKILLS'), {
         fontFamily: '"Bebas Neue", system-ui, sans-serif',
-        fontSize: '12px',
+        fontSize: '13px',
         color: '#aeeaff',
         resolution: TEXT_DPR,
       })
       .setOrigin(0, 0)
       .setLetterSpacing(4);
     this.statsSkillRows = this.add
-      .text(STATS_X + 4, 416, '', {
+      .text(skillsBulletX, rowsY, '', {
         fontFamily: '"Rajdhani", system-ui, sans-serif',
-        fontSize: '11px',
+        fontSize: '12px',
         color: '#cfd8e4',
         resolution: TEXT_DPR,
-        lineSpacing: 3,
-        wordWrap: { width: STATS_W - 8 },
+        fontStyle: '600',
+        lineSpacing: 4,
+        wordWrap: { width: outputColW },
       })
-      .setOrigin(0, 0);
+      .setOrigin(0, 0)
+      .setLetterSpacing(1);
+
+    this.drawBlockBullet(buffsBulletX, bulletY);
+    this.add
+      .text(buffsHeadingX, headerY, t('BUFFS'), {
+        fontFamily: '"Bebas Neue", system-ui, sans-serif',
+        fontSize: '13px',
+        color: '#aeeaff',
+        resolution: TEXT_DPR,
+      })
+      .setOrigin(0, 0)
+      .setLetterSpacing(4);
+    this.statsBuffRows = this.add
+      .text(buffsBulletX, rowsY, '', {
+        fontFamily: '"Rajdhani", system-ui, sans-serif',
+        fontSize: '12px',
+        color: '#cfd8e4',
+        resolution: TEXT_DPR,
+        fontStyle: '600',
+        lineSpacing: 4,
+        wordWrap: { width: outputColW },
+      })
+      .setOrigin(0, 0)
+      .setLetterSpacing(1);
 
     // --- Hover preview --------------------------------------------------
+    // Pushed down (was y=470) so the SKILLS / BUFFS rows above can grow to
+    // 9 entries without colliding with this hover-description text.
     this.previewText = this.add
-      .text(STATS_X, 470, '', { ...textStyles.small, wordWrap: { width: STATS_W - 8 } })
+      .text(contentLeft, 526, '', { ...textStyles.small, wordWrap: { width: contentWidth } })
       .setOrigin(0, 0)
       .setColor('#3ab0ff');
   }
@@ -386,46 +466,24 @@ export class Build extends Scene {
    */
   private drawColumnFrames(): void {
     const shopRows = Math.ceil(ECONOMY.shopSlotCount / SHOP_COLS);
-    const shopContentBottom = 108 + shopRows * (SHOP_CARD_H + SHOP_CARD_GAP) + 12 + 22; // REROLL bottom
-    const frameTop = 32;
+    const shopContentBottom = SHOP_GRID_TOP + shopRows * (SHOP_CARD_H + SHOP_CARD_GAP) + 30 + 22; // REROLL bottom
+    const frameTop = 44;
     const cornerCut = 14;
 
-    // Storage column (matches the height of the blueprint frame so the
-    // two read as aligned towers on the left side of the workshop).
-    this.drawColumnFrame(
-      STORAGE_COL_X - 8,
-      frameTop,
-      STORAGE_COL_W + 16,
-      BP_TOP + BLUEPRINT_BOX_H - frameTop + 4,
-      cornerCut
-    );
-
-    // Blueprint column
-    this.drawColumnFrame(
-      BLUEPRINT_X - 4,
-      frameTop,
-      BLUEPRINT_BOX_W + 8,
-      BP_TOP + BLUEPRINT_BOX_H - frameTop + 4,
-      cornerCut
-    );
-
-    // Shop column (includes REROLL button area)
-    this.drawColumnFrame(
-      SHOP_AREA_X - 8,
-      frameTop,
-      SHOP_W + 16,
-      shopContentBottom - frameTop + 8,
-      cornerCut
-    );
-
-    // Stats column (includes READY button at y=556+25=581 bottom)
-    this.drawColumnFrame(
-      STATS_X - 8,
-      frameTop,
-      STATS_W + 16,
-      581 + 8 - frameTop,
-      cornerCut
-    );
+    // Frames hug the content columns exactly (no outer inset). This keeps
+    // the COL_GAP (20 px) of clean black between adjacent frames, so the
+    // four columns read as independent panels (like the reference mockup)
+    // rather than one giant fused header stripe.
+    const colHeight = BP_TOP + BLUEPRINT_BOX_H - frameTop;
+    // Storage column (matches the blueprint's height so the leftmost
+    // pair reads as aligned towers).
+    this.drawColumnFrame(STORAGE_COL_X, frameTop, STORAGE_COL_W, colHeight, cornerCut);
+    this.drawColumnFrame(BLUEPRINT_X, frameTop, BLUEPRINT_BOX_W, colHeight, cornerCut);
+    this.drawColumnFrame(SHOP_AREA_X, frameTop, SHOP_W, shopContentBottom - frameTop + 8, cornerCut);
+    // Stats column — extended to match Storage / Blueprint column bottoms
+    // so the four columns share a single baseline (was clipped just under
+    // the READY button at y=659; now y=678 like its neighbors).
+    this.drawColumnFrame(STATS_X, frameTop, STATS_W, colHeight, cornerCut);
   }
 
   /**
@@ -443,20 +501,21 @@ export class Build extends Scene {
       new PhaserMath.Vector2(x + cut, y + h),
       new PhaserMath.Vector2(x, y + h - cut),
     ];
-    // Match Collection / Settings panel density: near-black fill at 55%
-    // alpha + 1-px cyan border at 18% alpha. Border does the silhouette
-    // work; the slight fill darkening reads as an inset panel.
+    // Column frame = silhouette only, no fill darkening. Build hides the
+    // shared ss-frame-grid (to avoid moiré with the blueprint PNG), so an
+    // opaque frame fill over pure-black bg just muddies content stacked
+    // on top (shop cards, stats text). Keep the cyan hairline at 22% to
+    // mark the panel edges; let the actual content carry the visual
+    // weight — SANCTUM's single-panel crispness over multi-column stacking.
     const gfx = this.add.graphics().setDepth(-1);
-    gfx.fillStyle(0x0a0a10, 0.55);
-    gfx.fillPoints(pts, true);
-    gfx.lineStyle(1, 0xaeeaff, 0.18);
+    gfx.lineStyle(1, 0xaeeaff, 0.22);
     gfx.strokePoints(pts, true);
   }
 
   /** Horizontal divider inside the stats column between blocks. */
   private drawStatsDivider(y: number): void {
     this.add
-      .rectangle(STATS_X + 4, y, STATS_W - 8, 1, 0xaeeaff, 0.18)
+      .rectangle(STATS_X, y, STATS_W, 1, 0xaeeaff, 0.18)
       .setOrigin(0, 0);
   }
 
@@ -468,7 +527,7 @@ export class Build extends Scene {
    * cleanly instead of feeling rectangular.
    */
   private drawRerollButton(cx: number, cy: number, onClick: () => void): void {
-    const w = SHOP_W;
+    const w = REROLL_W;
     const h = 44;
     const cut = 10;
     const x = cx - w / 2;
@@ -628,6 +687,7 @@ export class Build extends Scene {
       const img = this.add.image(silhouetteX, silhouetteY, robot.blueprintAssetKey);
       const scale = Math.min(BLUEPRINT_BOX_W / img.width, BLUEPRINT_BOX_H / img.height);
       img.setScale(scale);
+      this.blueprintImg = img;
     }
 
     // Outer frame — sized to the full panel. Invisible (no stroke) while
@@ -649,9 +709,12 @@ export class Build extends Scene {
     this.slotVisuals = robot.slots.map((slot) => {
       const cx = this.blueprintOriginX + slot.x * this.blueprintScale;
       const cy = this.blueprintOriginY + slot.y * this.blueprintScale;
+      // Empty-slot color = the accepted-category hue at low alpha, so
+      // each socket telegraphs its part type before anything is fitted.
+      const acceptColor = CATEGORY_COLORS[slot.accepts];
       const circle = this.add
-        .circle(cx, cy, SLOT_RADIUS, PALETTE.slotEmpty, 1)
-        .setStrokeStyle(2, PALETTE.slotEmptyStroke);
+        .circle(cx, cy, SLOT_RADIUS, acceptColor, 0.22)
+        .setStrokeStyle(2, acceptColor);
       circle.setInteractive({ useHandCursor: true });
       // Equipped slots are display-only — hover still shows the tooltip
       // preview, but click-to-drag is removed. Parts are placed at
@@ -665,7 +728,7 @@ export class Build extends Scene {
         .text(cx, cy, CATEGORY_LABEL[slot.accepts], { ...textStyles.small, color: '#aeeaff' })
         .setOrigin(0.5);
 
-      return { slot, circle, label, icon: null };
+      return { slot, circle, label, starRing: null, starRingTween: null, starRingState: 0 };
     });
   }
 
@@ -686,12 +749,17 @@ export class Build extends Scene {
       const cx = colX + BUFFS_ITEM_W / 2;
       const cy = BUFFS_TOP + i * (BUFFS_ITEM_H + BUFFS_ITEM_GAP) + BUFFS_ITEM_H / 2;
 
+      // Tint the card border by buff kind so OFFENSE / DEFENSE / RECON
+      // are visually distinct at a glance — same palette as SANCTUM.
+      const kind = item.effect.kind as SanctumKind;
+      const kindColor = SANCTUM_KIND_COLORS[kind] ?? PALETTE.itemBar;
+
       const container = this.add.container(cx, cy);
       const points = this.chamferedPoints(BUFFS_ITEM_W, BUFFS_ITEM_H, 8);
       const bg = this.add
         .polygon(-BUFFS_ITEM_W / 2, -BUFFS_ITEM_H / 2, points, PALETTE.itemCardBg, 0.9)
         .setOrigin(0, 0)
-        .setStrokeStyle(1, PALETTE.itemBar);
+        .setStrokeStyle(1, kindColor);
       bg.setInteractive(new Geom.Polygon(points), Geom.Polygon.Contains);
       bg.on('pointerover', () => {
         this.previewText.setText(`${t(item.name)}\n${t(item.description)}`);
@@ -701,12 +769,19 @@ export class Build extends Scene {
       });
       container.add(bg);
 
+      // Left accent bar in the kind color — matches the SANCTUM card chrome.
+      container.add(
+        this.add
+          .rectangle(-BUFFS_ITEM_W / 2, -BUFFS_ITEM_H / 2, 3, BUFFS_ITEM_H, kindColor, 1)
+          .setOrigin(0, 0)
+      );
+
       container.add(
         this.add
           .text(0, 0, t(item.name), {
             ...textStyles.small,
             fontSize: '10px',
-            color: PALETTE.itemText,
+            color: `#${kindColor.toString(16).padStart(6, '0')}`,
             wordWrap: { width: BUFFS_ITEM_W - 6 },
             align: 'center',
           })
@@ -721,7 +796,7 @@ export class Build extends Scene {
 
   private drawShopArea(): void {
     const gridLeft = SHOP_AREA_X;
-    const gridTop = 108;
+    const gridTop = SHOP_GRID_TOP;
 
     this.shopContainers = [];
     for (let i = 0; i < ECONOMY.shopSlotCount; i += 1) {
@@ -735,19 +810,20 @@ export class Build extends Scene {
       // top-left at (-w/2, -h/2) so points in (0..w, 0..h) local space
       // land correctly inside the container.
       const bg = this.add
-        .polygon(-SHOP_CARD_W / 2, -SHOP_CARD_H / 2, points, PALETTE.cardBg, 1)
+        .polygon(-SHOP_CARD_W / 2, -SHOP_CARD_H / 2, points, SHOP_CARD_FILL, SHOP_CARD_FILL_ALPHA)
         .setOrigin(0, 0)
-        .setStrokeStyle(2, PALETTE.cardStroke);
+        .setStrokeStyle(1, SHOP_CARD_BORDER, SHOP_CARD_BORDER_ALPHA);
       bg.setInteractive(new Geom.Polygon(points), Geom.Polygon.Contains);
       bg.input!.cursor = 'pointer';
       bg.on('pointerup', () => this.handleShopKeypress(i));
       bg.on('pointerover', () => {
-        bg.setFillStyle(PALETTE.cardBgHover, 1);
+        // Subtle hover lift — bump fill alpha + switch border to solid cyan.
+        bg.setFillStyle(SHOP_CARD_FILL, 1);
         this.hoverShopIndex = i;
         this.refreshHud();
       });
       bg.on('pointerout', () => {
-        bg.setFillStyle(PALETTE.cardBg, 1);
+        bg.setFillStyle(SHOP_CARD_FILL, SHOP_CARD_FILL_ALPHA);
         if (this.hoverShopIndex === i) {
           this.hoverShopIndex = null;
           this.refreshHud();
@@ -803,52 +879,46 @@ export class Build extends Scene {
     });
   }
 
-  /** Draw a slanted tag-row polygon at the top of a card. Category-tinted. */
-  private drawShopCardTagRow(
+  /**
+   * SANCTUM-style card chrome: a 3-px category-colored accent bar on the
+   * left edge + a small muted category label in the top-left corner.
+   * Replaces the earlier top-slanted tag-row so the card reads vertically
+   * (accent → name → price foot) like every Consecrate card in SANCTUM.
+   */
+  private drawShopCardAccentBar(
     container: GameObjects.Container,
     fillColor: number,
-    label: string,
-    labelColorHex: string
+    label: string
   ): void {
-    const w = SHOP_CARD_W;
-    const h = 18;
     const top = -SHOP_CARD_H / 2;
-    const notch = 6;
-    const gfx = this.add.graphics();
-    gfx.fillStyle(fillColor, 0.18);
-    gfx.fillPoints(
-      [
-        new PhaserMath.Vector2(-w / 2, top),
-        new PhaserMath.Vector2(w / 2 - notch, top),
-        new PhaserMath.Vector2(w / 2, top + h),
-        new PhaserMath.Vector2(-w / 2, top + h),
-      ],
-      true
-    );
-    gfx.lineStyle(1, fillColor, 0.45);
-    gfx.strokePoints(
-      [
-        new PhaserMath.Vector2(-w / 2, top + h),
-        new PhaserMath.Vector2(w / 2, top + h),
-      ],
-      false
-    );
-    container.add(gfx);
-
+    const left = -SHOP_CARD_W / 2;
+    // Left bar — 3 px wide, spans most of the card height (leave 6-px
+    // insets so the chamfered TL / BL corners aren't overdrawn).
     container.add(
       this.add
-        .text(0, top + h / 2, label, {
-          fontFamily: '"Bebas Neue", system-ui, sans-serif',
-          fontSize: '11px',
-          color: labelColorHex,
+        .rectangle(left + 1, top + 6, 3, SHOP_CARD_H - 12, fillColor, 1)
+        .setOrigin(0, 0)
+    );
+    // Category label — muted 9-px Rajdhani in the top-left corner.
+    container.add(
+      this.add
+        .text(left + 10, top + 8, label, {
+          fontFamily: '"Rajdhani", system-ui, sans-serif',
+          fontSize: '9px',
+          color: '#8da0ba',
+          fontStyle: '600',
           resolution: TEXT_DPR,
         })
-        .setOrigin(0.5)
+        .setOrigin(0, 0)
         .setLetterSpacing(3)
     );
   }
 
-  /** Render the star-tier corner hint based on placeState. */
+  /**
+   * Star-tier indicator in the card's bottom-right foot, paired with
+   * the gold price on the left so the two read as a single status row
+   * (like SANCTUM's `foot` with price + Consecrate button).
+   */
   private drawShopCardStars(container: GameObjects.Container, placeState: string): void {
     const stars = placeState === 'merge3' ? '★★★'
       : placeState === 'merge2' ? '★★'
@@ -856,19 +926,21 @@ export class Build extends Scene {
       : null;
     if (!stars) return;
 
-    const color = placeState === 'merge3' ? '#ffd94a'
-      : placeState === 'merge2' ? '#ff7a00'
+    // Star-2 = yellow, Star-3 = orange (swapped from earlier scheme).
+    const color = placeState === 'merge3' ? '#ff7a00'
+      : placeState === 'merge2' ? '#ffd94a'
       : '#aeeaff';
 
     container.add(
       this.add
-        .text(SHOP_CARD_W / 2 - 8, -SHOP_CARD_H / 2 + 22, stars, {
+        .text(SHOP_CARD_W / 2 - 8, SHOP_CARD_H / 2 - 12, stars, {
           fontFamily: '"Bebas Neue", system-ui, sans-serif',
-          fontSize: '11px',
+          fontSize: '12px',
           color,
           resolution: TEXT_DPR,
         })
         .setOrigin(1, 0.5)
+        .setLetterSpacing(1)
     );
   }
 
@@ -878,8 +950,8 @@ export class Build extends Scene {
       this.tweens.killTweensOf(container);
       container.setData('placeState', 'sold');
     }
-    bg.setFillStyle(PALETTE.buttonDisabled, 1);
-    bg.setStrokeStyle(2, PALETTE.cardStroke);
+    bg.setFillStyle(PALETTE.buttonDisabled, SHOP_CARD_FILL_ALPHA);
+    bg.setStrokeStyle(1, SHOP_CARD_BORDER, SHOP_CARD_BORDER_ALPHA);
     container.setAlpha(0.55);
     container.add(
       this.add.rectangle(0, 0, SHOP_CARD_W, SHOP_CARD_H, 0x000000, 0.45)
@@ -897,7 +969,7 @@ export class Build extends Scene {
     );
   }
 
-  /** Buff item card (non-part). */
+  /** Buff item card (non-part). SANCTUM-style: left accent + name + foot. */
   private drawShopCardItem(
     container: GameObjects.Container,
     bg: GameObjects.Polygon,
@@ -910,17 +982,17 @@ export class Build extends Scene {
       this.tweens.killTweensOf(container);
       container.setData('placeState', itemState);
     }
-    bg.setFillStyle(canAfford ? PALETTE.itemCardBg : PALETTE.buttonDisabled, 1);
-    bg.setStrokeStyle(2, canAfford ? PALETTE.itemBar : PALETTE.cardStroke);
+    bg.setFillStyle(canAfford ? SHOP_CARD_FILL : PALETTE.buttonDisabled, SHOP_CARD_FILL_ALPHA);
+    bg.setStrokeStyle(1, canAfford ? SHOP_CARD_BORDER : PALETTE.cardStroke, SHOP_CARD_BORDER_ALPHA);
     container.setAlpha(canAfford ? 1 : 0.45);
-    this.drawShopCardTagRow(container, PALETTE.itemBar, t('BUFF'), PALETTE.itemText);
+    this.drawShopCardAccentBar(container, PALETTE.itemBar, t('BUFF'));
     container.add(
       this.add
-        .text(0, -2, t(item.name), {
+        .text(2, -2, t(item.name), {
           fontFamily: '"Bebas Neue", system-ui, sans-serif',
           fontSize: '14px',
           color: '#ffffff',
-          wordWrap: { width: SHOP_CARD_W - 12 },
+          wordWrap: { width: SHOP_CARD_W - 20 },
           resolution: TEXT_DPR,
           align: 'center',
         })
@@ -930,7 +1002,12 @@ export class Build extends Scene {
     container.add(this.buildPriceText(item.price, canAfford));
   }
 
-  /** Part card. Handles placeState, star corner, pulse tweens. */
+  /**
+   * Part card. SANCTUM layout: left accent bar (category color) + tiny
+   * muted category label top-left + Bebas Neue name centered + foot row
+   * with price (bottom-left) and merge-tier stars (bottom-right).
+   * Border state signals placement outcome (equip / merge2 / merge3).
+   */
   private drawShopCardPart(
     container: GameObjects.Container,
     bg: GameObjects.Polygon,
@@ -939,7 +1016,7 @@ export class Build extends Scene {
   ): void {
     const part = PARTS[partKey];
     const canAfford = state.gold >= part.price;
-    bg.setFillStyle(canAfford ? PALETTE.cardBg : PALETTE.buttonDisabled, 1);
+    bg.setFillStyle(canAfford ? SHOP_CARD_FILL : PALETTE.buttonDisabled, SHOP_CARD_FILL_ALPHA);
 
     let placeState: 'equip' | 'merge2' | 'merge3' | 'full' = 'full';
     if (canAfford && state.robotKey) {
@@ -962,10 +1039,11 @@ export class Build extends Scene {
     }
 
     if (!canAfford) {
-      bg.setStrokeStyle(2, PALETTE.cardStroke);
+      bg.setStrokeStyle(1, SHOP_CARD_BORDER, SHOP_CARD_BORDER_ALPHA);
       container.setAlpha(0.45);
     } else if (placeState === 'merge3') {
-      bg.setStrokeStyle(4, PALETTE.goldText);
+      // Star-3: orange border (was gold).
+      bg.setStrokeStyle(3, PALETTE.accentOrange, 1);
       if (prevState !== effectiveState) {
         container.setAlpha(1);
         this.tweens.add({
@@ -978,7 +1056,8 @@ export class Build extends Scene {
         });
       }
     } else if (placeState === 'merge2') {
-      bg.setStrokeStyle(3, PALETTE.accentOrange);
+      // Star-2: yellow/gold border (was orange).
+      bg.setStrokeStyle(2, PALETTE.goldText, 1);
       if (prevState !== effectiveState) {
         container.setAlpha(1);
         this.tweens.add({
@@ -991,25 +1070,23 @@ export class Build extends Scene {
         });
       }
     } else if (placeState === 'equip') {
-      bg.setStrokeStyle(2, PALETTE.cardStroke);
+      bg.setStrokeStyle(1, SHOP_CARD_BORDER, SHOP_CARD_BORDER_ALPHA);
       container.setAlpha(1);
     } else {
-      bg.setStrokeStyle(2, 0x555577);
+      bg.setStrokeStyle(1, 0x555577, 0.6);
       container.setAlpha(0.45);
     }
 
-    const catColor = CATEGORY_COLORS[part.category];
-    const catHex = `#${catColor.toString(16).padStart(6, '0')}`;
-    this.drawShopCardTagRow(container, catColor, CATEGORY_LABEL[part.category], catHex);
+    this.drawShopCardAccentBar(container, CATEGORY_COLORS[part.category], CATEGORY_LABEL[part.category]);
     this.drawShopCardStars(container, effectiveState);
 
     container.add(
       this.add
-        .text(0, 2, t(part.name), {
+        .text(2, 2, t(part.name), {
           fontFamily: '"Bebas Neue", system-ui, sans-serif',
           fontSize: '15px',
           color: '#ffffff',
-          wordWrap: { width: SHOP_CARD_W - 12 },
+          wordWrap: { width: SHOP_CARD_W - 20 },
           resolution: TEXT_DPR,
           align: 'center',
         })
@@ -1020,22 +1097,26 @@ export class Build extends Scene {
     container.add(this.buildPriceText(part.price, canAfford));
   }
 
-  /** Shared gold-price element: big Bebas number + small darker G suffix. */
+  /**
+   * Shared gold-price element: big Bebas number + small darker G suffix.
+   * Sits in the card's foot-left (paired with star-tier on the foot-right
+   * to mirror SANCTUM's "price — buy" foot row).
+   */
   private buildPriceText(price: number, canAfford: boolean): GameObjects.Container {
-    const wrap = this.add.container(0, SHOP_CARD_H / 2 - 14);
+    const wrap = this.add.container(-SHOP_CARD_W / 2 + 12, SHOP_CARD_H / 2 - 12);
     const priceNumber = this.add
       .text(0, 0, String(price), {
         fontFamily: '"Bebas Neue", system-ui, sans-serif',
-        fontSize: '20px',
+        fontSize: '18px',
         color: canAfford ? '#ffd94a' : '#ff4444',
         resolution: TEXT_DPR,
       })
-      .setOrigin(1, 0.5)
+      .setOrigin(0, 0.5)
       .setLetterSpacing(1);
     const g = this.add
-      .text(3, 1, 'G', {
+      .text(priceNumber.width + 2, 1, 'G', {
         fontFamily: '"Bebas Neue", system-ui, sans-serif',
-        fontSize: '12px',
+        fontSize: '11px',
         color: canAfford ? '#b89c3a' : '#6a2020',
         resolution: TEXT_DPR,
       })
@@ -1196,32 +1277,56 @@ export class Build extends Scene {
     const state = getRunState(this);
     this.slotVisuals.forEach((sv) => {
       const entry = state.equipped[sv.slot.id];
-      if (sv.icon) {
-        sv.icon.destroy();
-        sv.icon = null;
-      }
+      const acceptColor = CATEGORY_COLORS[sv.slot.accepts];
       if (entry) {
         const part = PARTS[entry.key];
-        const color = CATEGORY_COLORS[part.category];
-        sv.circle.setFillStyle(PALETTE.slotFilled, 1);
-        sv.circle.setStrokeStyle(2, PALETTE.slotFilledStroke);
+        const partColor = CATEGORY_COLORS[part.category];
+        // Filled slot: part-category color, kept semi-transparent so the
+        // blueprint lineart underneath still reads through the disc.
+        sv.circle.setFillStyle(partColor, 0.55);
+        sv.circle.setStrokeStyle(2, partColor);
         const starStr = entry.star > 1 ? '★'.repeat(entry.star) : CATEGORY_LABEL[part.category];
-        sv.label.setText(starStr).setColor(entry.star >= 3 ? '#ffd94a' : entry.star === 2 ? '#aeeaff' : '#ffffff');
-        sv.icon = this.add
-          .rectangle(sv.circle.x, sv.circle.y - SLOT_RADIUS - 10, 12, 12, color, 1)
-          .setStrokeStyle(1, PALETTE.textPrimary);
+        sv.label
+          .setText(starStr)
+          .setColor(entry.star >= 3 ? '#ff7a00' : entry.star === 2 ? '#ffd94a' : '#ffffff');
       } else {
-        sv.circle.setFillStyle(PALETTE.slotEmpty, 1);
-        sv.circle.setStrokeStyle(2, PALETTE.slotEmptyStroke);
+        // Empty slot: faint accept-category hue + matching outline.
+        sv.circle.setFillStyle(acceptColor, 0.22);
+        sv.circle.setStrokeStyle(2, acceptColor);
         sv.label.setText(CATEGORY_LABEL[sv.slot.accepts]).setColor('#aeeaff');
+      }
+
+      // --- Star ring (rotating dashed orbit at star ≥ 2) -------------
+      const targetRing: 0 | 2 | 3 = !entry
+        ? 0
+        : entry.star >= 3 ? 3 : entry.star === 2 ? 2 : 0;
+      if (targetRing !== sv.starRingState) {
+        if (sv.starRingTween) {
+          sv.starRingTween.stop();
+          sv.starRingTween = null;
+        }
+        if (sv.starRing) {
+          sv.starRing.destroy();
+          sv.starRing = null;
+        }
+        if (targetRing !== 0) {
+          const color = targetRing === 3 ? PALETTE.accentOrange : PALETTE.goldText;
+          const built = this.drawStarRing(sv.circle.x, sv.circle.y, color);
+          sv.starRing = built.g;
+          sv.starRingTween = built.tween;
+        }
+        sv.starRingState = targetRing;
       }
     });
 
-    // Awakened glow: all slots filled → inner silhouette glows
+    // Awakened glow: all slots filled → blueprint goes orange.
     const allFilled = this.slotVisuals.every((sv) => !!state.equipped[sv.slot.id]);
     if (allFilled && this.slotVisuals.length > 0) {
-      // Outer-frame awakened glow — thick gold stroke around the full panel.
-      this.silhouetteRect.setStrokeStyle(4, 0xffd94a);
+      // Tint the cyborg lineart orange so the entire blueprint reads
+      // "fully assembled / weapon hot".
+      this.blueprintImg?.setTint(PALETTE.accentOrange);
+      // Outer-frame awakened glow — thick orange stroke around the panel.
+      this.silhouetteRect.setStrokeStyle(4, PALETTE.accentOrange);
       // Subtle alpha pulse for "shining" feel. Only start the tween once.
       if (!this.silhouetteRect.getData('awakenedTweenStarted')) {
         this.silhouetteRect.setData('awakenedTweenStarted', true);
@@ -1235,7 +1340,8 @@ export class Build extends Scene {
         });
       }
     } else {
-      // Reset to invisible + stop any pulse tween.
+      // Reset to invisible + stop any pulse tween + clear blueprint tint.
+      this.blueprintImg?.clearTint();
       this.silhouetteRect.setStrokeStyle();
       this.silhouetteRect.setAlpha(1);
       if (this.silhouetteRect.getData('awakenedTweenStarted')) {
@@ -1243,6 +1349,37 @@ export class Build extends Scene {
         this.silhouetteRect.setData('awakenedTweenStarted', false);
       }
     }
+  }
+
+  /**
+   * Build a rotating dashed orbit ring for a star ≥ 2 slot.
+   * The ring sits just outside the slot circle and spins in place.
+   */
+  private drawStarRing(
+    cx: number,
+    cy: number,
+    color: number
+  ): { g: GameObjects.Graphics; tween: Phaser.Tweens.Tween } {
+    const ringRadius = SLOT_RADIUS + 6;
+    const dashCount = 12;
+    const sliceArc = (Math.PI * 2) / dashCount;
+    const dashArc = sliceArc * 0.45; // 45% dash, 55% gap
+    const g = this.add.graphics({ x: cx, y: cy });
+    g.lineStyle(2, color, 0.95);
+    for (let i = 0; i < dashCount; i += 1) {
+      const a = i * sliceArc;
+      g.beginPath();
+      g.arc(0, 0, ringRadius, a, a + dashArc, false);
+      g.strokePath();
+    }
+    const tween = this.tweens.add({
+      targets: g,
+      rotation: Math.PI * 2,
+      duration: 3500,
+      repeat: -1,
+      ease: 'Linear',
+    });
+    return { g, tween };
   }
 
   // ==========================================================================
@@ -1256,6 +1393,7 @@ export class Build extends Scene {
 
     const newRerollCost = getRerollCost(state);
     this.rerollBtnText.setText(`${t('REROLL')} (${newRerollCost} g)`);
+    this.buildOverlay?.setRerollCost(newRerollCost);
 
     this.goldText.setText(`${state.gold} G`);
     this.goldText.setColor(state.gold >= 15 ? '#ff7a00' : '#ffd94a');
@@ -1297,37 +1435,33 @@ export class Build extends Scene {
       evasionPct > 0 ? `DODGE     ${evasionPct}%` : 'DODGE     \u2014',
     ].join('\n'));
 
-    // Buff section (optional)
-    const activeBuffs = [...state.battleBuffs, ...state.equippedBuffs];
-    if (activeBuffs.length > 0) {
-      this.statsBuffTitle.setText(t('BUFFS'));
-      this.statsBuffRows.setText(
-        activeBuffs.map((k) => {
-          const item = ITEMS[k as keyof typeof ITEMS];
-          return item ? `\u00b7 ${t(item.name)}` : '';
-        }).filter(Boolean).join('\n')
-      );
-    } else {
-      this.statsBuffTitle.setText('');
-      this.statsBuffRows.setText('');
-    }
+    // SKILLS column rows (heading is permanent \u2014 drawn once in drawStatsBlocks)
+    const emptyDash = '\u2014';
+    this.statsSkillRows.setText(
+      state.acquiredSkills.length > 0
+        ? state.acquiredSkills
+            .map((id) => {
+              const def = findSkillDef(id);
+              return def ? `\u00b7 ${t(def.name)}` : '';
+            })
+            .filter(Boolean)
+            .join('\n')
+        : emptyDash
+    );
 
-    // Skill section (optional)
-    if (state.acquiredSkills.length > 0) {
-      this.statsSkillTitle.setText(t('SKILLS'));
-      this.statsSkillRows.setText(
-        state.acquiredSkills
-          .map((id) => {
-            const def = findSkillDef(id);
-            return def ? `\u00b7 ${t(def.name)}` : '';
-          })
-          .filter(Boolean)
-          .join('\n')
-      );
-    } else {
-      this.statsSkillTitle.setText('');
-      this.statsSkillRows.setText('');
-    }
+    // BUFFS column rows (heading is permanent)
+    const activeBuffs = [...state.battleBuffs, ...state.equippedBuffs];
+    this.statsBuffRows.setText(
+      activeBuffs.length > 0
+        ? activeBuffs
+            .map((k) => {
+              const item = ITEMS[k as keyof typeof ITEMS];
+              return item ? `\u00b7 ${t(item.name)}` : '';
+            })
+            .filter(Boolean)
+            .join('\n')
+        : emptyDash
+    );
 
     // Hover preview
     if (this.hoverShopIndex !== null) {

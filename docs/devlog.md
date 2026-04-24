@@ -34,7 +34,7 @@ Engine: Phaser 4.0 / Vite 6 / TypeScript / Bun.
 
 ### Next
 
-- Day 2+: Replace placeholder rectangles with real art generated through the Grok → Piskel workflow documented in `ai-asset-workflow.md`.
+- Day 2+: Replace placeholder rectangles with real art generated through the Grok → Piskel workflow documented in [`docs/ai-asset-workflow.md`](./ai-asset-workflow.md).
 - Day 8: Balance tuning entirely via `src/data/*.ts`.
 - Day 11: Devlog final pass, itch.io page, submission.
 
@@ -958,5 +958,144 @@ than to keep the dead body warm.
   lives at `docs/design/build-spec.md`, waiting on the HTML
   handoff).
 - Day 8 balance tuning over the weekend; Jam closes Sunday.
+
+---
+
+## Day 10 — 2026-04-24
+
+Two-front polish pass: (1) land the Claude Design Build screen
+handoff for real, (2) stop the player ULT cut-in from reading
+like stock assets slapped on the canvas. One day left after
+today; this is the last window to move the look-and-feel needle.
+
+### Build screen: frames, headers, content — one coordinate system
+
+The Build screen had three overlapping coordinate systems:
+
+1. Phaser `drawColumnFrame` drew each chamfered frame 8 px
+   outside its content column (`STATS_X - 8`, `w + 16` etc.),
+   giving a breathing cushion around the content.
+2. The DOM `.panel-head` strip was positioned to match the
+   frame rectangle, not the content column, with its own 14 px
+   padding.
+3. Content cells (gold numerals, shop cards, stats rows) were
+   placed relative to the *content* column (`STATS_X`) with a
+   private `STATS_PAD` of 14 px.
+
+All three were "off by something" relative to each other — the
+cumulative result is that the `100000 G` gold number sat ~22 px
+to the right of the `OUTPUT · SS-NN` header text that should
+have been directly above it, and the four column-head strips
+visually fused into one continuous horizontal band because the
+8-px outer frame inset ate most of the `COL_GAP = 20` between
+adjacent frames.
+
+Collapsed all three onto a single basis: the content column
+itself. `drawColumnFrame` now takes `STATS_X`, `STATS_W` etc.
+directly with no outer inset — which restores the 20-px black
+gaps between columns, so the four panels read as four
+independent chassis (matching the Claude Design mockup). The
+DOM header now sits at the same `x` / `width` as the frame,
+padding dropped to 0, so header ident text lands flush with
+the content-column left edge and status text lands flush with
+the right. `statsBlocks` was rewritten to place every child at
+`STATS_X` / `STATS_X + STATS_W - STATS_PAD` consistently.
+
+This took more iterations than it should have — the tell was
+that the fix-then-screenshot loop stayed stuck on pixel-level
+drift for three rounds without Kima ever noticing the frames
+were structurally eating the gap. Saved the lesson as
+`feedback_layout_gestalt_first.md`: on "ずれ" reports, read the
+macro composition first (are frames fused / gaps eaten?)
+before doing pixel math.
+
+Header copy also got adjusted to match the reference mock:
+`PILOT · INDRA · BLUEPRINT` / `SHOP · TIER <N>` / `OUTPUT ·
+SS-<NN>`, with orange tag text + white value text, `LINK 🟢` /
+`NEXT REROLL <N> G` / `SIM 🟢` status on the right. TIER and
+SS-code derive automatically from round number.
+
+### Mini-character: aura ring removed
+
+The player sprite grew a pulsing aura ring + `<colour> AURA`
+label whenever slotmachine rush state produced an aura. It
+read as clutter — a pulsing circle the size of the sprite
+competing with the actual character — and Heika asked for it
+gone. The ring + label rendering is deleted; rush state now
+surfaces only through the ult-gauge colour shift (subtle cue,
+still legible). The aura-acquired SFX got a single-shot latch
+(`auraSfxFired`) so it still chimes exactly once on the
+no-aura → aura transition instead of per-tick during hold.
+
+### ULT cut-in: Plan E — phase-based combo choreography
+
+The player ULT cut-in was a rectangular portrait pasted onto a
+slanted dark panel. The raw image rectangle showed all around
+it, so the 960 × 960 JPEG (no alpha channel — we checked)
+looked exactly like "a 960 × 960 JPEG at an angle." Amateur.
+
+Short websearch pass across Guilty Gear Strive, Street Fighter
+6 Critical Arts, Persona 4 Arena awakening cut-ins, and the
+shonen-manga impact-frame vocabulary. Common techniques: RGB
+chromatic-aberration split, radial spoke convergence lines,
+silhouette-to-colour reveal, screen darken + selective zoom.
+
+Picked a 5-phase choreography ("Plan E") that layers several of
+these:
+
+- **P1 (0–140 ms)** — opening flash. Full-screen white rect
+  (or red on a critical) that flashes to `alpha: 1` then
+  fades. Pairs with the ULT SFX for a shutter-punch feel.
+- **P2 (60–840 ms)** — darken + radial speedlines. A 36-spoke
+  `Graphics` rosette converges on the screen centre, drawn as
+  thick black spokes plus offset accent-colour thin spokes for
+  a second beat. Fades in fast, holds while the portrait lands,
+  fades out as the colour resolves.
+- **P3 (350–740 ms)** — portrait stages. First a pure-black
+  **silhouette** of the portrait flashes in (`tint 0x000000`,
+  same scale), then fades as three **RGB chromatic-aberration
+  layers** take over. R / G / B tints on the same portrait
+  texture, `BlendModes.ADD`, positioned at `x ± 28 px` / `0`.
+  ADD-composited they reconstruct the original colour; offset
+  they produce the signature "glitchy high-voltage reveal"
+  look. A 220 ms tween snaps the R and B layers back to
+  centre, giving the cut-in its cleanest moment just before
+  the name stamps.
+- **P4 (720–1260 ms)** — ULT name + shockwave. Big Bebas Neue
+  title in the accent colour, tilted 10° → -3° as it slams in,
+  followed by an expanding stroke ring + camera shake on the
+  upbeat.
+- **P5 (1900 ms)** — hold → fade. Everything dissolves and the
+  camera zoom resets to 1×. Combat freeze timing on
+  `triggerPlayerUltimate` matches this window exactly; breaking
+  that alignment leaves the fight frozen after the cut-in is
+  already gone, which hangs the whole scene.
+
+The portrait image's raw rectangle border used to be the
+problem. The fix is purely geometric: scale the portrait by
+`(gameWidth / textureWidth) × 1.15`, which pushes the image
+edges outside the 1280 × 720 viewport on all four sides. No
+mask, no clip-path, no slit container — just "make the canvas
+too small to contain the bad part." Cheaper than any shader
+solution and reads the same onscreen.
+
+### Quality bar
+
+- `bun run tsc --noEmit`: 0 errors.
+- No bundle-size regression vs Day 8 (no new deps).
+- HMR works end-to-end for the overlay CSS; Scene-level
+  constants need a hard reload (expected, Phaser scenes don't
+  HMR their `create()` bodies).
+
+### Next
+
+- One day left before submission. Priorities, in order:
+  (1) INDRA-only balance pass on `src/data/balance.ts` using
+  the `auto-play.ts` stats dumps, (2) wire up the five new BGM
+  tracks that landed in `public/assets/audio/` (Title / Build
+  / Battle / BossBattle / Victory — Preloader registration +
+  per-scene crossfade), (3) final screenshot + GIF refresh for
+  the itch page, (4) Cloudflare Workers deploy via
+  `scripts/release.sh deploy`.
 
 ---

@@ -40,7 +40,6 @@ import {
   resolveUltimatePress,
   checkAuraAppear,
   RUSH_CHARGE_MULT,
-  AURA_HEX,
   AURA_CSS,
   type SlotState
 } from '../systems/slotMachine';
@@ -108,10 +107,9 @@ export class Battle extends Scene {
   private slotMachineHitBonus = 0;
   /** Placement synergies currently active, pushed to log on battle start. */
   private activePlacementSynergies: readonly import('@/data').PlacementSynergyDef[] = [];
-  /** Visual: aura ring around player (null = no aura). */
-  private auraRing: GameObjects.Arc | null = null;
-  /** Visual: aura color label. */
-  private auraLabel: GameObjects.Text | null = null;
+  /** Single-shot latch so the "aura acquired" SFX only fires on the
+   *  transition from no-aura → aura (not every tick while it's held). */
+  private auraSfxFired = false;
   /** Whether combat is frozen waiting for ultimate button press. */
   private ultReady = false;
   /** The big ULTIMATE button (shown during freeze). */
@@ -143,8 +141,7 @@ export class Battle extends Scene {
     this.timeScale = 2;
     this.elapsedBattleSec = 0;
     this.slotState = createSlotState();
-    this.auraRing = null;
-    this.auraLabel = null;
+    this.auraSfxFired = false;
     this.ultFiring = false;
     this.ultReady = false;
 
@@ -1023,7 +1020,20 @@ export class Battle extends Scene {
     const D = 200;
 
     if (fromPlayer) {
-      // 3-element cut-in (900ms total): panel+portrait slam → ULT name stamp → shockwave release.
+      // Player ultimate cut-in — "Plan E" phase choreography:
+      //   P1 (0–80ms)     : white → black impact flash (shutter punch)
+      //   P2 (80–380ms)   : darken + 36-spoke radial speedlines converge
+      //   P3 (350–720ms)  : portrait enters as pure-black silhouette,
+      //                     then splits into R/G/B chromatic-aberration
+      //                     triple-layer (ADD blend), then those three
+      //                     layers converge to zero x-offset → clean
+      //                     coloured portrait
+      //   P4 (720–1100ms) : ULT name stamps in + shockwave ring + shake
+      //   P5 (1900ms)     : hold → global fade-out
+      //
+      // Portrait uses a scale that slightly overflows the screen
+      // (gameWidth / textureWidth × 1.15) so the image's raw rectangle
+      // border lives offscreen — no slit / mask needed to hide it.
       const state = getRunState(this);
       const robotKey = state.robotKey;
       const robot = robotKey ? ROBOTS[robotKey] : null;
@@ -1041,110 +1051,160 @@ export class Battle extends Scene {
 
       const accentColor = isCritical ? 0xff2222 : 0xffd94a;
       const accentHex = isCritical ? '#ff2222' : '#ffd94a';
-      const panelColor = isCritical ? 0x3a0000 : 0x1a0f00;
       const flashColor = isCritical ? 0xff0000 : 0xffffff;
+
+      const cx = gameWidth / 2;
+      const cy = gameHeight / 2;
 
       this.cameras.main.zoomTo(isCritical ? 1.15 : 1.08, 200, 'Cubic.easeOut');
 
+      // === P1: white impact flash ================================
       const whiteFlash = this.add
-        .rectangle(gameWidth / 2, gameHeight / 2, gameWidth, gameHeight, flashColor, isCritical ? 1 : 0.85)
+        .rectangle(cx, cy, gameWidth, gameHeight, flashColor, 1)
         .setDepth(D);
       allParts.push(whiteFlash);
-      this.tweens.add({ targets: whiteFlash, alpha: 0, duration: 120 });
+      this.tweens.add({ targets: whiteFlash, alpha: 0, duration: 120, delay: 20 });
 
-      const overlay = this.add
-        .rectangle(gameWidth / 2, gameHeight / 2, gameWidth, gameHeight, 0x000000, 0)
+      // === P2: darken + radial speed-lines =======================
+      const darkOverlay = this.add
+        .rectangle(cx, cy, gameWidth, gameHeight, 0x000000, 0)
         .setDepth(D + 1);
-      allParts.push(overlay);
-      this.tweens.add({ targets: overlay, alpha: 0.96, duration: 150 });
+      allParts.push(darkOverlay);
+      this.tweens.add({ targets: darkOverlay, alpha: 0.92, duration: 160, delay: 60 });
 
-      const panelTargetX = gameWidth * 0.38;
-      const panelTargetY = gameHeight * 0.5;
-
-      const panel = this.add
-        .rectangle(-gameWidth, panelTargetY, gameWidth * 1.6, gameHeight * 0.82, panelColor, 0.92)
-        .setStrokeStyle(4, accentColor, 1)
-        .setAngle(-8)
-        .setDepth(D + 3);
-      allParts.push(panel);
-
-      const battleKey = robot?.battleAssetKey ?? '';
-      // Cut-in prefers the ULT-pose sprite when available (convention:
-      // `<battleKey>_ult`). Falls back to the default battle sprite.
-      const ultKey = battleKey ? `${battleKey}_ult` : '';
-      const portraitKey = ultKey && this.textures.exists(ultKey) ? ultKey : battleKey;
-      let portrait: GameObjects.Image | GameObjects.Sprite | GameObjects.Rectangle;
-      if (this.textures.exists(portraitKey)) {
-        const pt = this.textures.get(portraitKey);
-        if (pt.frameTotal > 1) {
-          portrait = this.add.sprite(-600, panelTargetY, portraitKey, 0)
-            .setScale(0.6).setDepth(D + 4);
-        } else {
-          portrait = this.add.image(-600, panelTargetY, portraitKey)
-            .setScale(0.6).setDepth(D + 4);
-        }
-      } else {
-        portrait = this.add
-          .rectangle(-600, panelTargetY, 320, 420,
-            robot ? ROBOT_COLORS[robot.archetype] : 0x9bbdff, 1)
-          .setStrokeStyle(4, 0xffffff).setDepth(D + 4);
+      const speedLines = this.add.graphics().setDepth(D + 2).setAlpha(0);
+      allParts.push(speedLines);
+      const lineCount = 36;
+      const innerR = 130;
+      const outerR = Math.hypot(gameWidth, gameHeight) * 0.7;
+      // Thick black base spokes — shonen-manga convergence lines.
+      speedLines.lineStyle(5, 0x000000, 1);
+      for (let i = 0; i < lineCount; i += 1) {
+        const a = (i / lineCount) * Math.PI * 2;
+        speedLines.lineBetween(
+          cx + Math.cos(a) * innerR, cy + Math.sin(a) * innerR,
+          cx + Math.cos(a) * outerR, cy + Math.sin(a) * outerR
+        );
       }
-      allParts.push(portrait);
-
+      // Offset accent-colour spokes for a second beat layer.
+      speedLines.lineStyle(2, accentColor, 0.9);
+      for (let i = 0; i < lineCount; i += 1) {
+        const a = ((i + 0.5) / lineCount) * Math.PI * 2;
+        speedLines.lineBetween(
+          cx + Math.cos(a) * (innerR * 1.2), cy + Math.sin(a) * (innerR * 1.2),
+          cx + Math.cos(a) * (outerR * 0.9), cy + Math.sin(a) * (outerR * 0.9)
+        );
+      }
       this.tweens.add({
-        targets: [panel, portrait],
-        x: panelTargetX,
-        duration: 280,
-        delay: 50,
-        ease: 'Back.easeOut',
+        targets: speedLines,
+        alpha: { from: 0, to: 1 },
+        duration: 140, delay: 80, ease: 'Cubic.easeOut',
+      });
+      this.tweens.add({
+        targets: speedLines,
+        alpha: 0,
+        duration: 320, delay: 520, ease: 'Cubic.easeIn',
       });
 
+      // === P3: portrait — silhouette → RGB split → converge =======
+      const battleKey = robot?.battleAssetKey ?? '';
+      const ultKey = battleKey ? `${battleKey}_ult` : '';
+      const portraitKey = ultKey && this.textures.exists(ultKey) ? ultKey : battleKey;
+      const hasPortrait = !!portraitKey && this.textures.exists(portraitKey);
+
+      // Oversize the portrait so the image's raw rectangle border
+      // sits outside the viewport — visible glyphs only, no edges.
+      let portraitScale = 1.15;
+      if (hasPortrait) {
+        const tex = this.textures.get(portraitKey);
+        const baseW = (tex.getSourceImage(0) as { width?: number })?.width || 1360;
+        portraitScale = (gameWidth / baseW) * 1.15;
+      }
+
+      /** Create a portrait layer; falls back to a tinted rect if the
+       *  asset is missing so the cut-in still reads visually. */
+      const mkLayer = (xOffset: number, tint: number, blend: Phaser.BlendModes | 'ADD' | null, alpha: number, depth: number): GameObjects.Image | GameObjects.Sprite | GameObjects.Rectangle => {
+        if (hasPortrait) {
+          const tex = this.textures.get(portraitKey);
+          const obj = tex.frameTotal > 1
+            ? this.add.sprite(cx + xOffset, cy, portraitKey, 0)
+            : this.add.image(cx + xOffset, cy, portraitKey);
+          obj.setScale(portraitScale).setAlpha(alpha).setDepth(depth);
+          if (tint !== 0xffffff) obj.setTint(tint);
+          if (blend) obj.setBlendMode(blend as Phaser.BlendModes);
+          return obj;
+        }
+        return this.add
+          .rectangle(cx + xOffset, cy, 320, 420, tint !== 0xffffff ? tint : (robot ? ROBOT_COLORS[robot.archetype] : 0x9bbdff), alpha)
+          .setDepth(depth);
+      };
+
+      // 3a · pure-black silhouette — flashes in first at ~350ms
+      const silhouette = mkLayer(0, 0x000000, null, 0, D + 4);
+      allParts.push(silhouette);
+      this.tweens.add({ targets: silhouette, alpha: 1, duration: 40, delay: 350 });
+      this.tweens.add({ targets: silhouette, alpha: 0, duration: 80, delay: 440 });
+
+      // 3b · R/G/B split layers with ADD blend — converge to centre
+      const rLayer = mkLayer( 28, 0xff0000, 'ADD', 0, D + 5);
+      const gLayer = mkLayer(  0, 0x00ff00, 'ADD', 0, D + 5);
+      const bLayer = mkLayer(-28, 0x0000ff, 'ADD', 0, D + 5);
+      allParts.push(rLayer, gLayer, bLayer);
+      this.tweens.add({
+        targets: [rLayer, gLayer, bLayer],
+        alpha: 1,
+        duration: 90, delay: 430,
+      });
+      this.tweens.add({
+        targets: rLayer, x: cx,
+        duration: 220, delay: 520, ease: 'Cubic.easeOut',
+      });
+      this.tweens.add({
+        targets: bLayer, x: cx,
+        duration: 220, delay: 520, ease: 'Cubic.easeOut',
+      });
+
+      // === P4: ULT name + shockwave ring =========================
       const displayName = isCritical ? `CRITICAL ${name.toUpperCase()}` : name.toUpperCase();
       const ultName = this.add
-        .text(gameWidth * 0.72, gameHeight * 0.42, displayName, {
+        .text(gameWidth * 0.68, gameHeight * 0.34, displayName, {
           ...textStyles.title,
-          fontSize: isCritical ? '84px' : '72px',
+          fontSize: isCritical ? '88px' : '76px',
           color: accentHex,
           fontStyle: 'bold',
         })
         .setOrigin(0.5)
-        .setDepth(D + 6)
+        .setDepth(D + 8)
         .setResolution(TEXT_DPR)
         .setAlpha(0)
-        .setScale(2.2)
-        .setAngle(6);
+        .setScale(2.4)
+        .setAngle(10);
       allParts.push(ultName);
-      this.time.delayedCall(280, () => {
+      this.time.delayedCall(720, () => {
         ultName.setAlpha(1);
         this.tweens.add({
           targets: ultName,
-          scale: 1,
-          angle: -2,
-          duration: 200,
-          ease: 'Back.easeOut',
+          scale: 1, angle: -3,
+          duration: 180, ease: 'Back.easeOut',
         });
       });
 
-      this.time.delayedCall(550, () => {
+      this.time.delayedCall(880, () => {
         const ring = this.add
-          .circle(gameWidth / 2, gameHeight / 2, 10, accentColor, 0)
+          .circle(cx, cy, 10, accentColor, 0)
           .setStrokeStyle(isCritical ? 10 : 6, accentColor)
-          .setDepth(D + 8);
+          .setDepth(D + 9);
         allParts.push(ring);
         this.tweens.add({
           targets: ring,
-          scale: 18,
-          alpha: { from: 0.85, to: 0 },
-          duration: 350,
-          ease: 'Cubic.easeOut',
+          scale: 20,
+          alpha: { from: 0.9, to: 0 },
+          duration: 380, ease: 'Cubic.easeOut',
         });
-        this.cameras.main.shake(isCritical ? 300 : 160, isCritical ? 0.022 : 0.012);
+        this.cameras.main.shake(isCritical ? 320 : 180, isCritical ? 0.024 : 0.014);
       });
 
-      // Hold the cut-in for an extra beat after the shockwave so the ULT
-      // name + portrait read clearly before the screen clears. Combat
-      // stays frozen during the entire window (see triggerPlayerUltimate
-      // 's delayedCall below — its timeout must match this fade window).
+      // === P5: hold → fade ======================================
       this.time.delayedCall(1900, () => {
         this.cameras.main.zoomTo(1, 250, 'Cubic.easeOut');
         this.tweens.add({
@@ -1213,45 +1273,17 @@ export class Battle extends Scene {
   }
 
   private updateAuraVisual(): void {
-    const aura = this.slotState.aura;
-    if (aura) {
-      // Create or update aura ring
-      if (!this.auraRing) {
-        this.auraRing = this.add
-          .circle(this.playerBaseX, gameOptions.gameHeight * 0.44, SPRITE_W * 0.55, AURA_HEX[aura], 0)
-          .setStrokeStyle(4, AURA_HEX[aura])
-          .setDepth(5);
-        this.tweens.add({
-          targets: this.auraRing,
-          alpha: { from: 0.1, to: 0.5 },
-          scale: { from: 0.95, to: 1.1 },
-          duration: 600,
-          yoyo: true,
-          repeat: -1,
-          ease: 'Sine.easeInOut'
-        });
-        this.auraLabel = this.add
-          .text(this.playerBaseX, gameOptions.gameHeight * 0.44 + SPRITE_H / 2 + 100,
-            `${aura.toUpperCase()} AURA`, {
-              ...gameOptions.textStyles.small, color: AURA_CSS[aura], fontStyle: 'bold'
-            })
-          .setOrigin(0.5).setDepth(5);
-        playSfx('skill_acquire');
-      } else {
-        this.auraRing.setStrokeStyle(4, AURA_HEX[aura]);
-        this.auraLabel?.setText(`${aura.toUpperCase()} AURA`).setColor(AURA_CSS[aura]);
-      }
-    } else if (!this.slotState.inRush && this.auraRing) {
-      // Rush ended, remove aura
-      this.auraRing.destroy();
-      this.auraRing = null;
-      this.auraLabel?.destroy();
-      this.auraLabel = null;
+    // Aura ring + floating "AURA" label removed (Heika 2026-04-24): the
+    // pulsing circle around the mini-character read as clutter against
+    // the sprite. Rush state now surfaces only via the ult gauge color
+    // cue below — subtle but enough of a tell.
+    if (this.slotState.aura && !this.auraSfxFired) {
+      playSfx('skill_acquire');
+      this.auraSfxFired = true;
+    } else if (!this.slotState.aura) {
+      this.auraSfxFired = false;
     }
-
-    // Show "RUSH" indicator during rush mode (even before aura appears)
-    if (this.slotState.inRush && !this.auraRing) {
-      // Gauge bar pulses during rush (visual cue)
+    if (this.slotState.inRush) {
       this.playerUltFill.setFillStyle(0xff7a00, 1);
     }
   }

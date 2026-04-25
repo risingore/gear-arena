@@ -89,7 +89,7 @@ export class Battle extends Scene {
   private enemyImg: GameObjects.Image | null = null;
   private playerBaseX = 0;
   private enemyBaseX = 0;
-  private timeScale = 2;
+  private timeScale = 1;
   private battleOverlay: BattleOverlayHandle | null = null;
   private elapsedBattleSec = 0;
   private debugTimerText!: GameObjects.Text;
@@ -119,7 +119,7 @@ export class Battle extends Scene {
   /** Real seconds elapsed before auto fast-forward kicks in. */
   private static readonly AUTO_FF_SEC = 15;
   /** Speed multiplier applied after AUTO_FF_SEC elapses. */
-  private static readonly AUTO_FF_SPEED = 2;
+  private static readonly AUTO_FF_SPEED = 1.5;
 
   constructor() {
     super('Battle');
@@ -138,7 +138,10 @@ export class Battle extends Scene {
     this.finished = false;
     this.finishDelay = 0;
     this.logLines = [];
-    this.timeScale = 2;
+    // Debug mode boots at 2× so balance / auto-play sweeps run faster;
+    // normal play starts at 1× to give first-time judges a readable
+    // pace, then `update()` ramps to AUTO_FF_SPEED after AUTO_FF_SEC.
+    this.timeScale = isDebugEnabled() ? 2 : 1;
     this.elapsedBattleSec = 0;
     this.slotState = createSlotState();
     this.auraSfxFired = false;

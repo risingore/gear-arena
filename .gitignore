@@ -37,13 +37,13 @@ CLAUDE.md
 tasks/
 
 # --- Internal working docs (Japanese-authored, not for public consumption) ---
-# docs/ contains designer + engineer working documents authored in Japanese.
-# The public-facing material (README.md at the repo root) is separate.
+# docs/ contains designer + engineer working documents authored in
+# Japanese. The public-facing material (README.md at the repo root) is
+# separate. Only devlog.md (English jam log) and screenshots/ (used by
+# README + itch page) are published; everything else under docs/ stays
+# private. The pre-commit hook enforces the same whitelist.
 docs/*
 !docs/devlog.md
-!docs/design
-docs/design/*
-!docs/design/build-spec.md
 !docs/screenshots
 !docs/screenshots/**
 # Media exports: repo stores the 5 stills; GIF / webm live on itch.io only.

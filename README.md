@@ -15,17 +15,19 @@ Beneath the surface runs an **[Echo Theory](https://note.com/risingore/n/nbff78b
 ## Features
 
 - **Ultimate-only combat** — no normal attacks. Survive, charge, and fire your SOUL STRIKE
-- **Hidden probability hit system** — rush states, layered aura colors (green → blue → red → rainbow), and prediction glyphs shape each critical decision
-- **4 cyborg fighters** — INDRA, GOLIATH-414, LILITH, MUMEI — each with a distinct blueprint and soul strike ability
-- **25 parts** across 5 categories (module, implant, charger, booster, soul) that power up your strike
+- **Hidden probability hit system** — rush states, layered aura colours (white → blue → yellow → green → red → rainbow) shown by the mandala button glow, and prediction glyphs (rainbow cycle, mandala flash, red flash, lightning, screen glitch) shape each critical decision
+- **Tiered synergy halo** — active synergies (placement + category) layer a halo around your cyborg in battle: **3+** white ring, **5+** gold mandala, **7+** orange storm
+- **4 cyborg fighters** planned — INDRA (playable in Ep0), GOLIATH-414, LILITH, MUMEI (COMING SOON teasers)
+- **25 parts** across 5 categories (module, implant, charger, booster, soul) that power up your strike. Buy duplicates to ★-merge into higher tiers
 - **Buddhist mandala lore** — character names (Indra, Goliath, Lilith/Rakshasa, Mumei/Shunya) and ultimate names (Vajra, Karuna, Raksha, Nirvana) are drawn from the Kongō-kai and Taizō-kai mandala systems
-- **5 consumable items** — heal mid-run or buff your next battle
+- **9 consumable buff items** — earn at SANCTUM (加持堂) for permanent run-to-run loadout buffs
 - **10 skills** — earned from boss rewards, permanent for the run
-- **10 rounds** with escalating difficulty, mid-bosses, and a final boss
+- **Two campaign lengths** — Easy (5 rounds, mid-boss climax) or Hard (10 rounds, big-boss climax with HYAKKI YAKOU tease)
+- **SANCTUM (加持堂) meta-progression** — bank scrap from each run, consecrate buffs that auto-equip on the next
 - **Achievements and collection** — track unlocked cyborgs, discovered parts, defeated enemies, earned titles, and acquired skills
 - **HTML DOM Title overlay** — the Title screen is a native SVG + CSS layer riding on top of the Phaser canvas, so text and vector art render at full device resolution on Retina / 4K
 - **Trilogy tease** — defeat the final boss to glimpse the next chapter: `HYAKKI YAKOU — STANDING BY` and `TO BE CONTINUED: SOUL BREAKER`
-- **Echo Theory layer** — residual signals stitched into Title, Select, broadcasts, and endings. Decode the echo and the cycle becomes legible. ([source article](https://note.com/risingore/n/nbff78bf31a50))
+- **Echo Theory layer** — residual signals stitched into Title, Select, broadcasts, and endings. ([source article](https://note.com/risingore/n/nbff78bf31a50))
 - **Zero-byte audio** — all SFX synthesized at runtime via Web Audio API
 - **Japanese localization** — auto-detected from browser language
 - **PWA support** — installable as a standalone app
@@ -46,11 +48,9 @@ bun run package-itch  # create machines-itch.zip for itch.io
 
 ## Controls
 
-- **Click shop cards or press 1-5**: buy parts
-- **Click equipped slots**: sell parts (50% refund)
-- **Drag parts** from shop to specific slots
-- **Space / Click**: fire SOUL STRIKE when gauge is full
-- **S**: cycle battle speed (x1 / x2 / x4 / x6)
+- **Click shop cards**: buy parts (auto-equipped into the first matching slot; duplicates ★-merge into a higher tier)
+- **Space / Click**: fire SOUL STRIKE when the mandala button appears
+- **S**: cycle battle speed (×1 / ×1.5 / ×2)
 - **R**: restart from any scene
 
 ## License

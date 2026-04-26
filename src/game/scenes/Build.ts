@@ -53,7 +53,7 @@ const BLUEPRINT_BOX_H = 598;
 // non-overlapping. LILITH's vertical column has 32-unit spacing
 // (≈ 63.7 px after scale), so center-to-center distance bounds 2r ≤ 63.7
 // → r ≤ 31. Aim is "≈2x of the original 19 px"; 30 px lands ~1.6x while
-// holding the no-overlap promise across all four cyborgs.
+// holding the no-overlap promise across all four machines.
 const SLOT_RADIUS = 30;
 const SHOP_CARD_W = 140;
 const SHOP_CARD_H = 86;
@@ -75,8 +75,11 @@ const REROLL_CENTER_Y = 74 + SHOP_INNER_PAD + 22; // 120
  *  so SHOP_GRID_TOP itself is the top of row 0, not its center. Sits
  *  REROLL bottom (142) + SHOP_VGAP below the REROLL button. */
 const SHOP_GRID_TOP = REROLL_CENTER_Y + 22 + SHOP_VGAP; // 158
-/** REROLL button width — narrower than the shop column for visual breathing. */
-const REROLL_W = 180;
+/** REROLL button width — narrower than the shop column (294px) for visual
+ *  breathing, but wide enough to hold "REROLL (NNN g)" without the gold
+ *  cost overflowing once reroll escalation pushes the price into 3-digit
+ *  territory. */
+const REROLL_W = 220;
 const SHOP_COLS = 2;
 const STATS_W = 260;
 const COL_GAP = 20;
@@ -1412,7 +1415,7 @@ export class Build extends Scene {
     // Awakened glow: all slots filled → blueprint goes orange.
     const allFilled = this.slotVisuals.every((sv) => !!state.equipped[sv.slot.id]);
     if (allFilled && this.slotVisuals.length > 0) {
-      // Tint the cyborg lineart orange so the entire blueprint reads
+      // Tint the machine lineart orange so the entire blueprint reads
       // "fully assembled / weapon hot".
       this.blueprintImg?.setTint(PALETTE.accentOrange);
       // Outer-frame awakened glow — thick orange stroke around the panel.

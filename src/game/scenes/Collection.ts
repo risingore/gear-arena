@@ -118,7 +118,7 @@ export class Collection extends Scene {
     this.unmountOverlay = mountCollectionOverlay({
       title: t('COLLECTION'),
       tabLabels: {
-        machines: t('CYBORGS'),
+        machines: t('MACHINES'),
         parts: t('PARTS'),
         enemies: t('ENEMIES'),
         titles: t('TITLES'),

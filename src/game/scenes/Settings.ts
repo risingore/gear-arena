@@ -129,7 +129,11 @@ export class Settings extends Scene {
           },
         },
       ],
-      debugRows: [
+      // Debug rows are stripped from production builds (Vite sets
+       // import.meta.env.DEV to false during `bun run build`). The RESET
+       // ALL DATA button below stays in both dev and prod. Restore by
+       // reverting this guard if you need debug commands in the zip.
+      debugRows: import.meta.env.DEV ? [
         {
           label: t('Debug Mode'),
           value: isDebugEnabled() ? 'ON' : 'OFF',
@@ -175,7 +179,52 @@ export class Settings extends Scene {
             return t('PLAY');
           },
         },
-      ],
+        {
+          label: t('Cut-in: INDRA'),
+          value: t('PLAY'),
+          onCycle: () => {
+            playSfx('click');
+            this.jumpToCutInPreview('player');
+            return t('PLAY');
+          },
+        },
+        {
+          label: t('Cut-in: NEKOMATA-Ψ'),
+          value: t('PLAY'),
+          onCycle: () => {
+            playSfx('click');
+            this.jumpToCutInPreview('enemy', 'midboss_bakeneko');
+            return t('PLAY');
+          },
+        },
+        {
+          label: t('Cut-in: MUJINA-Σ'),
+          value: t('PLAY'),
+          onCycle: () => {
+            playSfx('click');
+            this.jumpToCutInPreview('enemy', 'midboss_nopperabo');
+            return t('PLAY');
+          },
+        },
+        {
+          label: t('Cut-in: TSUKUMO-Δ'),
+          value: t('PLAY'),
+          onCycle: () => {
+            playSfx('click');
+            this.jumpToCutInPreview('enemy', 'midboss_karakasa');
+            return t('PLAY');
+          },
+        },
+        {
+          label: t('Cut-in: YUKIME-Ω'),
+          value: t('PLAY'),
+          onCycle: () => {
+            playSfx('click');
+            this.jumpToCutInPreview('enemy', 'boss_yuki_onna');
+            return t('PLAY');
+          },
+        },
+      ] : [],
       recommendedResolution: `${gameWidth} × ${gameHeight}`,
       resetLabel: t('RESET ALL DATA'),
       resetConfirmLabel: t('Click again to confirm'),
@@ -253,5 +302,45 @@ export class Settings extends Scene {
     fake.generatedRounds = [finalRound];
     setRunState(this, fake);
     fadeToScene(this, 'Result');
+  }
+
+  /**
+   * Jump directly to Battle in cut-in preview mode. Battle freezes its
+   * combat tick and only plays the requested ULT cut-in before returning
+   * to Settings, so we can review every cut-in without playing through.
+   *
+   * For enemy cut-ins, the player still spawns as INDRA at round 1 — the
+   * boss is forced into the round so its portrait + ULT name resolve
+   * correctly. previewOnly = true blocks all save mutations.
+   */
+  private jumpToCutInPreview(kind: 'player' | 'enemy', enemyId?: string): void {
+    const fake = createInitialRunState();
+    fake.robotKey = 'robot_knight';
+    fake.previewOnly = true;
+    fake.previewCutIn = { kind, enemyId };
+    // Battle.create() bails to Title when generatedRounds[0] is missing,
+    // so we ALWAYS provide a fake round even for player previews. The
+    // round's enemy is just a dummy that never actually fights — high HP
+    // + huge cooldown keeps combat frozen while the preview-cut-in path
+    // fires the requested ULT once and then fades back to Settings.
+    const fakeId = (kind === 'enemy' && enemyId) ? enemyId : 'enemy_mob1';
+    const round: GeneratedRound = {
+      index: 1,
+      enemy: {
+        name: fakeId,
+        hp: 9999,
+        damage: 0,
+        cooldownSec: 99,
+        damageReductionPct: 0,
+        assetKey: fakeId,
+      },
+      enemyId: fakeId,
+      goldReward: 0,
+      isBoss: kind === 'enemy',
+      isSuperBoss: false,
+    };
+    fake.generatedRounds = [round];
+    setRunState(this, fake);
+    fadeToScene(this, 'Battle');
   }
 }

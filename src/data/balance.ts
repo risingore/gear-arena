@@ -71,8 +71,14 @@ export const BALANCE = {
   epicUnlockRound: 5,
   /** Reroll cost increases by +1g every N rerolls. */
   rerollCostStep: 3,
-  /** Fraction of remaining gold converted to scrap on run end. */
+  /** Fraction of remaining gold converted to scrap on run end (Hard mode). */
   scrapConversionRate: 0.5,
+  /** Fraction of remaining gold converted to scrap on run end (Easy mode).
+   *  Easy is for practice — players should NOT be able to grind it to amass
+   *  enough scrap to clear Hard. Setting Easy at 1/20 of Hard means a long
+   *  Easy grind still nets some scrap (psychologically rewarding, "you got
+   *  something") but the actual SANCTUM stockpile must come from Hard runs. */
+  scrapConversionRateEasy: 0.025,
 
   // ---------------------------------------------------------------------------
   // Enemy Generation
@@ -86,6 +92,19 @@ export const BALANCE = {
   midTierMax: 7,
   /** Min tier for hard pool. */
   hardTierMin: 6,
+  /**
+   * Per-round difficulty ramp for normal enemies and mid-bosses (EXPONENTIAL).
+   * Multiplier = roundDifficultyGrowth ^ (round - 1).
+   * Applied to baseHp and baseDamage at generation time, on top of the
+   * normal ±variance. Big-boss (final round) is exempt — already tuned.
+   *
+   *   Easy (5 rounds): R1=1.00× / R3=1.21× / R5=1.46×
+   *   Hard (10 rounds): R1=1.00× / R5=1.46× / R7=1.77× / R10=2.36×
+   *
+   * Pairs with the exponential player ★ merge (starMultipliers = [_,_,2,4])
+   * to create an "arms race" feel: both sides scale up dramatically.
+   */
+  roundDifficultyGrowth: 1.10,
 
   // ---------------------------------------------------------------------------
   // Battle UX
@@ -98,10 +117,13 @@ export const BALANCE = {
   playerAutoAttackRatio: 0,
 
   // ---------------------------------------------------------------------------
-  // Star Merge
+  // Star Merge (EXPONENTIAL — arms-race scaling)
   // ---------------------------------------------------------------------------
-  /** Stat multiplier per star level. Index 0 unused, 1=default, 2=merged once, 3=max. */
-  starMultipliers: [1.0, 1.0, 1.5, 2.0] as readonly number[],
+  /** Stat multiplier per star level. Index 0 unused, 1=default, 2=merged once, 3=max.
+   *  ★3 = 4× damage / HP / DR — late-game arms-race payoff for committing to a part.
+   *  Pairs with the exponential enemy ramp; a fully ★3'd loadout is the ONLY way
+   *  to clear Hard buff-less. Without ★3, Hard requires ~3 SANCTUM buffs. */
+  starMultipliers: [1.0, 1.0, 2.0, 4.0] as readonly number[],
   /** Maximum star level a part can reach. */
   maxStarLevel: 3,
 } as const;

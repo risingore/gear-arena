@@ -77,6 +77,14 @@ export interface RunState {
    * ending sequence doesn't contaminate the player's real save data.
    */
   previewOnly: boolean;
+  /**
+   * Debug: when set, Battle freezes its combat tick and only plays the
+   * requested ULT cut-in once before returning to Settings. Used by the
+   * Settings → Debug → "Cut-in: …" buttons. `kind` selects whose cut-in
+   * to play; `enemyId` (when `kind === 'enemy'`) names the boss whose
+   * portrait + ULT name should appear.
+   */
+  previewCutIn?: { kind: 'player' | 'enemy'; enemyId?: string } | null;
 }
 
 export const createInitialRunState = (): RunState => ({
@@ -97,7 +105,8 @@ export const createInitialRunState = (): RunState => ({
   equippedBuffs: [],
   runStats: createEmptyRunStats(),
   endingMode: 'hard',
-  previewOnly: false
+  previewOnly: false,
+  previewCutIn: null
 });
 
 export const getRunState = (scene: Scene): RunState => {

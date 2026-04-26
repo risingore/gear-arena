@@ -13,16 +13,16 @@ export const ja: LocaleDict = {
   '▶  START': '▶  スタート',
 
   // Select
-  'SELECT YOUR MACHINE': 'サイボーグを選択',
+  'SELECT YOUR MACHINE': '機体を選択',
   '← →  to browse    ENTER  to confirm': '← →  で選択    ENTER  で決定',
-  'Click a cyborg to deploy': 'クリックで出撃',
+  'Click a machine to deploy': 'クリックで出撃',
   SELECT: '選択',
   'COMING SOON': '近日公開',
   'Clear the previous character to unlock': '前のキャラクターをクリアして解放',
 
   // Build
   'BUILD your machine — click shop or press 1-5 to buy, click slots to sell':
-    '義体を組み立て — ショップをクリック or 1-5キーで購入、スロットクリックで売却',
+    '機体を組み立て — ショップをクリック or 1-5キーで購入、スロットクリックで売却',
   'Click shop to buy · Click slots to sell · Drag to place':
     'ショップをクリックで購入 · スロットをクリックで売却 · ドラッグで配置',
   'Click shop to buy · Click slots to sell · Drag parts to specific slots':
@@ -118,7 +118,7 @@ export const ja: LocaleDict = {
   'Tip: You had no weapons. Buy a weapon first!': 'ヒント: モジュールがありません。まずモジュールを購入しましょう！',
   'Tip: Try filling more slots before fighting.': 'ヒント: 戦闘前にもっとスロットを埋めましょう。',
   'Tip: Adding a second weapon doubles your DPS.': 'ヒント: モジュールを2本にするとDPSが倍増します。',
-  'Tip: Try different part combinations or a different robot.': 'ヒント: 別のパーツ構成や別のサイボーグを試しましょう。',
+  'Tip: Try different part combinations or a different robot.': 'ヒント: 別のパーツ構成や別の機体を試しましょう。',
   'Tip: Equip modules to add strikes to your soul strike!': 'ヒント: モジュールを装備してストライクを増やそう！',
   'Tip: Fill more slots to power up your soul strike.': 'ヒント: スロットを埋めてSOUL STRIKEを強化しよう。',
   'Tip: More modules = more soul strike hits!': 'ヒント: モジュールが多い＝ストライクが増える！',
@@ -138,6 +138,11 @@ export const ja: LocaleDict = {
   Ending: 'エンディング',
   'Ending (Easy)': 'エンディング (Easy)',
   'Ending (Hard)': 'エンディング (Hard)',
+  'Cut-in: INDRA': 'カットイン: INDRA',
+  'Cut-in: NEKOMATA-Ψ': 'カットイン: NEKOMATA-Ψ',
+  'Cut-in: MUJINA-Σ': 'カットイン: MUJINA-Σ',
+  'Cut-in: TSUKUMO-Δ': 'カットイン: TSUKUMO-Δ',
+  'Cut-in: YUKIME-Ω': 'カットイン: YUKIME-Ω',
   Recommended: '推奨解像度',
   'RESET ALL DATA': '全データリセット',
   'Click again to confirm': 'もう一度クリックで確定',
@@ -163,7 +168,7 @@ export const ja: LocaleDict = {
   STORY: 'ストーリー',
   'I — THE FALLING': '一 — 堕ちるとき',
   'II — THE FIRST FIST': '二 — はじまりの拳',
-  CYBORGS: 'サイボーグ',
+  MACHINES: '機体',
   PARTS: 'パーツ',
   ENEMIES: '敵',
   TITLES: '称号',
@@ -181,14 +186,14 @@ export const ja: LocaleDict = {
   'MUMEI': 'MUMEI',
 
   // Robot descriptions
-  'Right arm carries a massive mechanical weapon. Balanced cyborg fighter.':
-    '右腕に巨大な機械兵器を装着。バランス型サイボーグ。',
-  'Massive build with reinforced body. Charges through enemies.':
-    '巨体に強化装甲。敵を突き破る。',
-  'Left leg houses a devastating mechanical kick weapon. Speed fighter.':
-    '左脚に破壊的な機械キック兵器。スピード型。',
-  'An ordinary boy. The machine on his back is anything but.':
-    'ただの少年。背中の機械だけが、普通じゃない。',
+  'Right-arm gauntlet frame. Balanced Machine, piloted by a former soldier.':
+    '右腕ガントレット型機体。バランス型、元軍人が乗る。',
+  'Massive full-body frame. The pilot is a child curled inside its hollow chest.':
+    '全身重装機体。胸の空洞に少女が乗っている。',
+  'Left-leg kick frame, scavenger-built. Speed Machine, piloted by an off-grid runner.':
+    '左脚キック型機体、廃材組み。スピード型、戸籍外の少女が乗る。',
+  'The boy is ordinary. The Machine on his back is anything but.':
+    '少年はただの少年。背負う機体だけが、ただ事ではない。',
   '+5% damage reduction baseline. Strike to live.': 'ダメージ軽減+5%。耐えて撃て。',
   'Damage taken -10% / attack speed -20%.': '被ダメ-10% / 攻撃速度-20%。',
   'Attack speed +30% / damage taken +10%.': '攻撃速度+30% / 被ダメ+10%。',
@@ -316,7 +321,7 @@ export const ja: LocaleDict = {
   'War Machine': 'ウォーマシン',
   'Win 10 total runs.': '合計10回クリア。',
   'Machine Master': 'マシンマスター',
-  'Clear with all 4 cyborgs.': '全4サイボーグでクリア。',
+  'Clear with all 4 machines.': '全4機体でクリア。',
   'Full Arsenal': '完全武装',
   'Use all 25 parts at least once.': '全25パーツを使用。',
   'Chief Engineer': 'チーフエンジニア',
@@ -346,6 +351,22 @@ export const ja: LocaleDict = {
   'Boss Rage': 'ボスレイジ',
   'Titan Strike': 'タイタンストライク',
   'Extinction Protocol': 'エクスティンクション・プロトコル',
+  // Episode 0 mid-boss ULTs
+  'Phantom Stride': 'ファントム・ストライド',
+  'Mirror Veil': 'ミラー・ヴェイル',
+  'Twirl Breaker': 'ツワール・ブレイカー',
+  // Episode 1 reserve mid-boss ULTs
+  'Crimson Cleave': 'クリムゾン・クリーヴ',
+  Thundercrash: 'サンダークラッシュ',
+  'Calcified Tide': 'カルシファイド・タイド',
+  'Silken Web': 'シルケン・ウェブ',
+  'Frost Lance': 'フロスト・ランス',
+  // Episode 0 big-boss ULT
+  'Glacial Lullaby': '氷河の子守唄',
+  // Episode 1 reserve big-boss ULTs
+  'Crimson Banquet': '紅の宴',
+  'Nine-Tail Pyre': '九尾の劫火',
+  'Chimera Howl': 'キメラ・ハウル',
 
   // Synergy names
   'Booster Sync': 'ブースターシンク',

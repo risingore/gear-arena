@@ -73,7 +73,10 @@ const EPILOGUE_STANZA_COUNT = HARD_ENDING_STANZAS.length;
 const EPILOGUE_STANZA_STAGGER_MS = 4000;
 const EPILOGUE_FIRST_STANZA_DELAY_MS = 700;
 const EPILOGUE_STANZA_FADE_MS = 1000;
-const EPILOGUE_HOLD_MS = 5000;
+// HOLD = silent reading time after the last stanza fully lands. Keeps the
+// player on the closing line long enough to re-read what they may have
+// missed during the staggered reveal, before the credits scroll begins.
+const EPILOGUE_HOLD_MS = 7000;
 const EPILOGUE_FADE_OUT_MS = 1500;
 const EPILOGUE_DETACH_BUFFER_MS = 50;
 const SCROLL_START_GAP_MS = 200;
@@ -272,14 +275,22 @@ export function mountEndingScrollOverlay(opts: EndingScrollOverlayOptions): () =
     epilogueEl.style.display = 'none';
   }, fadeOutEndAt + EPILOGUE_DETACH_BUFFER_MS);
 
-  // bgm_victory was retrimmed 2026-04-25 to 115s (109s body + 6s
-  // fade-out) to match the slimmed credits roll (3 sections only:
-  // AI-ASSISTED ASSETS / MUSIC / AUDIO). Measured ED total ≈ 107s from
-  // Result mount → RETURN visible, with ~12s pre-scroll VICTORY screen +
-  // ~95s scroll. Music tail covers the player's 百鬼夜行 reading window.
+  // bgm_victory is the full 158.76s original (restored 2026-04-26 from the
+  // pre-trim Suno source after the 115s re-cut proved too short for the
+  // 8-section credits roll). Goal: scroll completion (= RETURN button
+  // visible at the 百鬼夜行 reveal) ≈ music end, so the final yokai-march
+  // reveal lands precisely as the music finishes.
+  //
+  // Pre-scroll budget (Result mount → scroll start):
+  //   13s VICTORY screen + 22s stanzas + 7s HOLD + 1.5s fade + 0.2s gap
+  //   ≈ 43.7s. Target scroll duration ≈ 158.76 − 43.7 = ~115s.
+  //
+  // baseSpeed 18 px/s lands the 8-section credits roll (~2030px including
+  // the 百鬼夜行 block) at ~113s, fitting the 115s target with a 2s margin
+  // of music tail covering the closing reveal.
   // If credits length changes again, re-measure with playwright and
-  // re-trim bgm_victory accordingly (single-pass ffmpeg with afade=out).
-  const baseSpeed = opts.scrollSpeed ?? 23;
+  // adjust baseSpeed (or change the bgm to match).
+  const baseSpeed = opts.scrollSpeed ?? 18;
   let scrollOffset = 0;
   let raf = 0;
   let lastTs = performance.now();

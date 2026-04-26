@@ -42,7 +42,7 @@ export class Select extends Scene {
     const keys = ALL_ROBOT_KEYS;
 
     // Jam scope: only INDRA ('robot_knight') is playable this release.
-    // Other cyborgs are shown as COMING SOON teasers so players can see
+    // Other machines are shown as COMING SOON teasers so players can see
     // what's coming in future episodes without being able to select them.
     const PLAYABLE_KEY: RobotKey = 'robot_knight';
     const characters: SelectOverlayCharacter[] = keys.map((key) => {
@@ -56,6 +56,9 @@ export class Select extends Scene {
       const portraitSrc = this.textures.exists(robot.battleAssetKey)
         ? `assets/images/${robot.battleAssetKey}.png`
         : null;
+      // INDRA gets a cropped face icon for the small selector button.
+      // Other Machines (COMING SOON) don't show the icon (text-only badge).
+      const iconSrc = key === PLAYABLE_KEY ? 'assets/images/indra_icon.png' : null;
       return {
         key,
         name: t(robot.name),
@@ -70,6 +73,7 @@ export class Select extends Scene {
         locked,
         comingSoon,
         portraitSrc,
+        iconSrc,
         themeHex: hex,
       };
     });

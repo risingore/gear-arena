@@ -15,7 +15,7 @@ Engine: Phaser 4.0 / Vite 6 / TypeScript / Bun.
 - **Core gimmick**: Each of the 4 selectable robots has a unique **blueprint** (silhouette + slot layout). You assemble your machine by dropping parts into slots in the Build scene; in the Battle scene the same robot animates and fights automatically.
 - **Viewpoint**: Side-view for battle, front-view blueprint for build.
 - **Parts**: 15 total — 3 weapons, 3 armors, 3 engines, 3 gears, 3 specials.
-- **4 cyborgs**: INDRA (balanced), GOLIATH-414 (heavy, 15 slots), LILITH (speed, 7 slots), MUMEI (tech, 11 soul slots).
+- **4 machines**: INDRA (balanced), GOLIATH-414 (heavy, 15 slots), LILITH (speed, 7 slots), MUMEI (tech, 11 soul slots).
 
 ### Architecture
 
@@ -161,7 +161,7 @@ Consolidated every open question into `tasks/kima-questions.md` so they can be b
 - All 25 parts renamed with cyberpunk-appropriate names matching the new categories.
 
 **World setting:**
-- Corporate AI "ATMAN" controls humanity through neural implants. The player commands resistance cyborgs who severed their neural links.
+- Corporate AI "ATMAN" controls humanity through neural implants. The player commands resistance machines who severed their neural links.
 - Circle of Samsara story integration — ATMAN's name references the Buddhist concept of self/soul, tying into the Soul part category and ORACLE's soul manifestation abilities.
 
 **Build scene redesign:**
@@ -190,7 +190,7 @@ Consolidated every open question into `tasks/kima-questions.md` so they can be b
 
 ### Next
 
-- Day 4+: Remaining cyborg battle sprites (GOLIATH, STRIKER, ORACLE).
+- Day 4+: Remaining machine battle sprites (GOLIATH, STRIKER, ORACLE).
 - Enemy sprites and part icons.
 - BGM tracks.
 - Balance tuning via `src/data/*.ts`.
@@ -232,7 +232,7 @@ Consolidated every open question into `tasks/kima-questions.md` so they can be b
 
 ### Next
 
-- Day 5+: Remaining cyborg battle sprites.
+- Day 5+: Remaining machine battle sprites.
 - Enemy sprites and part icons.
 - BGM tracks.
 - Balance tuning via `src/data/*.ts`.
@@ -278,7 +278,7 @@ Consolidated every open question into `tasks/kima-questions.md` so they can be b
   - Episode 0 — **SOUL STRIKE** (this Jam): proof that the soul exists.
   - Episode 1 — **SOUL BREAKER**: breaking the eight divided-soul vessels that compose ATMAN, ending with Yamata no Orochi.
   - Episode 2 — **SAMSARA**: the hyakki-yakou residue wandering a post-ATMAN world, with mortals re-entering their own cycle of suffering and transcendence.
-- Wrote full individual stories for all four cyborgs (INDRA / GOLIATH-414 / LILITH / MUMEI) that fit the Kongō-kai / Taizō-kai mandala metaphor. GOLIATH remains deliberately opaque: the only in-game hint is the ultimate name "Compassion Engine."
+- Wrote full individual stories for all four machines (INDRA / GOLIATH-414 / LILITH / MUMEI) that fit the Kongō-kai / Taizō-kai mandala metaphor. GOLIATH remains deliberately opaque: the only in-game hint is the ultimate name "Compassion Engine."
 
 **Config / infra polish:**
 
@@ -314,7 +314,7 @@ of `tasks/todo.md`.
   orange/blue tear streak that skews across the frame. Same Post-cyberpunk
   palette, zero extra bundle weight.
 - **Pachislot audio depth.** Audio bus was doing a single `ultimate`
-  voicing for all four cyborgs, and the seven prediction-cue visual
+  voicing for all four machines, and the seven prediction-cue visual
   effects fired silently. Added seven new Web Audio primitives
   (`pred_rainbow` / `pred_fish` / `pred_red_flash` / `pred_exclaim` /
   `pred_lightning` / `pred_mandala` / `pred_glitch`) routed through the
@@ -520,7 +520,7 @@ will use the same helpers.
 - `scripts/check-slots.ts` — validates that every blueprint slot in
   `src/data/robots.ts` lies inside the 192×240 drawable blueprint
   area (minus radius) and flags any overlapping pairs. All 42 slots
-  across 4 cyborgs pass.
+  across 4 machines pass.
 - `scripts/check-i18n.ts` — scans every `t('…')` and `bl('…')` call
   in `src/` and cross-checks against `src/game/i18n/ja.ts`.
   Identified 10 missing Japanese translations (`BACK`, `CONTINUE`,
@@ -762,7 +762,7 @@ GameOver, ED, Battle) with scene-appropriate tag text:
 | Scene | Top-left | Top-right |
 |---|---|---|
 | Build | SS-003 / BLUEPRINT ∙ BUILD | BUILD PHASE ∙ ROUND NN |
-| Select | SS-002 / ROSTER ∙ SELECT | CYBORG PROFILE ∙ NN / MM |
+| Select | SS-002 / ROSTER ∙ SELECT | MACHINE PROFILE ∙ NN / MM |
 | Battle | SS-004 / COMBAT ∙ BATTLE | ROUND ∙ NN / MM |
 | Result | SS-005 / RESULT ∙ SUMMARY | OUTCOME ∙ ROUND |
 | Settings | SS-099 / SYSTEM ∙ CONFIG | USER PREFERENCES ∙ ACTIVE |
@@ -1409,5 +1409,120 @@ Open paths from here:
   others are stale relative to the post-cleanup STORY-button
   Title and the new Victory layout. Optional polish if there
   is time before 15:00 UTC.
+
+---
+
+## Day 12 — afternoon (2026-04-26 12:00–17:00 JST)
+
+### Boss cut-in overhaul + ULT order arbitration
+
+The morning commit had INDRA's "Plan E" phase cut-in but
+every boss ULT was a small label flash with no portrait.
+The afternoon collapsed that gap so mid-bosses and the
+big-boss carry the same cinematic weight as INDRA, plus
+added strict ULT ordering so the two sides can't talk over
+each other.
+
+**Boss cut-in (`Battle.spawnUltimateFlash` enemy branch)**
+
+Same Plan-E choreography as INDRA — P1 white→red impact,
+P2 darken + 36-spoke radial speed-lines, P3 silhouette →
+RGB chromatic-aberration converge, P4 ULT-name stamp +
+shockwave, P5 hold→fade. Mirrored colour palette (red
+accent), name stamp lands lower-centre instead of INDRA's
+lower-right, RGB split offsets sign-flipped.
+
+Portrait flipped horizontally so the boss faces left toward
+INDRA. NEKOMATA-Ψ's source art is already drawn facing left,
+so that one key is exempt. Portrait scale bumped to
+`(gameHeight / baseH) * 1.40` (up from 1.10) and anchor
+pushed to `cy + 100`, so the head/upper body lifts off the
+top edge and reads as "bigger than the arena" — same energy
+as INDRA's cut-in.
+
+**JPEG-source asset cleanup (chroma-key + vignette)**
+
+The boss cut-in originals (`m_enemy/{neko,noppe,kasa}.png`,
+`l_enemy/yukionnna.png`) are JPEG with no alpha channel.
+Painted on top of the dark cut-in overlay, they surfaced a
+hard 1024×1024 rectangle — read as "ugly".
+
+Two-stage rescue, no asset re-export:
+
+1. **Preloader chroma-key**: after `loaderror` settles,
+   the four boss `_ult` keys are pulled into a canvas,
+   each pixel's luminance evaluated, and pixels under a
+   `LOW=18 → HIGH=50` ramp get alpha-keyed. Replaces the
+   texture in place via `textures.remove + addCanvas`,
+   so all downstream code keeps using the original key
+   without knowing the source was JPEG.
+2. **Radial vignette overlay**: a runtime-generated
+   `cut_in_vignette` canvas (radial gradient 0% → 95%
+   black, cached on first use) sits on top of the
+   portrait at depth `D+6`, dissolving anything the
+   chroma-key step missed into the surrounding dark.
+
+**Glitch reveal**
+
+P3 ships a "system corruption" beat: 14 random horizontal
+black/accent stripes pop in / fade out within the
+350–720 ms window, plus a horizontal-jitter tween on the
+silhouette / green RGB layer. Sells "boss is corrupting into
+the frame" instead of just appearing cleanly.
+
+**Pre-ult sprite tremor (boss only)**
+
+The boss battle sprite (1024×1024 PNG, on stage right)
+shakes left/right BEFORE the cut-in covers the arena, in a
+ramp-accelerating 16-beat sequence (95 ms cycle → 22 ms,
+±8 px, Linear ease). The cut-in starts the moment the shake
+settles, locked together via the shake function returning
+its own duration. INDRA keeps its existing 4-phase rear-up
++ body-slam motion (untouched).
+
+**ULT order arbitration**
+
+Previously player and boss could fire ULTs in the same
+`update` frame, with no order guarantee. Two arena-rule
+changes:
+
+1. `update()` now bails on `if (this.ultFiring) return;`.
+   Both sides' combat tick — gauge fill, auto-attacks,
+   everything — freezes during a cut-in, so whichever
+   side hit 100% first claims the slot and the other side
+   waits.
+2. Boss ULT damage application (attack popups, HP refresh,
+   lose-check) is delayed to `shakeMs + 2400 ms` after
+   `enemyTick.ultimateFired` lands — the player sees the
+   cut-in BEFORE watching their HP drop, mirroring how
+   player ULT damage already lands at 2800 ms inside
+   `triggerPlayerUltimate`.
+
+Net result: clean alternation, no double-cut-ins, readable
+"boss got the jump" vs "player struck first" beats.
+
+**Settings → Debug previews**
+
+Five new `Cut-in: <name>` rows in Settings → Debug let us
+review every cut-in without playing through. Each preview
+boots Battle with a dummy round (HP 9999, cooldown 99s so
+combat never advances), fires the requested cut-in, then
+fades back to Settings. previewOnly = true blocks all save
+mutations.
+
+### Day 12 afternoon — quality bar
+
+- `bunx tsc --noEmit`: 0 errors.
+- `bun run scripts/check-i18n.ts`: 0 missing translations.
+- Boss cut-ins verified via Settings → Debug previews
+  (NEKOMATA-Ψ / MUJINA-Σ / TSUKUMO-Δ / YUKIME-Ω) at
+  1280×720; portrait, glitch stripes, chroma-key, vignette,
+  ULT name placement, sprite tremor all hit the intended
+  beat.
+- Boss `_ult` art keys committed: `m_enemy/{neko,noppe,kasa}.png`,
+  `l_enemy/yukionnna.png` (JPEG with .png extension).
+- Battle sprite PNGs committed:
+  `boss_{bakeneko,nopperabo,karakasa,yuki_onna}_battle.png`
+  (transparent).
 
 ---

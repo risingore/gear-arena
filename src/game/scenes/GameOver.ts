@@ -23,7 +23,13 @@ export class GameOver extends Scene {
     fadeInCurrent(this);
 
     const state = getRunState(this);
-    const scrapEarned = Math.floor(state.gold * BALANCE.scrapConversionRate);
+    // Easy mode pays out only 1/20 of Hard's scrap rate so players can't
+    // grind Easy to bankroll Hard. Easy still drips a tiny amount so a death
+    // run feels rewarded rather than wasted.
+    const conversionRate = state.endingMode === 'easy'
+      ? BALANCE.scrapConversionRateEasy
+      : BALANCE.scrapConversionRate;
+    const scrapEarned = Math.floor(state.gold * conversionRate);
     if (scrapEarned > 0) recordScrap(scrapEarned);
     // SANCTUM unlock counter — only ticks on full-run completion
     // (this branch = defeat). Mid-run R-to-Title leaves it untouched.

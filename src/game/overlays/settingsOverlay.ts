@@ -169,6 +169,7 @@ export function mountSettingsOverlay(opts: SettingsOverlayOptions): () => void {
         <div class="shortcut-row"><div class="key">S</div><div class="desc">Cycle battle speed</div></div>
         <div class="shortcut-group-label">Result / Game Over</div>
         <div class="shortcut-row"><div class="key">SPACE</div><div class="desc">Continue / Restart</div></div>
+        ${opts.debugRows.length > 0 ? `
         <div class="divider"></div>
         ${opts.debugRows
           .map(
@@ -178,7 +179,7 @@ export function mountSettingsOverlay(opts: SettingsOverlayOptions): () => void {
           <div class="val" data-role="debug" data-debug-idx="${i}">${esc(r.value)}</div>
         </div>`,
           )
-          .join('')}
+          .join('')}` : ''}
         <div class="divider"></div>
         <button class="reset" data-role="reset">${esc(opts.resetLabel)}</button>
       </div>

@@ -171,7 +171,7 @@ export const ATMAN_NORMAL_STATEMENTS: readonly BilingualText[] = [
 // ATMAN statements — mid-boss specific (1 per mid-boss, after kill)
 //
 // Mid-bosses are yokai-mimicking AI with more awareness. Their statements
-// hint at relationships with the cyborg fighters.
+// hint at relationships with the machine fighters.
 // ---------------------------------------------------------------------------
 
 export const ATMAN_MIDBOSS_STATEMENTS: Record<string, BilingualText> = {

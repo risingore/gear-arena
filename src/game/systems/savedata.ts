@@ -3,8 +3,8 @@
  *
  * Tracks:
  *   - Best round reached + total victories
- *   - Per-cyborg clear count (used for cyborg unlock progression)
- *   - Unlocked cyborgs (INDRA -> GOLIATH-414 -> LILITH -> MUMEI)
+ *   - Per-machine clear count (used for machine unlock progression)
+ *   - Unlocked machines (INDRA -> GOLIATH-414 -> LILITH -> MUMEI)
  *   - Defeated enemy IDs (collection)
  *   - Used part IDs (collection)
  *
@@ -16,7 +16,7 @@ import { ALL_ENEMY_IDS } from '@/data/enemies';
 
 const STORAGE_KEY = 'soul-strike-save-v2';
 
-/** Cyborg unlock order — first cyborg is always unlocked. */
+/** Machine unlock order — first machine is always unlocked. */
 const UNLOCK_ORDER: readonly RobotKey[] = ALL_ROBOT_KEYS;
 
 export interface SaveData {
@@ -257,7 +257,7 @@ export const isRobotUnlocked = (robotKey: RobotKey): boolean => {
 
 /**
  * Check if the super boss is unlocked:
- *   1. All 4 cyborgs have at least 1 clear each.
+ *   1. All 4 machines have at least 1 clear each.
  *   2. Every non-super enemy has been defeated at least once.
  */
 /**

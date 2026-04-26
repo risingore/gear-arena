@@ -32,6 +32,9 @@ export interface SelectOverlayCharacter {
   /** Jam-scope teaser state: shown as "COMING SOON" with name only. */
   readonly comingSoon?: boolean;
   readonly portraitSrc: string | null;
+  /** Cropped face/head icon shown in the small character-selector button.
+   *  Falls back to the empty button when null. */
+  readonly iconSrc?: string | null;
   readonly themeHex: string;
 }
 
@@ -206,6 +209,10 @@ const CSS = `
   background:#1a1a28;border:2px solid #444455;color:#888899;
   font-family:'Bebas Neue',sans-serif;font-size:44px;font-weight:700;
   transition:all .15s ease;
+  overflow:hidden;padding:0;
+}
+.${ROOT_CLASS} .ch-icon .ic-portrait{
+  width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;
 }
 .${ROOT_CLASS} .ch-icon.current{
   background:var(--theme-border,#ff7a00);border-color:#fff;border-width:3px;
@@ -246,7 +253,10 @@ export function mountSelectOverlay(opts: SelectOverlayOptions): SelectOverlayHan
       if (ch.comingSoon) {
         return `<button class="ch-icon coming-soon" data-idx="${i}" aria-disabled="true" disabled><span class="ic-coming">COMING</span><span class="ic-soon">SOON</span></button>`;
       }
-      return `<button class="ch-icon${ch.locked ? ' locked' : ''}" data-idx="${i}"></button>`;
+      const iconImg = ch.iconSrc
+        ? `<img class="ic-portrait" src="${esc(ch.iconSrc)}" alt="${esc(ch.name)}" />`
+        : '';
+      return `<button class="ch-icon${ch.locked ? ' locked' : ''}" data-idx="${i}">${iconImg}</button>`;
     })
     .join('');
 
@@ -254,7 +264,7 @@ export function mountSelectOverlay(opts: SelectOverlayOptions): SelectOverlayHan
     <div class="stage ss-stage">
       ${buildFrameHtml({
         tagLeft: '<b>SS</b>-<b>002</b> / ROSTER <span class="bar"></span> SELECT',
-        tagRight: 'CYBORG PROFILE <span class="bar"></span> <b data-role="idxTag"></b> / <b data-role="totalTag"></b>',
+        tagRight: 'MACHINE PROFILE <span class="bar"></span> <b data-role="idxTag"></b> / <b data-role="totalTag"></b>',
       })}
       <div class="bg-wash"></div>
       <div class="prologue">${esc(opts.thesisPrologue)}</div>

@@ -37,7 +37,8 @@ export const MUSIC_KEYS = {
   build: 'bgm_build',
   battle: 'bgm_battle',
   boss: 'bgm_bossbattle',
-  victory: 'bgm_victory'
+  victory: 'bgm_victory',
+  easyVictory: 'bgm_easy_victory'
 } as const;
 
 export type MusicKey = (typeof MUSIC_KEYS)[keyof typeof MUSIC_KEYS];

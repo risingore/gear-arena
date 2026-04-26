@@ -74,9 +74,21 @@ export const attemptSell = (state: RunState, slotId: string): RunState => {
   };
 };
 
-/** Reroll cost escalates: +1g for every N rerolls used this run. */
-export const getRerollCost = (state: RunState): number =>
-  ECONOMY.rerollCost + Math.floor((state.rerollsUsed ?? 0) / BALANCE.rerollCostStep);
+/**
+ * Reroll cost escalates in 100-gold steps every BALANCE.rerollCostStep
+ * rerolls used this run, capped at 999g so the cost always fits the
+ * 3-digit "(NNN g)" slot on the REROLL button. Sequence:
+ *   rerolls 0-2  → 100g
+ *   rerolls 3-5  → 200g
+ *   rerolls 6-8  → 300g
+ *   ...
+ *   rerolls 24-26 → 900g
+ *   rerolls 27+   → 999g (cap)
+ */
+export const getRerollCost = (state: RunState): number => {
+  const tier = Math.floor((state.rerollsUsed ?? 0) / BALANCE.rerollCostStep);
+  return Math.min(999, ECONOMY.rerollCost + tier * 100);
+};
 
 export const attemptReroll = (
   state: RunState,

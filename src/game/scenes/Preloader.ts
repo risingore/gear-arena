@@ -49,12 +49,33 @@ export class Preloader extends Scene {
       this.load.image(`enemy_mob${n}`, `assets/sprites/enemy_mob${n}.png`);
     });
 
+    // --- Mid-boss / big-boss battle sprites (transparent, INDRA-style) ---
+    // Battle scene loads them by `assetKey` (matches enemies.ts entries).
+    // Originals in assets/images/{m_enemy,l_enemy}/ are kept and re-loaded
+    // below as `<assetKey>_ult` for the boss ULT cut-in (the "beautiful
+    // photo" form, mirroring INDRA's battle / battle_ult split).
+    this.load.image('midboss_bakeneko',  'assets/sprites/boss_bakeneko_battle.png');
+    this.load.image('midboss_nopperabo', 'assets/sprites/boss_nopperabo_battle.png');
+    this.load.image('midboss_karakasa',  'assets/sprites/boss_karakasa_battle.png');
+    this.load.image('boss_yuki_onna',    'assets/sprites/boss_yuki_onna_battle.png');
+
+    // --- Boss ULT cut-in art (full-color originals from m_enemy / l_enemy) ---
+    this.load.image('midboss_bakeneko_ult',  'assets/images/m_enemy/neko.png');
+    this.load.image('midboss_nopperabo_ult', 'assets/images/m_enemy/noppe.png');
+    this.load.image('midboss_karakasa_ult',  'assets/images/m_enemy/kasa.png');
+    this.load.image('boss_yuki_onna_ult',    'assets/images/l_enemy/yukionnna.png');
+
     // --- BGM tracks (mp3 with ogg fallback) ---
     this.load.audio('bgm_title',   ['assets/audio/bgm_title.mp3',   'assets/audio/bgm_title.ogg']);
     this.load.audio('bgm_build',   ['assets/audio/bgm_build.mp3',   'assets/audio/bgm_build.ogg']);
     this.load.audio('bgm_battle',  ['assets/audio/bgm_battle.mp3',  'assets/audio/bgm_battle.ogg']);
     this.load.audio('bgm_bossbattle', ['assets/audio/bgm_bossbattle.mp3', 'assets/audio/bgm_bossbattle.ogg']);
     this.load.audio('bgm_victory', ['assets/audio/bgm_victory.mp3', 'assets/audio/bgm_victory.ogg']);
+    // Easy-mode victory BGM — shorter cliffhanger track for the 25.8s Easy ED
+    // (Hard's bgm_victory is tuned for the 95s credits roll and would only
+    // play its intro before the player returns to Title). Optional asset:
+    // missing keys stay unregistered and Result.ts falls back gracefully.
+    this.load.audio('bgm_easy_victory', ['assets/audio/bgm_easy_victory.mp3', 'assets/audio/bgm_easy_victory.ogg']);
 
     // Swallow individual load errors so missing audio files never block the
     // transition into Title.
@@ -64,6 +85,65 @@ export class Preloader extends Scene {
   }
 
   create(): void {
+    // Boss ULT cut-in originals are JPEG (no alpha channel) — they paint
+    // a full background that reads as a hard rectangular border against
+    // the dark cut-in overlay. Strip the dark background to alpha 0 so
+    // the boss silhouette floats on the cut-in instead of sitting in a
+    // visible JPEG box. Tuned for the current art set: backgrounds are
+    // near-black (luminance < 30) while boss bodies have rim-lights /
+    // accent colours bright enough to stay above the upper threshold.
+    [
+      'midboss_bakeneko_ult',
+      'midboss_nopperabo_ult',
+      'midboss_karakasa_ult',
+      'boss_yuki_onna_ult',
+    ].forEach((key) => keyOutDarkBackground(this, key));
+
     this.scene.start('Title');
   }
+}
+
+/** Replace `key`'s texture with a copy whose dark pixels are alpha 0
+ *  (opaque to fully transparent across an 18-50 luminance ramp). The
+ *  ramp width preserves rim-lit edges so the boss silhouette doesn't
+ *  read as a hard cut-out. No-op when the texture isn't loaded.
+ */
+function keyOutDarkBackground(scene: Scene, key: string): void {
+  if (!scene.textures.exists(key)) return;
+  const tex = scene.textures.get(key);
+  const src = tex.getSourceImage(0) as HTMLImageElement | HTMLCanvasElement;
+  const w = src.width;
+  const h = src.height;
+  if (!w || !h) return;
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  ctx.drawImage(src as CanvasImageSource, 0, 0);
+  let imgData: ImageData;
+  try {
+    imgData = ctx.getImageData(0, 0, w, h);
+  } catch {
+    // Cross-origin tainted canvas — bail and keep the JPEG as-is.
+    return;
+  }
+  const data = imgData.data;
+  const LOW = 18;
+  const HIGH = 50;
+  const SPAN = HIGH - LOW;
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i]!;
+    const g = data[i + 1]!;
+    const b = data[i + 2]!;
+    const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+    if (lum <= LOW) {
+      data[i + 3] = 0;
+    } else if (lum < HIGH) {
+      data[i + 3] = Math.round(255 * (lum - LOW) / SPAN);
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+  scene.textures.remove(key);
+  scene.textures.addCanvas(key, canvas);
 }

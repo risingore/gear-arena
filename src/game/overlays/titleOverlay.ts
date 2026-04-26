@@ -156,17 +156,24 @@ const CSS = `
 .${ROOT_CLASS} .soul-dial{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:260px;height:260px;z-index:2;pointer-events:none}
 
 .${ROOT_CLASS} .menu{
-  position:absolute;left:50%;bottom:150px;transform:translateX(-50%);
+  position:absolute;left:50%;bottom:80px;transform:translateX(-50%);
   display:flex;flex-direction:column;gap:12px;align-items:center;z-index:4;
 }
 .${ROOT_CLASS} .menu-backing{
-  position:absolute;left:50%;bottom:140px;transform:translateX(-50%);
+  position:absolute;left:50%;bottom:70px;transform:translateX(-50%);
   width:600px;height:134px;
   background:rgba(10,10,16,.7);
   border:1px solid rgba(174,234,255,.12);
   filter:drop-shadow(0 0 18px rgba(10,10,16,.55));
   z-index:3;
   clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px));
+}
+/* When the HARD lock-hint row is present, the menu's vertical content
+   grows by ~30px (hint line + extra gap). The backing height needs to
+   grow to match so the buttons don't poke out the top of the frame. */
+.${ROOT_CLASS} .menu-backing.has-hint{
+  height:170px;
+  bottom:60px;
 }
 .${ROOT_CLASS} .primary-row{display:flex;gap:10px}
 .${ROOT_CLASS} .menu .primary{
@@ -318,9 +325,9 @@ function buildStageHtml(opts: TitleOverlayOptions): string {
   const collection = opts.collectionLabel ?? 'COLLECTION';
   const settings = opts.settingsLabel ?? 'SETTINGS';
   const story = opts.storyLabel ?? 'STORY';
-  const q1 = opts.atmanQuoteLine1 ?? '&ldquo;The soul is a myth.';
-  const q2 = opts.atmanQuoteLine2 ?? "What you call &lsquo;soul&rsquo; is merely unprocessed data.&rdquo;";
-  const attr = opts.atmanAttribution ?? '— ATMAN, broadcast';
+  // ATMAN quote / echo decoration removed from Title — the option fields
+  // (atmanQuoteLine1, atmanQuoteLine2, atmanAttribution) on the public
+  // interface stay so callers don't break. They're simply ignored now.
 
   const hud = opts.saveData && (opts.saveData.bestRound > 0 || opts.saveData.victories > 0)
     ? `
@@ -387,7 +394,7 @@ function buildStageHtml(opts: TitleOverlayOptions): string {
       </div>
     </div>
 
-    <div class="menu-backing"></div>
+    <div class="menu-backing${hardLocked ? ' has-hint' : ''}"></div>
     <div class="menu">
       <div class="primary-row">
         <div class="primary hard${hardLocked ? ' locked' : ''}" data-role="play-hard" ${hardLocked ? 'aria-disabled="true"' : ''}>
@@ -404,11 +411,10 @@ function buildStageHtml(opts: TitleOverlayOptions): string {
       </div>
     </div>
 
-    <div class="atman-quote">
-      <div class="q">${q1}<br/>${q2}</div>
-      <div class="attr">${attr}</div>
-    </div>
-    <div class="atman-echo">the broadcast ends. something still rings.</div>
+    <!-- ATMAN quote and echo lines removed per Heika request — kept the
+         saveData HUD (gameplay info) but stripped the philosophical
+         decoration so the menu can sit lower / breathe more. -->
+
 
     ${hud}
 

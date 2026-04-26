@@ -55,7 +55,13 @@ export class Result extends Scene {
 
     const state = getRunState(this);
     const outcome = state.battleOutcome;
-    if (outcome === 'victory') playMusic(this, MUSIC_KEYS.victory, false);
+    if (outcome === 'victory') {
+      // Easy ED uses a shorter cliffhanger track so the music can reach its
+      // own ending instead of being cut mid-intro by the 25.8s Easy overlay.
+      // Hard ED keeps the long bgm_victory tuned for the 95s credits roll.
+      const victoryKey = state.endingMode === 'easy' ? MUSIC_KEYS.easyVictory : MUSIC_KEYS.victory;
+      playMusic(this, victoryKey, false);
+    }
 
     // Track defeated enemies and used parts in the collection. Skipped
     // when this run is a debug preview (Settings → Ending) — preview
@@ -228,7 +234,12 @@ export class Result extends Scene {
     if (!state.previewOnly && state.robotKey) recordVictory(state.robotKey);
     if (!state.previewOnly && state.endingMode === 'easy') recordEasyCleared();
     if (!state.previewOnly && state.endingMode === 'hard') recordHardCleared();
-    const scrapEarned = Math.floor(state.gold * BALANCE.scrapConversionRate);
+    // Easy mode pays out only 1/20 of Hard's scrap rate so players can't
+    // grind Easy to bankroll Hard.
+    const conversionRate = state.endingMode === 'easy'
+      ? BALANCE.scrapConversionRateEasy
+      : BALANCE.scrapConversionRate;
+    const scrapEarned = Math.floor(state.gold * conversionRate);
     if (!state.previewOnly && scrapEarned > 0) recordScrap(scrapEarned);
     // SANCTUM unlock counter — only ticks on full-run completion
     // (this branch = victory). Mid-run R-to-Title leaves it untouched.
@@ -271,10 +282,15 @@ export class Result extends Scene {
     showSkip: boolean,
     handle: import('../overlays/resultOverlay').ResultOverlayHandle,
   ): void {
-    this.time.delayedCall(8000, () => {
+    // Timing rationale: typewriter completes at t=8s (started by
+    // handle.startAtmanTypewriter(8000) in renderVictory). Hold 3s of
+    // silent reading time after the last glyph lands so the player can
+    // breathe through ATMAN's statement before the glitch tears it
+    // apart. Glitch t=11s → ED mount t=13s → Result unmount t=13.8s.
+    this.time.delayedCall(11000, () => {
       handle.startGlitch();
     });
-    this.time.delayedCall(10000, () => {
+    this.time.delayedCall(13000, () => {
       this.unmountEnding = mountEasyEndingOverlay({
         returnLabel: t('← RETURN TO TITLE'),
         showSkip,
@@ -284,17 +300,20 @@ export class Result extends Scene {
         },
       });
     });
-    this.time.delayedCall(10800, () => {
+    this.time.delayedCall(13800, () => {
       this.unmountOverlay?.();
       this.unmountOverlay = null;
     });
   }
 
   private scheduleEndingScroll(showSkip: boolean, handle: import('../overlays/resultOverlay').ResultOverlayHandle): void {
-    this.time.delayedCall(10000, () => {
+    // Same breathing-room rule as Easy: typewriter ends at t=8s, hold 3s
+    // for the player to read ATMAN's last words, then glitch t=11s →
+    // credits scroll t=13s → Result unmount t=13.8s.
+    this.time.delayedCall(11000, () => {
       handle.startGlitch();
     });
-    this.time.delayedCall(12000, () => {
+    this.time.delayedCall(13000, () => {
       this.unmountEnding = mountEndingScrollOverlay({
         returnLabel: t('← RETURN TO TITLE'),
         showSkip,
@@ -304,7 +323,7 @@ export class Result extends Scene {
         },
       });
     });
-    this.time.delayedCall(12800, () => {
+    this.time.delayedCall(13800, () => {
       this.unmountOverlay?.();
       this.unmountOverlay = null;
     });

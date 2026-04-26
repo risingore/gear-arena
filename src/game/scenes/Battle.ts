@@ -106,6 +106,10 @@ export class Battle extends Scene {
   /** Robot `battleAssetKey` (e.g. battle_indra) for optional `${key}_ult_sheet` texture. */
   private playerBattleAssetKey = '';
   private enemyImg: GameObjects.Image | null = null;
+  /** Texture key for the boss "beautiful photo" ULT cut-in (e.g.
+   *  `boss_yuki_onna_ult`). Empty string when this round's enemy has no
+   *  registered cut-in art. */
+  private enemyUltKey = '';
   private playerBaseX = 0;
   private enemyBaseX = 0;
   /** Internal time-scale multiplier applied to dt every frame.
@@ -263,7 +267,7 @@ export class Battle extends Scene {
       repairAmount: oneShot ? 0 : (originalDef?.repairAmount ?? 0),
       repairTimer: oneShot ? 0 : (originalDef?.repairIntervalSec ?? 0),
       shieldCharges: oneShot ? 0 : (originalDef?.shieldCharges ?? 0),
-      ultimate: originalDef ? (ENEMY_ULTIMATES[originalDef.category] ?? null) : null,
+      ultimate: originalDef ? (ENEMY_ULTIMATES[originalDef.id] ?? ENEMY_ULTIMATES[originalDef.category] ?? null) : null,
       ultimateGauge: 0,
       ultimateUsed: false,
       ultimateEffectTimer: 0,
@@ -276,7 +280,10 @@ export class Battle extends Scene {
       autoFireUltimate: true,
       ultimateStrikes: 1,
       ultimateDmgPerStrike: 0,
-      ultimateChargeRate: 1,
+      // Big-bosses charge their ULT noticeably faster so they can fire
+      // 3-5 times per fight; mid-bosses stay at the baseline so they
+      // typically fire ~once mid-fight. Normal enemies have no ultimate.
+      ultimateChargeRate: originalDef?.category === 'bigBoss' ? 1.6 : 1.0,
       ultimateLifesteal: 0,
       ultimateArmorBreak: false,
       isAwakened: false
@@ -312,6 +319,12 @@ export class Battle extends Scene {
     const arenaY = gameHeight * 0.44;
 
     // Player visual — full-body image or placeholder rectangle.
+    // PLAYER_SIZE_MULT shrinks INDRA so the size hierarchy reads clearly:
+    //   INDRA (0.70x)  <  normal mob (1.00x)  <  mid-boss (1.35x)  <  big-boss (1.70x)
+    // INDRA's source PNG fills 100% of its 1024 canvas (no padding) while
+    // boss sprites only fill ~80-95% after recenter, so without this
+    // shrink INDRA visually dominates the arena despite the boss multipliers.
+    const PLAYER_SIZE_MULT = 0.70;
     this.playerBaseX = playerX;
     this.playerImg = null;
     const battleKey = robot.battleAssetKey;
@@ -329,12 +342,12 @@ export class Battle extends Scene {
         playerUsesPixelIdle = true;
         const f = this.textures.getFrame(battleKey, 0);
         const scale = Math.min(SPRITE_W / f.width, SPRITE_H / f.height);
-        spr.setScale(scale);
+        spr.setScale(scale * PLAYER_SIZE_MULT);
       } else {
         const img = this.add.image(playerX, arenaY, battleKey);
         this.playerImg = img;
         const scale = Math.min(SPRITE_W / img.width, SPRITE_H / img.height);
-        img.setScale(scale);
+        img.setScale(scale * PLAYER_SIZE_MULT);
       }
     }
     this.playerSprite = this.add
@@ -353,11 +366,27 @@ export class Battle extends Scene {
     this.enemyBaseX = enemyX;
     this.enemyImg = null;
     const enemyAssetKey = roundEnemy.assetKey;
+    // Boss ULT cut-in art key (loaded in Preloader as `<assetKey>_ult`).
+    // Empty for normal mobs that don't have a dedicated cut-in portrait.
+    const enemyUltKey = `${enemyAssetKey}_ult`;
+    this.enemyUltKey = this.textures.exists(enemyUltKey) ? enemyUltKey : '';
     if (enemyAssetKey && this.textures.exists(enemyAssetKey)) {
       const eImg = this.add.image(enemyX, arenaY, enemyAssetKey);
       eImg.setFlipX(true);
-      const eScale = Math.min(SPRITE_W / eImg.width, SPRITE_H / eImg.height);
-      eImg.setScale(eScale);
+      // Tier-based size scaling: 通常ボス ≒ INDRA < 中ボス < 大ボス.
+      // Boss sprites are pre-cropped + recentered (scripts/sprite-recenter.py)
+      // so the character fills the canvas at parity with INDRA — these
+      // multipliers therefore translate directly to on-screen size deltas.
+      //   - normal mob : 1.00x  — same body size as INDRA
+      //   - midBoss    : 1.35x  — clearly larger ("a boss")
+      //   - bigBoss    : 1.70x  — dominates the half of the arena
+      //   - super      : 2.00x  — Ep1+ apex (overflow into UI is intentional)
+      const ENEMY_SCALE_BY_CATEGORY: Record<string, number> = {
+        normal: 1.0, midBoss: 1.35, bigBoss: 1.70, super: 2.0,
+      };
+      const sizeMult = originalDef ? (ENEMY_SCALE_BY_CATEGORY[originalDef.category] ?? 1.0) : 1.0;
+      const fitScale = Math.min(SPRITE_W / eImg.width, SPRITE_H / eImg.height);
+      eImg.setScale(fitScale * sizeMult);
       this.enemyImg = eImg;
     }
     this.enemySprite = this.add
@@ -647,12 +676,12 @@ export class Battle extends Scene {
 
     // SPEED indicator is rendered via battleOverlay.setSpeed().
 
-    // Debug: elapsed real-time counter (only visible when debug mode is ON).
+    // Debug elapsed-time counter removed per Heika request 2026-04-26.
+    // The text object is still created (off-screen + invisible) so the
+    // `.setText()` call later in update() doesn't crash on undefined.
     this.debugTimerText = this.add
-      .text(gameWidth - 24, 56, '0.0s', textStyles.small)
-      .setOrigin(1, 0)
-      .setAlpha(0.6)
-      .setVisible(isDebugEnabled());
+      .text(-1000, -1000, '', textStyles.small)
+      .setVisible(false);
 
     this.pushLog(t('Survive until SOUL STRIKE is ready!'));
 
@@ -719,6 +748,37 @@ export class Battle extends Scene {
     runVisualChecks(this);
     setupLayoutDebug(this);
     attachFpsMeter(this);
+
+    // === Cut-in preview mode (Settings → Debug → "Cut-in: …") ===
+    // Freeze the combat tick by holding ultFiring, then fire the requested
+    // cut-in once and bounce back to Settings. previewOnly was already set
+    // by the Settings entry point so save data stays untouched.
+    if (state.previewCutIn) {
+      const preview = state.previewCutIn;
+      this.ultFiring = true;
+      this.ultReady = false;
+      this.time.delayedCall(700, () => {
+        if (preview.kind === 'player' && this.player.ultimate) {
+          const ult = this.player.ultimate;
+          const ultName = (this.player.isAwakened && ult.awakenedName) ? ult.awakenedName : ult.name;
+          this.playPlayerUltimateSpriteMotion();
+          this.spawnUltimateFlash(ultName, true, true);
+        } else if (preview.kind === 'enemy' && this.enemy.ultimate) {
+          // Same shake-then-cut-in beat as the live boss ULT path.
+          const enemyUltName = this.enemy.ultimate.name;
+          const shakeMs = this.playEnemyUltimateSpriteMotion();
+          this.time.delayedCall(shakeMs, () => {
+            this.spawnUltimateFlash(enemyUltName, false);
+          });
+        }
+      });
+      this.time.delayedCall(4500, () => {
+        // Clear the flag so subsequent Battle entries (real runs) behave normally.
+        const cur = getRunState(this);
+        setRunState(this, { ...cur, previewCutIn: null });
+        fadeToScene(this, 'Settings');
+      });
+    }
   }
 
   private cycleSpeed(): void {
@@ -772,6 +832,14 @@ export class Battle extends Scene {
     // Frozen: waiting for ultimate button press
     if (this.ultReady) return;
 
+    // Frozen: ULT cut-in (player or enemy) is currently playing. Both
+    // sides' tick — gauge fill + auto-attacks — pauses so the side that
+    // filled second can't fire mid-cut-in. This enforces the "fired in
+    // gauge-fill order, one at a time" rule: whichever side hit 100%
+    // first claims the cut-in slot, and the other side waits until the
+    // P5 fade callback flips ultFiring back to false.
+    if (this.ultFiring) return;
+
     if (this.finished) {
       this.finishDelay -= realDtSec;
       if (this.finishDelay <= 0) this.goToResult();
@@ -800,22 +868,47 @@ export class Battle extends Scene {
     }
 
     const enemyTick = tickCombatant(this.enemy, this.player, dtSec);
-    enemyTick.attacks.forEach((e) => this.onAttack(e, this.playerSprite, false));
     if (enemyTick.healed > 0) this.spawnHealPopup(this.enemySprite.x, this.enemySprite.y, enemyTick.healed);
-    if (enemyTick.ultimateFired) this.spawnUltimateFlash(enemyTick.ultimateFired, false);
 
-    // Accumulate run stats from enemy tick.
+    // Accumulate run stats from enemy tick (raw numbers — independent
+    // of when the visuals catch up below).
     {
       const rs = getRunState(this).runStats;
       for (const a of enemyTick.attacks) rs.totalDamageTaken += a.finalDamage;
     }
 
-    if (this.player.hp <= 0) {
-      this.finishBattle('lose');
-      return;
+    if (enemyTick.ultimateFired) {
+      // Boss ULT fired: damage was already applied inside combat.ts
+      // (this.player.hp is already reduced), but we hold all visual
+      // feedback — attack popups, HP-bar refresh, lose-check — until
+      // the cut-in finishes. ultFiring=true freezes the next tick so
+      // the player sees the cut-in BEFORE watching their HP drop.
+      this.ultFiring = true;
+      const ultName = enemyTick.ultimateFired;
+      // Boss visibly tremors (slow → accelerating) BEFORE the cut-in
+      // covers the arena, then the cut-in plays, then 2400 ms later
+      // the damage popups / HP refresh land. Use the actual shake
+      // duration so the cut-in hits exactly when the boss settles.
+      const shakeMs = this.playEnemyUltimateSpriteMotion();
+      this.time.delayedCall(shakeMs, () => {
+        this.spawnUltimateFlash(ultName, false);
+      });
+      this.time.delayedCall(shakeMs + 2400, () => {
+        enemyTick.attacks.forEach((e) => this.onAttack(e, this.playerSprite, false));
+        this.refreshHp();
+        // Release the cut-in lock so the player ULT can proceed on the
+        // next tick. Mirror of the 2800ms unlock in triggerPlayerUltimate.
+        this.ultFiring = false;
+        if (this.player.hp <= 0) this.finishBattle('lose');
+      });
+    } else {
+      enemyTick.attacks.forEach((e) => this.onAttack(e, this.playerSprite, false));
+      if (this.player.hp <= 0) {
+        this.finishBattle('lose');
+        return;
+      }
+      this.refreshHp();
     }
-
-    this.refreshHp();
 
     // Check if ultimate gauge just filled → freeze → 擬似連 → button
     if (!this.ultReady && !this.finished && this.player.ultimate &&
@@ -1259,9 +1352,13 @@ export class Battle extends Scene {
       };
       this.events.once('shutdown', destroy);
 
-      const accentColor = isCritical ? 0xff2222 : 0xffd94a;
-      const accentHex = isCritical ? '#ff2222' : '#ffd94a';
-      const flashColor = isCritical ? 0xff0000 : 0xffffff;
+      // INDRA cut-in palette rule: CRIT = orange (`#ff7a00`), normal = yellow.
+      // Red is reserved for the boss-side cut-in (see fromPlayer=false branch
+      // below where accentColor/flashColor stay red), so the player's CRIT
+      // and the boss's normal ULT never collide visually.
+      const accentColor = isCritical ? 0xff7a00 : 0xffd94a;
+      const accentHex = isCritical ? '#ff7a00' : '#ffd94a';
+      const flashColor = isCritical ? 0xff7a00 : 0xffffff;
 
       const cx = gameWidth / 2;
       const cy = gameHeight / 2;
@@ -1402,7 +1499,7 @@ export class Battle extends Scene {
       // === P4: ULT name + shockwave ring =========================
       const displayName = isCritical ? `CRITICAL ${name.toUpperCase()}` : name.toUpperCase();
       const ultName = this.add
-        .text(gameWidth * 0.68, gameHeight * 0.34, displayName, {
+        .text(gameWidth * 0.68, gameHeight * 0.70, displayName, {
           ...textStyles.title,
           fontSize: isCritical ? '88px' : '76px',
           color: accentHex,
@@ -1451,28 +1548,271 @@ export class Battle extends Scene {
       });
 
     } else {
-      // === Enemy ultimate: aggressive red flash ===
+      // === Enemy ultimate cut-in: same Plan E choreography as INDRA ===
+      // Mirrored treatment: portrait flipped horizontally so the boss
+      // faces the player on the left, ULT name lands in the LOWER-LEFT
+      // (opposite of INDRA's lower-right), palette is red. Falls back
+      // to a label-only treatment when the boss has no cut-in art
+      // (normal mobs).
       playSfx('lose');
-      this.cameras.main.shake(200, 0.015);
+      const allParts: GameObjects.GameObject[] = [];
+      this.battleOverlay?.setDimmed(true);
+      const destroy = () => {
+        allParts.forEach((p) => p.destroy());
+        this.battleOverlay?.setDimmed(false);
+      };
+      this.events.once('shutdown', destroy);
 
-      const flash = this.add
-        .rectangle(gameWidth / 2, gameHeight / 2, gameWidth, gameHeight, 0xff0000, 0.4)
+      const accentColor = 0xff4444;
+      const accentHex = '#ff4444';
+      const flashColor = 0xff0000;
+
+      const cx = gameWidth / 2;
+      const cy = gameHeight / 2;
+
+      this.cameras.main.zoomTo(1.08, 200, 'Cubic.easeOut');
+
+      // === P1: red impact flash ================================
+      const whiteFlash = this.add
+        .rectangle(cx, cy, gameWidth, gameHeight, flashColor, 1)
         .setDepth(D);
-      this.tweens.add({ targets: flash, alpha: 0, duration: 400, onComplete: () => flash.destroy() });
+      allParts.push(whiteFlash);
+      this.tweens.add({ targets: whiteFlash, alpha: 0, duration: 120, delay: 20 });
 
-      const label = this.add
-        .text(gameWidth / 2, gameHeight * 0.3, `★ ${name} ★`, {
-          ...textStyles.title, fontSize: '48px', color: '#ff4444', fontStyle: 'bold'
-        })
-        .setOrigin(0.5).setDepth(D + 1).setResolution(TEXT_DPR).setScale(0.3);
+      // === P2: darken + radial speed-lines =====================
+      const darkOverlay = this.add
+        .rectangle(cx, cy, gameWidth, gameHeight, 0x000000, 0)
+        .setDepth(D + 1);
+      allParts.push(darkOverlay);
+      this.tweens.add({ targets: darkOverlay, alpha: 0.92, duration: 160, delay: 60 });
+
+      const speedLines = this.add.graphics().setDepth(D + 2).setAlpha(0);
+      allParts.push(speedLines);
+      const lineCount = 36;
+      const innerR = 130;
+      const outerR = Math.hypot(gameWidth, gameHeight) * 0.7;
+      speedLines.lineStyle(5, 0x000000, 1);
+      for (let i = 0; i < lineCount; i += 1) {
+        const a = (i / lineCount) * Math.PI * 2;
+        speedLines.lineBetween(
+          cx + Math.cos(a) * innerR, cy + Math.sin(a) * innerR,
+          cx + Math.cos(a) * outerR, cy + Math.sin(a) * outerR
+        );
+      }
+      speedLines.lineStyle(2, accentColor, 0.9);
+      for (let i = 0; i < lineCount; i += 1) {
+        const a = ((i + 0.5) / lineCount) * Math.PI * 2;
+        speedLines.lineBetween(
+          cx + Math.cos(a) * (innerR * 1.2), cy + Math.sin(a) * (innerR * 1.2),
+          cx + Math.cos(a) * (outerR * 0.9), cy + Math.sin(a) * (outerR * 0.9)
+        );
+      }
       this.tweens.add({
-        targets: label,
-        scale: 1.5,
-        alpha: { from: 1, to: 0 },
-        y: gameHeight * 0.25,
-        duration: 1000,
-        ease: 'Cubic.easeOut',
-        onComplete: () => label.destroy()
+        targets: speedLines,
+        alpha: { from: 0, to: 1 },
+        duration: 140, delay: 80, ease: 'Cubic.easeOut',
+      });
+      this.tweens.add({
+        targets: speedLines,
+        alpha: 0,
+        duration: 320, delay: 520, ease: 'Cubic.easeIn',
+      });
+
+      // === P3: portrait — silhouette → RGB split → converge =====
+      const portraitKey = this.enemyUltKey;
+      const hasPortrait = !!portraitKey && this.textures.exists(portraitKey);
+
+      let portraitBaseScale = 1.0;
+      if (hasPortrait) {
+        const tex = this.textures.get(portraitKey);
+        const baseH = (tex.getSourceImage(0) as { height?: number })?.height || 768;
+        // Boss portraits are 1024×1024 squares; oversize them so the
+        // boss body fills more of the frame and the top of the head
+        // overflows past the screen, matching INDRA's "feels bigger
+        // than the arena" cut-in read.
+        portraitBaseScale = (gameHeight / baseH) * 1.40;
+      }
+      const portraitStartScale = portraitBaseScale * 0.78;
+      const portraitEndScale = portraitBaseScale;
+      const portraitX = cx;
+      // Anchor lower so the head/upper body lifts off the top edge
+      // (the slight overflow is what sells "bigger than the screen").
+      const portraitY = cy + 100;
+
+      // Default: flip horizontally so the boss faces left toward INDRA
+      // (INDRA is on the left of the arena, so the boss's gaze meets
+      // him from the right). NEKOMATA-Ψ's source art is already drawn
+      // facing left, so flipping it would put it back facing right —
+      // exempt that one key.
+      const flipPortrait = portraitKey !== 'midboss_bakeneko_ult';
+      const mkLayer = (xOffset: number, tint: number, blend: Phaser.BlendModes | 'ADD' | null, alpha: number, depth: number): GameObjects.Image | GameObjects.Sprite | GameObjects.Rectangle => {
+        if (hasPortrait) {
+          const tex = this.textures.get(portraitKey);
+          const obj = tex.frameTotal > 1
+            ? this.add.sprite(portraitX + xOffset, portraitY, portraitKey, 0)
+            : this.add.image(portraitX + xOffset, portraitY, portraitKey);
+          obj.setScale(portraitStartScale).setAlpha(alpha).setDepth(depth).setFlipX(flipPortrait);
+          if (tint !== 0xffffff) obj.setTint(tint);
+          if (blend) obj.setBlendMode(blend as Phaser.BlendModes);
+          return obj;
+        }
+        return this.add
+          .rectangle(portraitX + xOffset, portraitY, 320, 420, tint !== 0xffffff ? tint : 0x401010, alpha)
+          .setDepth(depth);
+      };
+
+      const silhouette = mkLayer(0, 0x000000, null, 0, D + 4);
+      allParts.push(silhouette);
+      this.tweens.add({ targets: silhouette, alpha: 1, duration: 40, delay: 350 });
+      this.tweens.add({ targets: silhouette, alpha: 0, duration: 80, delay: 440 });
+
+      // RGB split: enemy uses the same chromatic-aberration trick.
+      // x offsets are mirrored vs INDRA (right-leaning) so the converge
+      // motion reads as coming from the boss's side of the arena.
+      const rLayer = mkLayer(-28, 0xff0000, 'ADD', 0, D + 5);
+      const gLayer = mkLayer(  0, 0x00ff00, 'ADD', 0, D + 5);
+      const bLayer = mkLayer( 28, 0x0000ff, 'ADD', 0, D + 5);
+      allParts.push(rLayer, gLayer, bLayer);
+      this.tweens.add({
+        targets: [rLayer, gLayer, bLayer],
+        alpha: 1,
+        duration: 90, delay: 430,
+      });
+      this.tweens.add({
+        targets: [silhouette, rLayer, gLayer, bLayer],
+        scale: portraitEndScale,
+        duration: 1100, delay: 350, ease: 'Cubic.easeOut',
+      });
+      this.tweens.add({
+        targets: rLayer, x: portraitX,
+        duration: 220, delay: 520, ease: 'Cubic.easeOut',
+      });
+      this.tweens.add({
+        targets: bLayer, x: portraitX,
+        duration: 220, delay: 520, ease: 'Cubic.easeOut',
+      });
+
+      // 3c · radial vignette overlay — boss cut-in art is JPEG (no
+      // transparency), so the 1024×1024 portrait shows a hard
+      // rectangle border against the dark overlay. A black radial
+      // gradient (transparent center → black edges) painted on top of
+      // the portrait dissolves that border into the surrounding dark.
+      // Build the texture once on first use and cache it.
+      if (!this.textures.exists('cut_in_vignette')) {
+        const vw = gameWidth, vh = gameHeight;
+        const canvas = this.textures.createCanvas('cut_in_vignette', vw, vh);
+        if (canvas) {
+          const ctx = canvas.context as CanvasRenderingContext2D;
+          const cx0 = vw / 2, cy0 = vh / 2;
+          const grad = ctx.createRadialGradient(cx0, cy0, vw * 0.18, cx0, cy0, vw * 0.55);
+          grad.addColorStop(0, 'rgba(0,0,0,0)');
+          grad.addColorStop(1, 'rgba(0,0,0,0.95)');
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, vw, vh);
+          canvas.refresh();
+        }
+      }
+      if (this.textures.exists('cut_in_vignette')) {
+        const vignette = this.add.image(cx, cy, 'cut_in_vignette')
+          .setDepth(D + 6)
+          .setAlpha(0);
+        allParts.push(vignette);
+        this.tweens.add({ targets: vignette, alpha: 1, duration: 110, delay: 430 });
+      }
+
+      // 3d · glitch reveal — horizontal noise bars flash on top of the
+      // portrait while it fades in, so the boss doesn't just appear
+      // cleanly but corrupts into existence (system-hacked look). Each
+      // bar pops in at a random offset / size and fades back out within
+      // the P3 window (350-720 ms).
+      const stripeCount = 14;
+      for (let s = 0; s < stripeCount; s += 1) {
+        const stripeY = Math.random() * gameHeight;
+        const stripeH = 8 + Math.random() * 60;
+        // Mostly black bars but a few accent-colour streaks for the
+        // "scan-line corruption" read.
+        const stripeColor = Math.random() < 0.18 ? accentColor : 0x000000;
+        const stripe = this.add
+          .rectangle(cx, stripeY, gameWidth, stripeH, stripeColor, 1)
+          .setDepth(D + 7)
+          .setAlpha(0);
+        allParts.push(stripe);
+        this.tweens.add({
+          targets: stripe,
+          alpha: { from: 0, to: 0.85 },
+          duration: 40 + Math.random() * 70,
+          delay: 350 + Math.random() * 320,
+          yoyo: true,
+          ease: 'Linear',
+          onComplete: () => stripe.setAlpha(0),
+        });
+      }
+      // Horizontal jitter of the portrait layers — a few rapid x-shake
+      // beats during the glitch window. Subtle (~6 px) so the shape
+      // still reads but the silhouette feels unstable.
+      this.tweens.add({
+        targets: [silhouette, gLayer],
+        x: { from: portraitX - 6, to: portraitX + 6 },
+        duration: 50,
+        delay: 360,
+        yoyo: true,
+        repeat: 6,
+        ease: 'Linear',
+        onComplete: () => {
+          silhouette.setX(portraitX);
+          gLayer.setX(portraitX);
+        },
+      });
+
+      // === P4: ULT name + shockwave ring (LOWER-LEFT) ==========
+      const displayName = name.toUpperCase();
+      const ultName = this.add
+        .text(gameWidth * 0.5, gameHeight * 0.78, displayName, {
+          ...textStyles.title,
+          fontSize: '76px',
+          color: accentHex,
+          fontStyle: 'bold',
+        })
+        .setOrigin(0.5)
+        .setDepth(D + 8)
+        .setResolution(TEXT_DPR)
+        .setAlpha(0)
+        .setScale(2.4)
+        .setAngle(-10);
+      allParts.push(ultName);
+      this.time.delayedCall(720, () => {
+        ultName.setAlpha(1);
+        this.tweens.add({
+          targets: ultName,
+          scale: 1, angle: 3,
+          duration: 180, ease: 'Back.easeOut',
+        });
+      });
+
+      this.time.delayedCall(880, () => {
+        const ring = this.add
+          .circle(cx, cy, 10, accentColor, 0)
+          .setStrokeStyle(6, accentColor)
+          .setDepth(D + 9);
+        allParts.push(ring);
+        this.tweens.add({
+          targets: ring,
+          scale: 20,
+          alpha: { from: 0.9, to: 0 },
+          duration: 380, ease: 'Cubic.easeOut',
+        });
+        this.cameras.main.shake(220, 0.018);
+      });
+
+      // === P5: hold → fade =====================================
+      this.time.delayedCall(1900, () => {
+        this.cameras.main.zoomTo(1, 250, 'Cubic.easeOut');
+        this.tweens.add({
+          targets: allParts.filter((p) => p.active),
+          alpha: 0,
+          duration: 200,
+          onComplete: destroy,
+        });
       });
     }
 
@@ -1792,6 +2132,53 @@ export class Battle extends Scene {
   }
 
   private ultFiring = false;
+
+  /**
+   * Pre-ult tremor on the boss battle sprite — left/right shudder that
+   * STARTS slow and ACCELERATES into a rapid blur, selling a "charging
+   * up to the unleash" wind-up. Returns the total ms until the shake
+   * settles back to the anchor so the caller can chain the cut-in to
+   * land right when the shake ends.
+   */
+  private playEnemyUltimateSpriteMotion(): number {
+    const visual: GameObjects.Image | GameObjects.Rectangle = this.enemyImg ?? this.enemySprite;
+    if (!visual) return 0;
+
+    const baseX = this.enemyBaseX;
+    this.tweens.killTweensOf(visual);
+    visual.setX(baseX);
+
+    // 16 alternations easing from slow (95 ms) to fast (22 ms). Linear
+    // per-beat ease so each end-point lands hard; the cycle-duration
+    // ramp itself is what creates the acceleration the player reads.
+    const cycles = 16;
+    const startMs = 95;
+    const endMs = 22;
+    const amp = 8;
+    let elapsed = 0;
+    for (let i = 0; i < cycles; i += 1) {
+      const t = i / (cycles - 1);
+      const cycleMs = Math.round(startMs + (endMs - startMs) * t);
+      const sign = i % 2 === 0 ? -1 : 1;
+      this.tweens.add({
+        targets: visual,
+        x: baseX + sign * amp,
+        duration: cycleMs,
+        delay: elapsed,
+        ease: 'Linear',
+      });
+      elapsed += cycleMs;
+    }
+    const snapMs = 40;
+    this.tweens.add({
+      targets: visual,
+      x: baseX,
+      duration: snapMs,
+      delay: elapsed,
+      ease: 'Linear',
+    });
+    return elapsed + snapMs;
+  }
 
   /**
    * If `textures` has `<battleAssetKey>_ult_sheet` (optional spritesheet, same frame layout as idle),

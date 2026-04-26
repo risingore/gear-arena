@@ -9,7 +9,7 @@
  *   midBoss — 5 designs. Two appear per run (rounds 4 and 7).
  *   bigBoss — 3 designs. One appears per run (round 10).
  *   super   — 1 design. Appears as round 11 only after the player
- *             has cleared with all 4 cyborgs AND defeated every other
+ *             has cleared with all 4 machines AND defeated every other
  *             enemy at least once (tracked in localStorage).
  */
 
@@ -49,6 +49,13 @@ export interface EnemyDef {
 //
 // Tier curve covers easyPool (≤5), midPool (4-7), hardPool (≥6) with
 // duplicates at tiers 5/8/10 to keep all three pools well-stocked.
+//
+// NAMING — DO NOT corporate-type-code these. Mid-bosses and big-bosses
+// follow the YOMI / ATMAN avatar naming convention (NEKOMATA-Ψ,
+// YUKIME-Ω, etc.) because ATMAN catalogues its elite chassis. End-tier
+// scrap-yard drones live in the unobserved territory at the edge of
+// ATMAN's management — the same edge where MUDRA awakening happens.
+// Their names stay in the colloquial "scrap-yard nickname" register.
 // ============================================================
 
 export const NORMAL_ENEMIES: readonly EnemyDef[] = [
@@ -90,31 +97,36 @@ export const NORMAL_ENEMIES: readonly EnemyDef[] = [
 
 export const MID_BOSSES: readonly EnemyDef[] = [
   // --- Episode 0 jam scope ---
-  { id: 'midboss_bakeneko',      name: 'Bakeneko',          baseHp: 220, baseDamage: 20, baseCooldownSec: 1.0, baseDamageReductionPct: 0.08, category: 'midBoss', tier: 5, assetKey: 'midboss_bakeneko',
-    flavorText: 'An AI mimicking the long-lived cat that learned to take human form.',
+  // Display names follow the YOMI corporate type-code format (yokai-root +
+  // Greek letter / numeral). The original yokai names are preserved inside
+  // ATMAN_MIDBOSS_STATEMENTS, so observers see the type code while ATMAN
+  // refers to its avatars by their inner yokai identity — a deliberate
+  // two-layer naming convention.
+  { id: 'midboss_bakeneko',      name: 'NEKOMATA-Ψ',        baseHp: 220, baseDamage: 20, baseCooldownSec: 1.0, baseDamageReductionPct: 0.08, category: 'midBoss', tier: 5, assetKey: 'midboss_bakeneko',
+    flavorText: 'A YOMI feline-frame AI mimicking the long-lived cat that learned to take human form. Bakeneko archetype.',
     extraWeapons: [{ label: 'Pounce', damage: 9, cooldownSec: 1.6 }] },
-  { id: 'midboss_nopperabo',     name: 'Noppera-bo',        baseHp: 240, baseDamage: 18, baseCooldownSec: 1.2, baseDamageReductionPct: 0.12, category: 'midBoss', tier: 5, assetKey: 'midboss_nopperabo',
-    flavorText: 'An AI mimicking the faceless yokai that wears the face of someone you trust.',
+  { id: 'midboss_nopperabo',     name: 'MUJINA-Σ',          baseHp: 240, baseDamage: 18, baseCooldownSec: 1.2, baseDamageReductionPct: 0.12, category: 'midBoss', tier: 5, assetKey: 'midboss_nopperabo',
+    flavorText: 'A YOMI mimic-frame AI projecting the face of someone you trust. Noppera-bo archetype.',
     extraWeapons: [{ label: 'Mimic Strike', damage: 14, cooldownSec: 2.2 }], shieldCharges: 2 },
-  { id: 'midboss_karakasa',      name: 'Karakasa Obake',    baseHp: 180, baseDamage: 14, baseCooldownSec: 1.3, baseDamageReductionPct: 0.10, category: 'midBoss', tier: 5, assetKey: 'midboss_karakasa',
-    flavorText: 'An AI mimicking the one-legged umbrella tsukumogami that startles passersby.',
+  { id: 'midboss_karakasa',      name: 'TSUKUMO-Δ',         baseHp: 180, baseDamage: 14, baseCooldownSec: 1.3, baseDamageReductionPct: 0.10, category: 'midBoss', tier: 5, assetKey: 'midboss_karakasa',
+    flavorText: 'A YOMI tsukumogami-class drone hopping on a single piston leg. Karakasa archetype.',
     extraWeapons: [{ label: 'Hop Slam', damage: 11, cooldownSec: 2.0 }] },
 
   // --- Reserved for Episode 1 (not in jam scope) ---
-  { id: 'midboss_iron_sentinel', name: 'Ibaraki Doji',     baseHp: 200, baseDamage: 16, baseCooldownSec: 1.3, baseDamageReductionPct: 0.12, category: 'midBoss', tier: 5, assetKey: 'midboss_sentinel',
-    flavorText: 'An AI mimicking the one-armed oni of Rashomon.',
+  { id: 'midboss_iron_sentinel', name: 'IBARA-IV',          baseHp: 200, baseDamage: 16, baseCooldownSec: 1.3, baseDamageReductionPct: 0.12, category: 'midBoss', tier: 5, assetKey: 'midboss_sentinel',
+    flavorText: 'A YOMI iron-frame AI cradling its own torn arm. Ibaraki Doji archetype.',
     extraWeapons: [{ label: 'Iron Bash', damage: 8, cooldownSec: 2.5 }], shieldCharges: 1 },
-  { id: 'midboss_volt_charger',  name: 'Raijuu',            baseHp: 180, baseDamage: 20, baseCooldownSec: 1.0, baseDamageReductionPct: 0.08, category: 'midBoss', tier: 5, assetKey: 'midboss_charger',
-    flavorText: 'An AI mimicking the thunder beast that rides lightning.',
+  { id: 'midboss_volt_charger',  name: 'RAIJU-VI',          baseHp: 180, baseDamage: 20, baseCooldownSec: 1.0, baseDamageReductionPct: 0.08, category: 'midBoss', tier: 5, assetKey: 'midboss_charger',
+    flavorText: 'A YOMI volt-frame AI riding arcs of induced lightning. Raijuu archetype.',
     extraWeapons: [{ label: 'Volt Burst', damage: 12, cooldownSec: 1.8 }] },
-  { id: 'midboss_shield_golem',  name: 'Gashadokuro',      baseHp: 260, baseDamage: 12, baseCooldownSec: 1.5, baseDamageReductionPct: 0.20, category: 'midBoss', tier: 5, assetKey: 'midboss_golem',
-    flavorText: 'An AI mimicking the giant skeleton assembled from the war-dead.',
+  { id: 'midboss_shield_golem',  name: 'GASHA-VII',         baseHp: 260, baseDamage: 12, baseCooldownSec: 1.5, baseDamageReductionPct: 0.20, category: 'midBoss', tier: 5, assetKey: 'midboss_golem',
+    flavorText: 'A YOMI bone-frame colossus assembled from the cataloged dead. Gashadokuro archetype.',
     shieldCharges: 2, repairAmount: 3, repairIntervalSec: 6 },
-  { id: 'midboss_flame_mantis',  name: 'Jorougumo',        baseHp: 170, baseDamage: 22, baseCooldownSec: 0.9, baseDamageReductionPct: 0.05, category: 'midBoss', tier: 5, assetKey: 'midboss_mantis',
-    flavorText: 'An AI mimicking the ancient spider that lures prey as a beautiful woman.',
+  { id: 'midboss_flame_mantis',  name: 'JORO-Φ',            baseHp: 170, baseDamage: 22, baseCooldownSec: 0.9, baseDamageReductionPct: 0.05, category: 'midBoss', tier: 5, assetKey: 'midboss_mantis',
+    flavorText: 'A YOMI silk-frame AI weaving thermal lures. Jorougumo archetype.',
     extraWeapons: [{ label: 'Flame Spit', damage: 6, cooldownSec: 0.5 }] },
-  { id: 'midboss_frost_walker',  name: 'Yuki Onna (mid)',   baseHp: 220, baseDamage: 14, baseCooldownSec: 1.2, baseDamageReductionPct: 0.15, category: 'midBoss', tier: 5, assetKey: 'midboss_frost',
-    flavorText: 'An AI mimicking the snow woman who freezes travelers with her breath. (Ep1 reserve — Ep0 promotes Yuki Onna to big boss.)',
+  { id: 'midboss_frost_walker',  name: 'TSURARA-MK2',       baseHp: 220, baseDamage: 14, baseCooldownSec: 1.2, baseDamageReductionPct: 0.15, category: 'midBoss', tier: 5, assetKey: 'midboss_frost',
+    flavorText: 'A YOMI frost-frame AI exhaling cryogenic mist. Yuki Onna archetype (mid). Ep1 reserve — Ep0 promotes the avatar to YUKIME-Ω.',
     extraWeapons: [{ label: 'Frost Spike', damage: 10, cooldownSec: 2.0 }], repairAmount: 2, repairIntervalSec: 5 },
 ];
 
@@ -126,19 +138,27 @@ export const MID_BOSSES: readonly EnemyDef[] = [
 
 export const BIG_BOSSES: readonly EnemyDef[] = [
   // --- Episode 0 jam scope ---
-  { id: 'boss_yuki_onna',       name: 'Yuki Onna',         baseHp: 700, baseDamage: 26, baseCooldownSec: 1.4, baseDamageReductionPct: 0.20, category: 'bigBoss', tier: 10, assetKey: 'boss_yuki_onna',
-    flavorText: 'An AI mimicking the snow woman whose breath freezes the dying. The kindest kill in the catalogue.',
-    extraWeapons: [{ label: 'Frozen Breath', damage: 16, cooldownSec: 2.4 }, { label: 'Whiteout', damage: 40, cooldownSec: 4.5 }], shieldCharges: 3, repairAmount: 5, repairIntervalSec: 7 },
+  // Display names follow the ATMAN avatar designation format (yokai-root +
+  // Ω / Σ / Π for divine grade). Original yokai names are preserved inside
+  // ATMAN_BIGBOSS_STATEMENTS so ATMAN keeps speaking of its own avatars by
+  // their inner yokai identity.
+  { id: 'boss_yuki_onna',       name: 'YUKIME-Ω',          baseHp: 700, baseDamage: 22, baseCooldownSec: 1.4, baseDamageReductionPct: 0.20, category: 'bigBoss', tier: 10, assetKey: 'boss_yuki_onna',
+    flavorText: 'An ATMAN avatar of divine grade whose breath freezes the dying. The kindest kill in the catalogue. Yuki Onna archetype.',
+    // Glacial Lullaby (multi_strike 3.5x) is the per-boss ULT in
+    // ENEMY_ULTIMATES.boss_yuki_onna (successor of the old generic Whiteout).
+    // Auto-attack pool kept light so the 3-5 boss-ULTs per battle remain
+    // the main damage source, not lost in the noise of basic strikes.
+    extraWeapons: [{ label: 'Frozen Breath', damage: 14, cooldownSec: 2.6 }], shieldCharges: 3, repairAmount: 5, repairIntervalSec: 7 },
 
   // --- Reserved for Episode 1 (not in jam scope) ---
-  { id: 'boss_leviathan',       name: 'Shuten Doji',       baseHp: 500, baseDamage: 30, baseCooldownSec: 1.3, baseDamageReductionPct: 0.18, category: 'bigBoss', tier: 10, assetKey: 'boss_leviathan',
-    flavorText: 'An AI mimicking the king of oni who ruled Mt. Ooe.',
+  { id: 'boss_leviathan',       name: 'SHUTEN-Ω',          baseHp: 500, baseDamage: 30, baseCooldownSec: 1.3, baseDamageReductionPct: 0.18, category: 'bigBoss', tier: 10, assetKey: 'boss_leviathan',
+    flavorText: 'An ATMAN avatar of divine grade — the corporate sovereign of oni-class chassis. Shuten Doji archetype.',
     extraWeapons: [{ label: 'Tail Sweep', damage: 15, cooldownSec: 2.0 }, { label: 'Deep Charge', damage: 40, cooldownSec: 4.0 }], shieldCharges: 2 },
-  { id: 'boss_colossus',        name: 'Tamamo-no-Mae',     baseHp: 600, baseDamage: 25, baseCooldownSec: 1.5, baseDamageReductionPct: 0.25, category: 'bigBoss', tier: 10, assetKey: 'boss_colossus',
-    flavorText: 'An AI mimicking the nine-tailed fox that infiltrated the imperial court.',
+  { id: 'boss_colossus',        name: 'TAMAMO-Σ',          baseHp: 600, baseDamage: 25, baseCooldownSec: 1.5, baseDamageReductionPct: 0.25, category: 'bigBoss', tier: 10, assetKey: 'boss_colossus',
+    flavorText: 'An ATMAN avatar of divine grade — the nine-tailed infiltration vessel. Tamamo-no-Mae archetype.',
     extraWeapons: [{ label: 'Ground Pound', damage: 20, cooldownSec: 3.0 }], shieldCharges: 3, repairAmount: 5, repairIntervalSec: 8 },
-  { id: 'boss_storm_kaiser',    name: 'Nue',               baseHp: 450, baseDamage: 35, baseCooldownSec: 1.1, baseDamageReductionPct: 0.15, category: 'bigBoss', tier: 10, assetKey: 'boss_kaiser',
-    flavorText: 'An AI mimicking the chimera that plagued the emperor.',
+  { id: 'boss_storm_kaiser',    name: 'NUE-Π',             baseHp: 450, baseDamage: 35, baseCooldownSec: 1.1, baseDamageReductionPct: 0.15, category: 'bigBoss', tier: 10, assetKey: 'boss_kaiser',
+    flavorText: 'An ATMAN avatar of divine grade — a four-creature composite war-frame. Nue archetype.',
     extraWeapons: [{ label: 'Lightning Arc', damage: 18, cooldownSec: 1.5 }, { label: 'Thunder Crash', damage: 50, cooldownSec: 5.0 }] },
 ];
 

@@ -92,9 +92,7 @@ export function mountBattleOverlay(opts: BattleOverlayOptions): BattleOverlayHan
         <span class="sep">/</span>
         <span class="total">${opts.totalRounds}</span>
       </div>
-      <div class="subheading${opts.isBoss ? ' boss' : ''}">
-        ${opts.isBoss ? esc(opts.subheadingBoss) : esc(opts.subheadingBattle)}
-      </div>
+      ${opts.isBoss ? `<div class="subheading boss">${esc(opts.subheadingBoss)}</div>` : ''}
       <div class="speed">(S) ${esc(opts.speedLabel)}<b data-role="speed">x${opts.initialSpeed}</b></div>
     </div>
   `;

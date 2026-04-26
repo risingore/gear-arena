@@ -94,20 +94,20 @@ export const BALANCE = {
   hardTierMin: 6,
   /**
    * Per-round difficulty ramp for normal enemies and mid-bosses (EXPONENTIAL).
-   * Multiplier = roundDifficultyGrowth ^ (round - 1).
+   * Multiplier = roundDifficultyGrowth(easy|hard) ^ (round - 1).
    * Applied to baseHp and baseDamage at generation time, on top of the
    * normal ±variance. Big-boss (final round) is exempt — already tuned.
    *
-   *   Easy (5 rounds): R1=1.00× / R3=1.32× / R5=1.75×
-   *   Hard (10 rounds): R1=1.00× / R5=1.75× / R7=2.31× / R10=3.52×
+   * Two curves so each mode reads correctly:
    *
-   * Pairs with the exponential player ★ merge (starMultipliers = [_,_,2,4])
-   * to create an "arms race" feel: both sides scale up dramatically. The
-   * 1.15 ramp deliberately makes late rounds tanky enough that a single
-   * player ULT no longer one-shots — by R6+ the player needs to layer two
-   * or three ULTs (or rely on ★3 / SANCTUM buffs) to put a target down.
+   *   Easy (5 rounds, growth 1.10):
+   *     R1=1.00× / R3=1.21× / R5=1.46×  — last mid-boss is a brief test.
+   *   Hard (10 rounds, growth 1.18):
+   *     R1=1.00× / R5=1.94× / R7=2.70× / R10=4.44×  — gear-walled without
+   *     ★3 merges or 3+ SANCTUM buffs by R7-R10.
    */
-  roundDifficultyGrowth: 1.15,
+  roundDifficultyGrowthEasy: 1.10,
+  roundDifficultyGrowthHard: 1.18,
 
   // ---------------------------------------------------------------------------
   // Battle UX
@@ -141,4 +141,14 @@ export const BALANCE = {
    *  combat reads as machine-grade scale. Ratio-based mechanics are
    *  unaffected because they all operate on multipliers, not raw values. */
   statScale: 100,
+
+  /** Extra multiplier applied to ENEMY baseDamage on top of statScale.
+   *  statScale alone (100×) made enemy damage outpace the player's
+   *  pre-ult survival window — INDRA died in 2 hits before the gauge
+   *  could fill once. This trims enemy raw damage so the player has
+   *  time to land their first ULT in early rounds, while ramps and
+   *  mid-/big-boss tuning still gate Hard mode behind buffs. Player
+   *  HP and ULT damage stay at full statScale so ratios remain
+   *  player-favourable for early reads. */
+  enemyDamageMultiplier: 0.55,
 } as const;

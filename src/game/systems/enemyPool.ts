@@ -72,11 +72,14 @@ const pickRandom = <T>(arr: readonly T[]): T =>
 /**
  * @param difficultyMult Round-based scaling applied to HP and damage.
  *   Default 1.0 keeps the def's base stats. Big-boss should pass 1.0;
- *   normal enemies and mid-bosses pass `1 + (round - 1) * BALANCE.roundDifficultyPerRound`.
+ *   normal enemies and mid-bosses pass `roundDiff(round, mode)`.
  */
 const defToEnemy = (def: EnemyDef, applyVariance: boolean, difficultyMult: number = 1.0): EnemyData => {
   const hpScaled = def.baseHp * difficultyMult;
-  const dmgScaled = def.baseDamage * difficultyMult;
+  // Enemy raw damage gets an extra trim (BALANCE.enemyDamageMultiplier)
+  // so statScale=100 doesn't blow past the player's pre-ult survival
+  // window. See balance.ts comment for the full rationale.
+  const dmgScaled = def.baseDamage * difficultyMult * BALANCE.enemyDamageMultiplier;
   return {
     name: def.name,
     hp: applyVariance ? vary(hpScaled, BALANCE.normalEnemyVariance) : Math.round(hpScaled),
@@ -92,10 +95,14 @@ const defToEnemy = (def: EnemyDef, applyVariance: boolean, difficultyMult: numbe
 };
 
 /** Round-based difficulty multiplier for normal enemies and mid-bosses.
- *  EXPONENTIAL: pow(BALANCE.roundDifficultyGrowth, round - 1).
+ *  EXPONENTIAL: pow(growth, round - 1) where growth depends on mode.
  *  Big-boss (final round) is exempt and always passes 1.0. */
-const roundDiff = (round: number): number =>
-  Math.pow(BALANCE.roundDifficultyGrowth, round - 1);
+const roundDiff = (round: number, mode: RunMode): number => {
+  const growth = mode === 'easy'
+    ? BALANCE.roundDifficultyGrowthEasy
+    : BALANCE.roundDifficultyGrowthHard;
+  return Math.pow(growth, round - 1);
+};
 
 export interface GeneratedRound {
   readonly index: number;
@@ -182,9 +189,9 @@ export function generateRunEnemies(
   if (bossOnly) {
     // Debug: skip normal enemies entirely. Mid-boss -> mid-boss -> big-boss -> ending.
     const mb1 = pickRandom(mbP);
-    rounds.push({ index: 1, enemy: defToEnemy(mb1, false, roundDiff(1)), enemyId: mb1.id, goldReward: 1200, isBoss: true, isSuperBoss: false });
+    rounds.push({ index: 1, enemy: defToEnemy(mb1, false, roundDiff(1, mode)), enemyId: mb1.id, goldReward: 1200, isBoss: true, isSuperBoss: false });
     const mb2 = pickRandom(mbP);
-    rounds.push({ index: 2, enemy: defToEnemy(mb2, false, roundDiff(2)), enemyId: mb2.id, goldReward: 1400, isBoss: true, isSuperBoss: false });
+    rounds.push({ index: 2, enemy: defToEnemy(mb2, false, roundDiff(2, mode)), enemyId: mb2.id, goldReward: 1400, isBoss: true, isSuperBoss: false });
     const bb = pickRandom(bbP);
     rounds.push({ index: 3, enemy: defToEnemy(bb, false, 1.0), enemyId: bb.id, goldReward: 0, isBoss: true, isSuperBoss: false });
     rng = prevRng;
@@ -201,34 +208,34 @@ export function generateRunEnemies(
     // starting purse) — comfortably enough to ★1-fill the loadout and
     // ★3-merge a slot or two before the R5 mid-boss climax.
     const r1 = pickRandom(eP);
-    rounds.push({ index: 1, enemy: defToEnemy(r1, true, roundDiff(1)), enemyId: r1.id, goldReward: 1200, isBoss: false, isSuperBoss: false });
+    rounds.push({ index: 1, enemy: defToEnemy(r1, true, roundDiff(1, mode)), enemyId: r1.id, goldReward: 1200, isBoss: false, isSuperBoss: false });
     const r2 = pickRandom(eP);
-    rounds.push({ index: 2, enemy: defToEnemy(r2, true, roundDiff(2)), enemyId: r2.id, goldReward: 1500, isBoss: false, isSuperBoss: false });
+    rounds.push({ index: 2, enemy: defToEnemy(r2, true, roundDiff(2, mode)), enemyId: r2.id, goldReward: 1500, isBoss: false, isSuperBoss: false });
     const r3 = pickRandom(mP);
-    rounds.push({ index: 3, enemy: defToEnemy(r3, true, roundDiff(3)), enemyId: r3.id, goldReward: 1800, isBoss: false, isSuperBoss: false });
+    rounds.push({ index: 3, enemy: defToEnemy(r3, true, roundDiff(3, mode)), enemyId: r3.id, goldReward: 1800, isBoss: false, isSuperBoss: false });
     const r4 = pickRandom(mP);
-    rounds.push({ index: 4, enemy: defToEnemy(r4, true, roundDiff(4)), enemyId: r4.id, goldReward: 2100, isBoss: false, isSuperBoss: false });
+    rounds.push({ index: 4, enemy: defToEnemy(r4, true, roundDiff(4, mode)), enemyId: r4.id, goldReward: 2100, isBoss: false, isSuperBoss: false });
     const mb = pickRandom(mbP);
-    rounds.push({ index: 5, enemy: defToEnemy(mb, false, roundDiff(5)), enemyId: mb.id, goldReward: 0, isBoss: true,  isSuperBoss: false });
+    rounds.push({ index: 5, enemy: defToEnemy(mb, false, roundDiff(5, mode)), enemyId: mb.id, goldReward: 0, isBoss: true,  isSuperBoss: false });
   } else {
     // Hard: 10 rounds, full Episode 0 arc — R10 big-boss climax.
     // roundDiff(N) ramps HP/damage by +5%/round (R1=1.00× → R10=1.45×) for
     // normal enemies and mid-bosses. Big-boss (R10) is exempt — already tuned.
     for (let i = 1; i <= 3; i += 1) {
       const e = pickRandom(eP);
-      rounds.push({ index: i, enemy: defToEnemy(e, true, roundDiff(i)), enemyId: e.id, goldReward: (6 + i) * 100, isBoss: false, isSuperBoss: false });
+      rounds.push({ index: i, enemy: defToEnemy(e, true, roundDiff(i, mode)), enemyId: e.id, goldReward: (6 + i) * 100, isBoss: false, isSuperBoss: false });
     }
     const mb1 = pickRandom(mbP);
-    rounds.push({ index: 4, enemy: defToEnemy(mb1, false, roundDiff(4)), enemyId: mb1.id, goldReward: 1200, isBoss: true, isSuperBoss: false });
+    rounds.push({ index: 4, enemy: defToEnemy(mb1, false, roundDiff(4, mode)), enemyId: mb1.id, goldReward: 1200, isBoss: true, isSuperBoss: false });
     for (let i = 5; i <= 6; i += 1) {
       const e = pickRandom(mP);
-      rounds.push({ index: i, enemy: defToEnemy(e, true, roundDiff(i)), enemyId: e.id, goldReward: (9 + i) * 100, isBoss: false, isSuperBoss: false });
+      rounds.push({ index: i, enemy: defToEnemy(e, true, roundDiff(i, mode)), enemyId: e.id, goldReward: (9 + i) * 100, isBoss: false, isSuperBoss: false });
     }
     const mb2 = pickRandom(mbP);
-    rounds.push({ index: 7, enemy: defToEnemy(mb2, false, roundDiff(7)), enemyId: mb2.id, goldReward: 1400, isBoss: true, isSuperBoss: false });
+    rounds.push({ index: 7, enemy: defToEnemy(mb2, false, roundDiff(7, mode)), enemyId: mb2.id, goldReward: 1400, isBoss: true, isSuperBoss: false });
     for (let i = 8; i <= 9; i += 1) {
       const e = pickRandom(hP);
-      rounds.push({ index: i, enemy: defToEnemy(e, true, roundDiff(i)), enemyId: e.id, goldReward: (11 + i) * 100, isBoss: false, isSuperBoss: false });
+      rounds.push({ index: i, enemy: defToEnemy(e, true, roundDiff(i, mode)), enemyId: e.id, goldReward: (11 + i) * 100, isBoss: false, isSuperBoss: false });
     }
     const bb = pickRandom(bbP);
     rounds.push({ index: 10, enemy: defToEnemy(bb, false, 1.0), enemyId: bb.id, goldReward: 0, isBoss: true, isSuperBoss: false });

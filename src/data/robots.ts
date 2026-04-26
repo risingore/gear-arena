@@ -21,7 +21,7 @@ export const ROBOTS = {
     name: 'INDRA',
     archetype: 'balanced',
     description: 'Right-arm gauntlet frame. Balanced Machine, piloted by a former soldier.',
-    baseHp: 120,
+    baseHp: 160,
     baseDamageReductionPct: 0.05,
     baseAttackSpeedMultiplier: 1.0,
     passiveText: '+5% damage reduction baseline. Strike to live.',

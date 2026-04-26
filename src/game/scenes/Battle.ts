@@ -208,21 +208,31 @@ export class Battle extends Scene {
     this.player = createPlayerCombatant(robot.name, stats, playerUlt);
     // Every round starts at full HP.
 
-    // Merge equippedBuffs (from blueprint buff slots) into battleBuffs, then clear both.
+    // Apply buffs from both pools each battle.
+    // - battleBuffs: single-battle items (Build shop pickups). Cleared
+    //   after applying so they only fire once.
+    // - equippedBuffs: SANCTUM-purchased buffs drained at run start
+    //   (Select.ts). PERSIST for the whole run — applied every round
+    //   until Title / death / victory wipes the run state. Without this
+    //   the player would land on YUKIME-Ω at R10 with no SANCTUM kit
+    //   left, breaking the difficulty contract that 3+ buffs make Hard
+    //   beatable.
     const allBuffs = [...state.battleBuffs, ...state.equippedBuffs];
-    if (allBuffs.length > 0 || state.equippedBuffs.length > 0) {
-      setRunState(this, { ...state, battleBuffs: [], equippedBuffs: [] });
+    if (state.battleBuffs.length > 0) {
+      setRunState(this, { ...state, battleBuffs: [] });
     }
 
-    // Apply and consume all buff items.
+    // Apply and consume all buff items. INDRA has no auto-attacks
+    // (autoFireUltimate=false), so buff effects that target weapon
+    // cooldown / weapon damage would no-op. Re-route them onto the
+    // player's ULT path: attack_speed → faster gauge charge,
+    // enemy_vulnerability → bigger ULT-strike damage.
     for (const itemKey of allBuffs) {
       const item = ITEMS[itemKey as keyof typeof ITEMS];
       if (!item) continue;
       switch (item.effect.kind) {
         case 'attack_speed':
-          for (const w of this.player.weapons) {
-            w.cooldownSec = Math.max(0.2, w.cooldownSec / item.effect.multiplier);
-          }
+          this.player.ultimateChargeRate *= item.effect.multiplier;
           break;
         case 'damage_reduction':
           this.player.damageReductionPct = Math.min(
@@ -231,10 +241,9 @@ export class Battle extends Scene {
           );
           break;
         case 'enemy_vulnerability':
-          // "Enemy takes +X% damage" = multiply player weapon damage.
-          for (const w of this.player.weapons) {
-            w.damage = Math.round(w.damage * item.effect.multiplier);
-          }
+          this.player.ultimateDmgPerStrike = Math.round(
+            this.player.ultimateDmgPerStrike * item.effect.multiplier,
+          );
           break;
       }
     }
@@ -269,7 +278,15 @@ export class Battle extends Scene {
       repairIntervalSec: oneShot ? 0 : (originalDef?.repairIntervalSec ?? 0),
       repairAmount: oneShot ? 0 : ((originalDef?.repairAmount ?? 0) * statScale),
       repairTimer: oneShot ? 0 : (originalDef?.repairIntervalSec ?? 0),
-      shieldCharges: oneShot ? 0 : (originalDef?.shieldCharges ?? 0),
+      // YUKIME-Ω randomises shield charges per fight so the player can't
+      // pre-count their first SOUL STRIKEs. Weighted: 1 (20%) / 2 (40%)
+      // / 3 (40%) — expected 2.2. Other bosses keep the static value from
+      // enemies.ts.
+      shieldCharges: oneShot
+        ? 0
+        : (originalDef?.id === 'boss_yuki_onna'
+            ? (() => { const r = Math.random(); return r < 0.2 ? 1 : r < 0.6 ? 2 : 3; })()
+            : (originalDef?.shieldCharges ?? 0)),
       ultimate: originalDef ? (ENEMY_ULTIMATES[originalDef.id] ?? ENEMY_ULTIMATES[originalDef.category] ?? null) : null,
       ultimateGauge: 0,
       ultimateUsed: false,

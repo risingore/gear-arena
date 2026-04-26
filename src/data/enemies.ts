@@ -138,14 +138,18 @@ export const BIG_BOSSES: readonly EnemyDef[] = [
   // --- Episode 0 jam scope ---
   // Display names follow the ATMAN avatar designation format (root + Ω /
   // Σ / Π for divine grade). All in-game references use the type-code only.
-  { id: 'boss_yuki_onna',       name: 'YUKIME-Ω',          baseHp: 1300, baseDamage: 22, baseCooldownSec: 1.4, baseDamageReductionPct: 0.25, category: 'bigBoss', tier: 10, assetKey: 'boss_yuki_onna',
+  { id: 'boss_yuki_onna',       name: 'YUKIME-Ω',          baseHp: 3200, baseDamage: 36, baseCooldownSec: 1.2, baseDamageReductionPct: 0.36, category: 'bigBoss', tier: 10, assetKey: 'boss_yuki_onna',
     flavorText: 'An ATMAN avatar of divine grade whose breath freezes the dying. The kindest kill in the catalogue. YUKIME-Ω chassis.',
-    // Glacial Lullaby (multi_strike 3.5x) lives in ENEMY_ULTIMATES.boss_yuki_onna.
+    // Glacial Lullaby lives in ENEMY_ULTIMATES.boss_yuki_onna.
     // Auto-attack pool kept light so the 3-5 boss-ULTs per battle stay
     // the headline damage source. shieldCharges + repair + Frozen Breath
     // depend on the EnemyDef → EnemyData → Combatant pipeline carrying
     // these fields through (regression-prone — see defToEnemy in enemyPool.ts).
-    extraWeapons: [{ label: 'Frozen Breath', damage: 14, cooldownSec: 2.6 }], shieldCharges: 6, repairAmount: 8, repairIntervalSec: 7 },
+    // Tuned around the SANCTUM buff economy: 0 buffs ≈ unreachable,
+    // 3 buffs (one per category) ≈ tight win, 5+ ≈ comfortable, 9 ≈
+    // guaranteed. Effective HP after DR ≈ 500k; shield 13 absorbs the
+    // first three player ULTs whole; 18 hp / 5 s repair = ~360 hp/sec.
+    extraWeapons: [{ label: 'Frozen Breath', damage: 24, cooldownSec: 2.2 }], shieldCharges: 13, repairAmount: 18, repairIntervalSec: 5 },
 
   // --- Reserved for Episode 1 (not in jam scope) ---
   { id: 'boss_leviathan',       name: 'SHUTEN-Ω',          baseHp: 500, baseDamage: 30, baseCooldownSec: 1.3, baseDamageReductionPct: 0.18, category: 'bigBoss', tier: 10, assetKey: 'boss_leviathan',

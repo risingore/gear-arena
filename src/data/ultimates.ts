@@ -158,7 +158,7 @@ export const ENEMY_ULTIMATES: Record<string, UltimateDef> = {
     id: 'ult_glacial_lullaby',
     name: 'Glacial Lullaby',
     gaugeFillRatio: 0.22,
-    effect: { kind: 'multi_strike', damageMultiplier: 3.5 }
+    effect: { kind: 'multi_strike', damageMultiplier: 5.5 }
   },
 
   // --- Episode 1 reserve big-boss ULTs ---

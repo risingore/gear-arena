@@ -119,6 +119,14 @@ export class Result extends Scene {
     };
     setRunState(this, advanced);
 
+    // Hard mode: flat per-round scrap reward, awarded on every round clear.
+    // Replaces the old "leftover gold × 50%" formula, which encouraged
+    // hoarding gold instead of buying parts. See balance.ts.
+    if (state.endingMode === 'hard' && !state.previewOnly) {
+      const reward = BALANCE.hardRoundClearScrap[state.currentRound];
+      if (reward && reward > 0) recordScrap(reward);
+    }
+
     const goldEarned = advanced.gold - state.gold;
 
     // Boss round → offer skill selection
@@ -234,12 +242,12 @@ export class Result extends Scene {
     if (!state.previewOnly && state.robotKey) recordVictory(state.robotKey);
     if (!state.previewOnly && state.endingMode === 'easy') recordEasyCleared();
     if (!state.previewOnly && state.endingMode === 'hard') recordHardCleared();
-    // Easy mode pays out only 1/20 of Hard's scrap rate so players can't
-    // grind Easy to bankroll Hard.
-    const conversionRate = state.endingMode === 'easy'
-      ? BALANCE.scrapConversionRateEasy
-      : BALANCE.scrapConversionRate;
-    const scrapEarned = Math.floor(state.gold * conversionRate);
+    // Final-clear scrap reward (flat). Hard pays out R10's slot (1500);
+    // Easy pays a small token. Per-round Hard rewards (R1-R9) were already
+    // banked via renderWin.
+    const scrapEarned = state.endingMode === 'easy'
+      ? BALANCE.easyVictoryScrap
+      : (BALANCE.hardRoundClearScrap[state.currentRound] ?? 0);
     if (!state.previewOnly && scrapEarned > 0) recordScrap(scrapEarned);
     // SANCTUM unlock counter — only ticks on full-run completion
     // (this branch = victory). Mid-run R-to-Title leaves it untouched.

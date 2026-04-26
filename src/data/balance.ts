@@ -71,32 +71,27 @@ export const BALANCE = {
   epicUnlockRound: 5,
   /** Reroll cost increases by +1g every N rerolls. */
   rerollCostStep: 3,
-  /** Fraction of remaining gold converted to scrap on run end (Hard mode). */
-  scrapConversionRate: 0.5,
-  /** Fraction of remaining gold converted to scrap on run end (Easy mode).
-   *  Easy is for practice — players should NOT be able to grind it to amass
-   *  enough scrap to clear Hard. Setting Easy at 1/20 of Hard means a long
-   *  Easy grind still nets some scrap (psychologically rewarding, "you got
-   *  something") but the actual SANCTUM stockpile must come from Hard runs. */
-  scrapConversionRateEasy: 0.025,
-  /** Multiplier applied to Hard-mode DEATH scrap based on the round the
-   *  player died on. Index = round number (1-indexed); index 0 unused.
-   *  Anti-exploit: without this, dying at R1 with no parts pays out
-   *  1500 × 0.5 = 750 scrap in 70 seconds, beating an honest Hard run.
-   *  R7+ is the "normal" payout; earlier rounds are heavily penalised. */
-  scrapDeathMultiplierByRound: [
-    /* idx 0 unused */ 0,
-    /* R1  */ 0.05,
-    /* R2  */ 0.05,
-    /* R3  */ 0.05,
-    /* R4  */ 0.15,
-    /* R5  */ 0.35,
-    /* R6  */ 0.35,
-    /* R7  */ 1.00,
-    /* R8  */ 1.00,
-    /* R9  */ 1.00,
-    /* R10 */ 0.95,
-  ] as readonly number[],
+  /** Flat scrap reward per round clear (Hard mode). Indexed by the round
+   *  just cleared. Awarded immediately on the ROUND CLEARED screen, not
+   *  on death — death simply forfeits future round rewards. This replaces
+   *  the old "remaining-gold × conversionRate" formula, which created a
+   *  perverse incentive to hoard gold instead of buying parts.
+   *
+   *  Hard full-clear total = 50+80+120+300+200+240+700+320+380+1500 = 3890.
+   *  Mid-boss spikes (R4=300, R7=700) and final boss (R10=1500) pay the
+   *  bulk of the run; trash rounds are token rewards. */
+  hardRoundClearScrap: {
+    1: 50, 2: 80, 3: 120,
+    4: 300,            // mid-boss 1
+    5: 200, 6: 240,
+    7: 700,            // mid-boss 2
+    8: 320, 9: 380,
+    10: 1500,          // big-boss / final clear
+  } as Record<number, number>,
+  /** Flat scrap reward for an Easy-mode full clear (R5 victory).
+   *  Easy is the practice path — small token reward, not viable for SANCTUM
+   *  stockpiling. Hard remains the canonical scrap source. */
+  easyVictoryScrap: 100,
 
   // ---------------------------------------------------------------------------
   // Enemy Generation

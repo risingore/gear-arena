@@ -19,7 +19,7 @@ export const ITEMS = {
   item_trace_stim: {
     id: 'item_trace_stim',
     name: 'Trace Stim',
-    description: 'Next battle: +15% attack speed.',
+    description: 'This run: +15% attack speed.',
     price: 1200,
     timing: 'next_battle',
     effect: { kind: 'attack_speed', multiplier: 1.15 }
@@ -27,7 +27,7 @@ export const ITEMS = {
   item_adrenaline: {
     id: 'item_adrenaline',
     name: 'Adrenaline Shot',
-    description: 'Next battle: +30% attack speed.',
+    description: 'This run: +30% attack speed.',
     price: 1800,
     timing: 'next_battle',
     effect: { kind: 'attack_speed', multiplier: 1.3 }
@@ -35,7 +35,7 @@ export const ITEMS = {
   item_berserker_surge: {
     id: 'item_berserker_surge',
     name: 'Berserker Surge',
-    description: 'Next battle: +50% attack speed.',
+    description: 'This run: +50% attack speed.',
     price: 3000,
     timing: 'next_battle',
     effect: { kind: 'attack_speed', multiplier: 1.5 }
@@ -45,7 +45,7 @@ export const ITEMS = {
   item_reactive_plate: {
     id: 'item_reactive_plate',
     name: 'Reactive Plate',
-    description: 'Next battle: +5% damage reduction.',
+    description: 'This run: +5% damage reduction.',
     price: 1200,
     timing: 'next_battle',
     effect: { kind: 'damage_reduction', amount: 0.05 }
@@ -53,7 +53,7 @@ export const ITEMS = {
   item_hardened_coating: {
     id: 'item_hardened_coating',
     name: 'Hardened Coating',
-    description: 'Next battle: +10% damage reduction.',
+    description: 'This run: +10% damage reduction.',
     price: 1800,
     timing: 'next_battle',
     effect: { kind: 'damage_reduction', amount: 0.1 }
@@ -61,7 +61,7 @@ export const ITEMS = {
   item_aegis_lattice: {
     id: 'item_aegis_lattice',
     name: 'Aegis Lattice',
-    description: 'Next battle: +20% damage reduction.',
+    description: 'This run: +20% damage reduction.',
     price: 2700,
     timing: 'next_battle',
     effect: { kind: 'damage_reduction', amount: 0.2 }
@@ -71,7 +71,7 @@ export const ITEMS = {
   item_spotter_pulse: {
     id: 'item_spotter_pulse',
     name: 'Spotter Pulse',
-    description: 'Next battle: enemy takes +10% damage.',
+    description: 'This run: enemy takes +10% damage.',
     price: 1500,
     timing: 'next_battle',
     effect: { kind: 'enemy_vulnerability', multiplier: 1.1 }
@@ -79,7 +79,7 @@ export const ITEMS = {
   item_recon_scan: {
     id: 'item_recon_scan',
     name: 'Recon Scan',
-    description: 'Next battle: enemy takes +20% damage.',
+    description: 'This run: enemy takes +20% damage.',
     price: 2100,
     timing: 'next_battle',
     effect: { kind: 'enemy_vulnerability', multiplier: 1.2 }
@@ -87,7 +87,7 @@ export const ITEMS = {
   item_targeting_override: {
     id: 'item_targeting_override',
     name: 'Targeting Override',
-    description: 'Next battle: enemy takes +35% damage.',
+    description: 'This run: enemy takes +35% damage.',
     price: 3000,
     timing: 'next_battle',
     effect: { kind: 'enemy_vulnerability', multiplier: 1.35 }

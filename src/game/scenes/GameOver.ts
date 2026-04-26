@@ -1,11 +1,10 @@
 import { Scene } from 'phaser';
 
-import { BALANCE } from '@/data/balance';
 import { getRunState } from '../systems/runState';
 import { PALETTE } from '../systems/palette';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { playSfx } from '../systems/audio';
-import { recordScrap, recordBattleCompleted } from '../systems/savedata';
+import { recordBattleCompleted } from '../systems/savedata';
 import { t } from '../systems/i18n';
 import { isDebugEnabled } from '../systems/debug';
 import { showDebugBadge } from '../helper/hiDpiText';
@@ -23,22 +22,11 @@ export class GameOver extends Scene {
     fadeInCurrent(this);
 
     const state = getRunState(this);
-    // Easy mode pays out only 1/20 of Hard's scrap rate so players can't
-    // grind Easy to bankroll Hard. Easy still drips a tiny amount so a death
-    // run feels rewarded rather than wasted.
-    const conversionRate = state.endingMode === 'easy'
-      ? BALANCE.scrapConversionRateEasy
-      : BALANCE.scrapConversionRate;
-    // Hard mode applies a round-based multiplier to discourage R1-3 suicide
-    // farming (dying with 1500g intact at R1 used to pay 750 scrap in 70s).
-    // Easy already has a 1/20 conversion rate so no extra weighting needed.
-    const roundMult = state.endingMode === 'easy'
-      ? 1
-      : (BALANCE.scrapDeathMultiplierByRound[
-          Math.min(Math.max(state.currentRound, 1), BALANCE.scrapDeathMultiplierByRound.length - 1)
-        ] ?? 1);
-    const scrapEarned = Math.floor(state.gold * conversionRate * roundMult);
-    if (scrapEarned > 0) recordScrap(scrapEarned);
+    // No scrap on death. Per-round scrap (Hard) was already banked via
+    // Result.renderWin on each cleared round. Death simply forfeits the
+    // remaining rounds' rewards. Easy gives nothing on death (its only
+    // payout is the easyVictoryScrap on full clear).
+    const scrapEarned = 0;
     // SANCTUM unlock counter — only ticks on full-run completion
     // (this branch = defeat). Mid-run R-to-Title leaves it untouched.
     recordBattleCompleted();

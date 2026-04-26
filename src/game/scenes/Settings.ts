@@ -20,8 +20,7 @@ import {
 import { setMusicMuted } from '../systems/music';
 import { setSfxMuted } from '../systems/audio';
 import { mountSettingsOverlay } from '../overlays/settingsOverlay';
-import { createInitialRunState, setRunState } from '../systems/runState';
-import type { GeneratedRound } from '../systems/enemyPool';
+import { jumpToEnding, jumpToCutInPreview } from './settingsDebug';
 
 export class Settings extends Scene {
   private unmountOverlay: (() => void) | null = null;
@@ -166,7 +165,7 @@ export class Settings extends Scene {
           value: t('PLAY'),
           onCycle: () => {
             playSfx('click');
-            this.jumpToEnding('easy');
+            jumpToEnding(this, 'easy');
             return t('PLAY');
           },
         },
@@ -175,7 +174,7 @@ export class Settings extends Scene {
           value: t('PLAY'),
           onCycle: () => {
             playSfx('click');
-            this.jumpToEnding('hard');
+            jumpToEnding(this, 'hard');
             return t('PLAY');
           },
         },
@@ -184,7 +183,7 @@ export class Settings extends Scene {
           value: t('PLAY'),
           onCycle: () => {
             playSfx('click');
-            this.jumpToCutInPreview('player');
+            jumpToCutInPreview(this, 'player');
             return t('PLAY');
           },
         },
@@ -193,7 +192,7 @@ export class Settings extends Scene {
           value: t('PLAY'),
           onCycle: () => {
             playSfx('click');
-            this.jumpToCutInPreview('enemy', 'midboss_bakeneko');
+            jumpToCutInPreview(this, 'enemy', 'midboss_bakeneko');
             return t('PLAY');
           },
         },
@@ -202,7 +201,7 @@ export class Settings extends Scene {
           value: t('PLAY'),
           onCycle: () => {
             playSfx('click');
-            this.jumpToCutInPreview('enemy', 'midboss_nopperabo');
+            jumpToCutInPreview(this, 'enemy', 'midboss_nopperabo');
             return t('PLAY');
           },
         },
@@ -211,7 +210,7 @@ export class Settings extends Scene {
           value: t('PLAY'),
           onCycle: () => {
             playSfx('click');
-            this.jumpToCutInPreview('enemy', 'midboss_karakasa');
+            jumpToCutInPreview(this, 'enemy', 'midboss_karakasa');
             return t('PLAY');
           },
         },
@@ -220,7 +219,7 @@ export class Settings extends Scene {
           value: t('PLAY'),
           onCycle: () => {
             playSfx('click');
-            this.jumpToCutInPreview('enemy', 'boss_yuki_onna');
+            jumpToCutInPreview(this, 'enemy', 'boss_yuki_onna');
             return t('PLAY');
           },
         },
@@ -266,81 +265,5 @@ export class Settings extends Scene {
     this.input.keyboard?.on('keydown-R', () => fadeToScene(this, 'Title'));
 
     showDebugBadge(this, isDebugEnabled());
-  }
-
-  /**
-   * Jump directly to the victory + ending sequence with a minimal fake
-   * run state, so the chosen ending flavor (`easy` / `hard`) plays end
-   * to end without requiring a full completed playthrough.
-   */
-  private jumpToEnding(mode: 'easy' | 'hard'): void {
-    const fake = createInitialRunState();
-    fake.robotKey = 'robot_knight';
-    fake.battleOutcome = 'victory';
-    fake.gold = 300;
-    fake.lastDefeatedEnemyId = 'boss_yuki_onna';
-    fake.endingMode = mode;
-    // Preview mode — Result must not write any save mutations, otherwise
-    // pressing this debug button would unlock HARD (or pump scrap, or
-    // mark enemies as defeated) without an actual playthrough.
-    fake.previewOnly = true;
-    const finalRound: GeneratedRound = {
-      index: 5,
-      enemy: {
-        name: 'Yuki Onna',
-        hp: 1,
-        damage: 1,
-        cooldownSec: 1,
-        damageReductionPct: 0,
-        assetKey: 'boss_yuki_onna',
-      },
-      enemyId: 'boss_yuki_onna',
-      goldReward: 0,
-      isBoss: true,
-      isSuperBoss: false,
-    };
-    fake.generatedRounds = [finalRound];
-    setRunState(this, fake);
-    fadeToScene(this, 'Result');
-  }
-
-  /**
-   * Jump directly to Battle in cut-in preview mode. Battle freezes its
-   * combat tick and only plays the requested ULT cut-in before returning
-   * to Settings, so we can review every cut-in without playing through.
-   *
-   * For enemy cut-ins, the player still spawns as INDRA at round 1 — the
-   * boss is forced into the round so its portrait + ULT name resolve
-   * correctly. previewOnly = true blocks all save mutations.
-   */
-  private jumpToCutInPreview(kind: 'player' | 'enemy', enemyId?: string): void {
-    const fake = createInitialRunState();
-    fake.robotKey = 'robot_knight';
-    fake.previewOnly = true;
-    fake.previewCutIn = { kind, enemyId };
-    // Battle.create() bails to Title when generatedRounds[0] is missing,
-    // so we ALWAYS provide a fake round even for player previews. The
-    // round's enemy is just a dummy that never actually fights — high HP
-    // + huge cooldown keeps combat frozen while the preview-cut-in path
-    // fires the requested ULT once and then fades back to Settings.
-    const fakeId = (kind === 'enemy' && enemyId) ? enemyId : 'enemy_mob1';
-    const round: GeneratedRound = {
-      index: 1,
-      enemy: {
-        name: fakeId,
-        hp: 9999,
-        damage: 0,
-        cooldownSec: 99,
-        damageReductionPct: 0,
-        assetKey: fakeId,
-      },
-      enemyId: fakeId,
-      goldReward: 0,
-      isBoss: kind === 'enemy',
-      isSuperBoss: false,
-    };
-    fake.generatedRounds = [round];
-    setRunState(this, fake);
-    fadeToScene(this, 'Battle');
   }
 }

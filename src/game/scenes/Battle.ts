@@ -240,19 +240,22 @@ export class Battle extends Scene {
     }
 
     // Build enemy weapons list: primary + any extra weapons from EnemyDef.
+    // BALANCE.statScale (×100) is baked in here so the inline enemy spawn
+    // matches the scale createPlayerCombatant / createEnemyCombatant apply.
+    const statScale = BALANCE.statScale;
     const enemyWeapons: import('../systems/combat').CombatWeapon[] = [
-      { label: 'Strike', damage: roundEnemy.damage, cooldownSec: roundEnemy.cooldownSec, timer: roundEnemy.cooldownSec }
+      { label: 'Strike', damage: roundEnemy.damage * statScale, cooldownSec: roundEnemy.cooldownSec, timer: roundEnemy.cooldownSec }
     ];
     // Retrieve the original EnemyDef to access extraWeapons / shieldCharges / repair.
     const originalDef = findEnemyDef(genRound.enemyId);
     if (originalDef?.extraWeapons) {
       for (const ew of originalDef.extraWeapons) {
-        enemyWeapons.push({ label: ew.label, damage: ew.damage, cooldownSec: ew.cooldownSec, timer: ew.cooldownSec });
+        enemyWeapons.push({ label: ew.label, damage: ew.damage * statScale, cooldownSec: ew.cooldownSec, timer: ew.cooldownSec });
       }
     }
 
     const oneShot = isOneShotModeEnabled();
-    const enemyHp = oneShot ? 1 : roundEnemy.hp;
+    const enemyHp = oneShot ? 1 : roundEnemy.hp * statScale;
     this.enemy = {
       name: roundEnemy.name,
       maxHp: enemyHp,
@@ -264,7 +267,7 @@ export class Battle extends Scene {
       overdriveThresholdHp: 0,
       overdriveActive: false,
       repairIntervalSec: oneShot ? 0 : (originalDef?.repairIntervalSec ?? 0),
-      repairAmount: oneShot ? 0 : (originalDef?.repairAmount ?? 0),
+      repairAmount: oneShot ? 0 : ((originalDef?.repairAmount ?? 0) * statScale),
       repairTimer: oneShot ? 0 : (originalDef?.repairIntervalSec ?? 0),
       shieldCharges: oneShot ? 0 : (originalDef?.shieldCharges ?? 0),
       ultimate: originalDef ? (ENEMY_ULTIMATES[originalDef.id] ?? ENEMY_ULTIMATES[originalDef.category] ?? null) : null,
@@ -829,6 +832,28 @@ export class Battle extends Scene {
 
     const dtSec = realDtSec * this.timeScale;
 
+    // FINISHED FIRST. The post-battle delay → goToResult sequence
+    // must run even when ultReady or ultFiring would normally short-
+    // circuit update(). finishBattle() also clears those locks for
+    // belt-and-braces, but we run this branch first so any future
+    // path that sets `finished=true` without going through
+    // finishBattle() still escapes cleanly.
+    if (this.finished) {
+      this.finishDelay -= realDtSec;
+      if (this.finishDelay <= 0) this.goToResult();
+      return;
+    }
+
+    // Safety net: if the player is already dead but no `lose` has been
+    // queued (a cut-in callback dropped, an exception interrupted the
+    // chain, etc.), force the loss here. Runs every frame BEFORE the
+    // ultReady / ultFiring gates so a stuck SOUL-STRIKE button or
+    // cut-in lock can never trap the scene with hp <= 0.
+    if (this.player && this.player.hp <= 0) {
+      this.finishBattle('lose');
+      return;
+    }
+
     // Frozen: waiting for ultimate button press
     if (this.ultReady) return;
 
@@ -839,12 +864,6 @@ export class Battle extends Scene {
     // first claims the cut-in slot, and the other side waits until the
     // P5 fade callback flips ultFiring back to false.
     if (this.ultFiring) return;
-
-    if (this.finished) {
-      this.finishDelay -= realDtSec;
-      if (this.finishDelay <= 0) this.goToResult();
-      return;
-    }
 
     // Pause combat during round-start intro animation.
     if (this.introActive) return;
@@ -891,11 +910,23 @@ export class Battle extends Scene {
       // duration so the cut-in hits exactly when the boss settles.
       const shakeMs = this.playEnemyUltimateSpriteMotion();
       this.time.delayedCall(shakeMs, () => {
-        this.spawnUltimateFlash(ultName, false);
+        try { this.spawnUltimateFlash(ultName, false); } catch (e) {
+          console.error('[Battle] spawnUltimateFlash failed (enemy):', e);
+        }
       });
       this.time.delayedCall(shakeMs + 2400, () => {
-        enemyTick.attacks.forEach((e) => this.onAttack(e, this.playerSprite, false));
-        this.refreshHp();
+        // Wrap each step so a single failure (e.g. a destroyed sprite,
+        // a tween race, etc.) cannot orphan the ultFiring=true lock —
+        // that would freeze the entire scene because update() bails on
+        // ultFiring at the top.
+        try {
+          enemyTick.attacks.forEach((e) => this.onAttack(e, this.playerSprite, false));
+        } catch (e) {
+          console.error('[Battle] post-cut-in onAttack failed:', e);
+        }
+        try { this.refreshHp(); } catch (e) {
+          console.error('[Battle] post-cut-in refreshHp failed:', e);
+        }
         // Release the cut-in lock so the player ULT can proceed on the
         // next tick. Mirror of the 2800ms unlock in triggerPlayerUltimate.
         this.ultFiring = false;
@@ -1134,8 +1165,17 @@ export class Battle extends Scene {
     const eRatio = Math.max(0, this.enemy.hp / this.enemy.maxHp);
     this.playerHpFill.width = HP_BAR_W * pRatio;
     this.enemyHpFill.width = HP_BAR_W * eRatio;
-    this.playerHpText.setText(`${Math.max(0, this.player.hp)} / ${this.player.maxHp}`);
-    this.enemyHpText.setText(`${Math.max(0, this.enemy.hp)} / ${this.enemy.maxHp}`);
+    // Defensive clamp on the display layer: hp should always live in
+    // [0, maxHp], but a regression in heal / status-effect / lifesteal
+    // calc once leaked an out-of-range value here and the player saw
+    // "300,000,000 / 70,000" style nonsense after firing an ULT against
+    // a normal mob. Clamp on read so the UI never paints those numbers
+    // even if the underlying combatant briefly drifts. Math.round protects
+    // against fractional hp introduced by status-effect ticks.
+    const pHp = Math.max(0, Math.min(this.player.maxHp, Math.round(this.player.hp)));
+    const eHp = Math.max(0, Math.min(this.enemy.maxHp, Math.round(this.enemy.hp)));
+    this.playerHpText.setText(`${pHp} / ${this.player.maxHp}`);
+    this.enemyHpText.setText(`${eHp} / ${this.enemy.maxHp}`);
 
     // Trailing HP bar: tween the trail down to match main fill over 400ms
     const pTrailTarget = HP_BAR_W * pRatio;
@@ -1257,6 +1297,22 @@ export class Battle extends Scene {
   private finishBattle(outcome: 'win' | 'lose'): void {
     this.finished = true;
     this.finishDelay = 0.9;
+    // Cancel any in-flight ULT lock so the update() loop's `finished`
+    // branch can run its delay → goToResult sequence. Without this,
+    // a SOUL STRIKE button left visible (ultReady=true) or a boss
+    // cut-in still locking the scene (ultFiring=true) would short-
+    // circuit update() before finishDelay decrements — freezing the
+    // post-death frame instead of advancing to the result screen.
+    this.ultReady = false;
+    this.ultFiring = false;
+    if (this.ultButton) {
+      this.ultButton.destroy();
+      this.ultButton = null;
+    }
+    if (this.soulStrikeBtn) {
+      this.soulStrikeBtn.unmount();
+      this.soulStrikeBtn = null;
+    }
     const state = getRunState(this);
     const totalRounds = state.generatedRounds.length;
     const isFinalRound = state.currentRound >= totalRounds;

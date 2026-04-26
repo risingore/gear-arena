@@ -98,13 +98,16 @@ export const BALANCE = {
    * Applied to baseHp and baseDamage at generation time, on top of the
    * normal ±variance. Big-boss (final round) is exempt — already tuned.
    *
-   *   Easy (5 rounds): R1=1.00× / R3=1.21× / R5=1.46×
-   *   Hard (10 rounds): R1=1.00× / R5=1.46× / R7=1.77× / R10=2.36×
+   *   Easy (5 rounds): R1=1.00× / R3=1.32× / R5=1.75×
+   *   Hard (10 rounds): R1=1.00× / R5=1.75× / R7=2.31× / R10=3.52×
    *
    * Pairs with the exponential player ★ merge (starMultipliers = [_,_,2,4])
-   * to create an "arms race" feel: both sides scale up dramatically.
+   * to create an "arms race" feel: both sides scale up dramatically. The
+   * 1.15 ramp deliberately makes late rounds tanky enough that a single
+   * player ULT no longer one-shots — by R6+ the player needs to layer two
+   * or three ULTs (or rely on ★3 / SANCTUM buffs) to put a target down.
    */
-  roundDifficultyGrowth: 1.10,
+  roundDifficultyGrowth: 1.15,
 
   // ---------------------------------------------------------------------------
   // Battle UX
@@ -126,4 +129,16 @@ export const BALANCE = {
   starMultipliers: [1.0, 1.0, 2.0, 4.0] as readonly number[],
   /** Maximum star level a part can reach. */
   maxStarLevel: 3,
+
+  // ---------------------------------------------------------------------------
+  // Display scale
+  // ---------------------------------------------------------------------------
+  /** Multiplier baked into every HP / damage / flat-DR / repair value the
+   *  moment a combatant is created. Pure cosmetic on the math side: every
+   *  stat scales together so the HP/DMG ratio (and ★ merge multipliers,
+   *  % DR, lifesteal, etc.) stay invariant — it just pushes the raw
+   *  numbers out of single-digit "12 dmg" territory into "1200 dmg" so
+   *  combat reads as machine-grade scale. Ratio-based mechanics are
+   *  unaffected because they all operate on multipliers, not raw values. */
+  statScale: 100,
 } as const;

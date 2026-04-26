@@ -60,7 +60,7 @@ async function run(): Promise<void> {
   await page.screenshot({ path: `${DIR}/01_title.png` });
 
   console.log('=== 02_select ===');
-  await page.click('.soul-strike-title-overlay [data-role="play"]');
+  await page.click('.soul-strike-title-overlay [data-role="play-easy"]');
   await page.waitForTimeout(1500);
   await page.screenshot({ path: `${DIR}/02_select.png` });
 

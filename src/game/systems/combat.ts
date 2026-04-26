@@ -104,59 +104,68 @@ export const createPlayerCombatant = (
   robotName: string,
   stats: LoadoutStats,
   ultimate: UltimateDef | null = null
-): Combatant => ({
-  name: robotName,
-  maxHp: stats.maxHp,
-  hp: stats.maxHp,
-  damageReductionFlat: stats.damageReductionFlat,
-  damageReductionPct: stats.damageReductionPct,
-  // Player has no auto-attacks. Weapons data is used for ultimate calculation only.
-  weapons: stats.weapons.map((w) => ({
-    label: w.name,
-    damage: w.damage,
-    cooldownSec: w.cooldownSec,
-    timer: w.cooldownSec,
-    partKey: w.partKey
-  })),
-  overdriveMultiplier: stats.overdriveMultiplier,
-  overdriveThresholdHp: stats.overdriveThresholdHp,
-  overdriveActive: false,
-  repairIntervalSec: stats.repairIntervalSec,
-  repairAmount: stats.repairAmount,
-  repairTimer: stats.repairIntervalSec,
-  shieldCharges: stats.shieldCharges,
-  ultimate,
-  ultimateGauge: 0,
-  ultimateUsed: false,
-  ultimateEffectTimer: 0,
-  tempDrBoost: 0,
-  tempSpeedMult: 1,
-  weaponDisableTimer: 0,
-  statusEffects: [],
-  evasionChance: stats.evasionChance,
-  comboCount: 0,
-  autoFireUltimate: false,
-  ultimateStrikes: stats.ultimateStrikes,
-  ultimateDmgPerStrike: stats.ultimateDamagePerStrike,
-  ultimateChargeRate: stats.ultimateChargeRate,
-  ultimateLifesteal: stats.ultimateLifesteal,
-  ultimateArmorBreak: stats.ultimateArmorBreak,
-  isAwakened: stats.isAwakened
-});
+): Combatant => {
+  // Apply the cosmetic ×100 stat scale at the combatant boundary so every
+  // HP / damage / flat-DR / repair value the rest of the engine sees is
+  // already in "machine-grade" units. Ratio-based fields (% DR, lifesteal,
+  // ★ multipliers) are left untouched.
+  const scale = BALANCE.statScale;
+  return {
+    name: robotName,
+    maxHp: stats.maxHp * scale,
+    hp: stats.maxHp * scale,
+    damageReductionFlat: stats.damageReductionFlat * scale,
+    damageReductionPct: stats.damageReductionPct,
+    // Player has no auto-attacks. Weapons data is used for ultimate calculation only.
+    weapons: stats.weapons.map((w) => ({
+      label: w.name,
+      damage: w.damage * scale,
+      cooldownSec: w.cooldownSec,
+      timer: w.cooldownSec,
+      partKey: w.partKey
+    })),
+    overdriveMultiplier: stats.overdriveMultiplier,
+    overdriveThresholdHp: stats.overdriveThresholdHp * scale,
+    overdriveActive: false,
+    repairIntervalSec: stats.repairIntervalSec,
+    repairAmount: stats.repairAmount * scale,
+    repairTimer: stats.repairIntervalSec,
+    shieldCharges: stats.shieldCharges,
+    ultimate,
+    ultimateGauge: 0,
+    ultimateUsed: false,
+    ultimateEffectTimer: 0,
+    tempDrBoost: 0,
+    tempSpeedMult: 1,
+    weaponDisableTimer: 0,
+    statusEffects: [],
+    evasionChance: stats.evasionChance,
+    comboCount: 0,
+    autoFireUltimate: false,
+    ultimateStrikes: stats.ultimateStrikes,
+    ultimateDmgPerStrike: stats.ultimateDamagePerStrike * scale,
+    ultimateChargeRate: stats.ultimateChargeRate,
+    ultimateLifesteal: stats.ultimateLifesteal,
+    ultimateArmorBreak: stats.ultimateArmorBreak,
+    isAwakened: stats.isAwakened
+  };
+};
 
 export const createEnemyCombatant = (
   round: RoundData,
   ultimate: UltimateDef | null = null
 ): Combatant => ({
   name: round.enemy.name,
-  maxHp: round.enemy.hp,
-  hp: round.enemy.hp,
+  // Same statScale as createPlayerCombatant — both sides scale together
+  // so HP/DMG ratios stay invariant.
+  maxHp: round.enemy.hp * BALANCE.statScale,
+  hp: round.enemy.hp * BALANCE.statScale,
   damageReductionFlat: 0,
   damageReductionPct: round.enemy.damageReductionPct,
   weapons: [
     {
       label: 'Enemy Strike',
-      damage: round.enemy.damage,
+      damage: round.enemy.damage * BALANCE.statScale,
       cooldownSec: round.enemy.cooldownSec,
       timer: round.enemy.cooldownSec
     }

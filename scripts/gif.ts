@@ -13,7 +13,7 @@ import { execSync } from 'child_process';
 import { mkdirSync, readdirSync, renameSync, rmSync } from 'fs';
 import { join } from 'path';
 
-const BASE_URL = 'http://localhost:8080';
+const BASE_URL = process.env.GIF_BASE_URL ?? 'http://localhost:8080';
 const OUT_DIR = 'docs/screenshots';
 const VIDEO_DIR = '/tmp/soul-strike-gif';
 mkdirSync(OUT_DIR, { recursive: true });
@@ -46,10 +46,13 @@ async function run(): Promise<void> {
   await page.reload({ waitUntil: 'networkidle' });
   await page.waitForTimeout(1500);
 
-  // Record start: Title
+  // Record start: Title → Easy mode
+  // (Title was changed to Easy/Hard split: data-role used to be "play",
+  // it is now "play-easy" / "play-hard". Use Easy so a fresh save can
+  // boot the run without the Hard-locked gate.)
   console.log('Recording: Title → Select → Build → Battle → Ultimate...');
   await page.evaluate(() => {
-    const el = document.querySelector('.soul-strike-title-overlay [data-role="play"]') as HTMLElement | null;
+    const el = document.querySelector('.soul-strike-title-overlay [data-role="play-easy"]') as HTMLElement | null;
     el?.click();
   });
   await page.waitForTimeout(1200);
@@ -58,12 +61,19 @@ async function run(): Promise<void> {
     const el = document.querySelector('.soul-strike-select-overlay [data-role="embark"]') as HTMLElement | null;
     el?.click();
   });
-  await page.waitForTimeout(1500);
+  await page.waitForTimeout(1800);
 
-  // Buy 3 parts + ready
-  await page.keyboard.press('1'); await page.waitForTimeout(250);
-  await page.keyboard.press('2'); await page.waitForTimeout(250);
-  await page.keyboard.press('3'); await page.waitForTimeout(400);
+  // Build is click-only now (D&D / SELL / 1-5 key purchase removed).
+  // Try clicking the first three shop cards; selectors target the DOM
+  // overlay shop cards if present, fall back gracefully if not.
+  for (let i = 0; i < 3; i += 1) {
+    await page.evaluate((idx) => {
+      const cards = document.querySelectorAll('.soul-strike-build-overlay [data-role="shop-card"]');
+      const card = cards[idx] as HTMLElement | undefined;
+      card?.click();
+    }, i);
+    await page.waitForTimeout(300);
+  }
   await page.keyboard.press(' '); // READY → Battle
   await page.waitForTimeout(1500);
   await page.keyboard.press('s'); // speed up
@@ -87,25 +97,36 @@ async function run(): Promise<void> {
   const webm = join(VIDEO_DIR, files[0]!);
   console.log(`Captured: ${webm}`);
 
-  // Convert to GIF (10 seconds, 12 fps, 640px wide for size)
+  // Convert to GIF (15 seconds, 12 fps, 640px wide for size)
+  // -ss 3.0 trims the leading 3s of black screen that Playwright records
+  // before the page actually paints (browser boot + ESM load + Phaser init
+  // + page.reload + networkidle wait). 1.5s alone left a noticeable dark
+  // intro; bumping to 3.0s lands the first visible frame on the Title.
+  // -t 15 (was 10) covers Title → Select → Build → Battle → first ULT
+  // cut-in so the gif climaxes on a SOUL STRIKE moment instead of cutting
+  // away just before the player fires their ultimate.
   console.log('Converting to GIF via ffmpeg...');
-  // Palette-first two-pass for better GIF quality
   const palette = join(VIDEO_DIR, 'palette.png');
   execSync(
-    `ffmpeg -y -t 10 -i "${webm}" -vf "fps=12,scale=640:-1:flags=lanczos,palettegen" "${palette}"`,
+    `ffmpeg -y -ss 3.0 -t 15 -i "${webm}" -vf "fps=12,scale=640:-1:flags=lanczos,palettegen" "${palette}"`,
     { stdio: 'inherit' },
   );
   execSync(
-    `ffmpeg -y -t 10 -i "${webm}" -i "${palette}" -filter_complex "fps=12,scale=640:-1:flags=lanczos[x];[x][1:v]paletteuse" "${OUT_PATH}"`,
+    `ffmpeg -y -ss 3.0 -t 15 -i "${webm}" -i "${palette}" -filter_complex "fps=12,scale=640:-1:flags=lanczos[x];[x][1:v]paletteuse" "${OUT_PATH}"`,
     { stdio: 'inherit' },
   );
 
   const stat = execSync(`du -h "${OUT_PATH}"`).toString().trim();
   console.log(`\nDone: ${stat}`);
 
-  // Move video into docs too (optional, webm is smaller & higher quality)
+  // Save the trimmed webm too (same -ss skip), so X / itch.io previews
+  // both start on the Title screen, not on a black frame.
   const webmOut = join(OUT_DIR, 'intro.webm');
-  renameSync(webm, webmOut);
+  execSync(
+    `ffmpeg -y -ss 3.0 -i "${webm}" -c:v libvpx -b:v 1M -auto-alt-ref 0 "${webmOut}"`,
+    { stdio: 'inherit' },
+  );
+  rmSync(webm, { force: true });
   console.log(`Also saved: ${webmOut}`);
 }
 

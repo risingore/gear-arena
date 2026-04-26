@@ -147,3 +147,11 @@ export const ROBOTS = {
 export type RobotKey = keyof typeof ROBOTS;
 
 export const ALL_ROBOT_KEYS: readonly RobotKey[] = Object.keys(ROBOTS) as readonly RobotKey[];
+
+/**
+ * Episode 0 jam allow-list. INDRA is the only frame that ships in this
+ * build; GOLIATH-414 / STRIKER / ORACLE remain in the data layer for
+ * Ep1 but must not appear in jam-facing menus (Collection, Select,
+ * unlock messages). Mirrors `JAM_ENEMY_IDS` in `data/enemies.ts`.
+ */
+export const JAM_ROBOT_KEYS: readonly RobotKey[] = ['robot_knight'];

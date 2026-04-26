@@ -7,7 +7,7 @@ import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { t } from '../systems/i18n';
 import { setLocale, getLocale, type Locale } from '../systems/i18n';
 import { loadSettings, updateSetting } from '../systems/settings';
-import { resetAllData } from '../systems/savedata';
+import { resetAllData, loadSaveData, saveSaveData } from '../systems/savedata';
 import { showDebugBadge } from '../helper/hiDpiText';
 import {
   isDebugEnabled,
@@ -20,7 +20,7 @@ import {
 import { setMusicMuted } from '../systems/music';
 import { setSfxMuted } from '../systems/audio';
 import { mountSettingsOverlay } from '../overlays/settingsOverlay';
-import { jumpToEnding, jumpToCutInPreview } from './settingsDebug';
+import { jumpToEnding, jumpToCutInPreview, unlockAllCollection, wipeCollection } from './settingsDebug';
 
 export class Settings extends Scene {
   private unmountOverlay: (() => void) | null = null;
@@ -138,6 +138,18 @@ export class Settings extends Scene {
           value: isDebugEnabled() ? 'ON' : 'OFF',
           onCycle: () => {
             const on = toggleDebug();
+            // Debug ON top-up: bring scrap to at least 100,000 so QA can
+            // burn through SANCTUM consecrations without grinding Hard
+            // runs. Math.max preserves any larger stockpile the player
+            // already accumulated, so a deliberate 200k save isn't
+            // clobbered each time Debug is toggled off→on.
+            if (on) {
+              const data = loadSaveData();
+              if (data.scrap < 100000) {
+                data.scrap = 100000;
+                saveSaveData(data);
+              }
+            }
             playSfx('click');
             return on ? 'ON' : 'OFF';
           },
@@ -221,6 +233,24 @@ export class Settings extends Scene {
             playSfx('click');
             jumpToCutInPreview(this, 'enemy', 'boss_yuki_onna');
             return t('PLAY');
+          },
+        },
+        {
+          label: t('Collection: Unlock All'),
+          value: t('RUN'),
+          onCycle: () => {
+            unlockAllCollection();
+            playSfx('buy');
+            return t('DONE');
+          },
+        },
+        {
+          label: t('Collection: Wipe'),
+          value: t('RUN'),
+          onCycle: () => {
+            wipeCollection();
+            playSfx('lose');
+            return t('DONE');
           },
         },
       ] : [],

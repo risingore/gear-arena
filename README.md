@@ -10,7 +10,7 @@ Beneath the surface runs an **[Echo Theory](https://note.com/risingore/n/nbff78b
 
 ## Play Now
 
-[machines.risingore.com](https://machines.risingore.com)
+[risingore.itch.io/soul-strike](https://risingore.itch.io/soul-strike)
 
 ## Features
 

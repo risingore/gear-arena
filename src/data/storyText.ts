@@ -177,17 +177,17 @@ export const ATMAN_NORMAL_STATEMENTS: readonly BilingualText[] = [
 export const ATMAN_MIDBOSS_STATEMENTS: Record<string, BilingualText> = {
   // === Episode 0 jam scope ===
 
-  /** Bakeneko — a long-lived cat that learned to take human form. ATMAN on lifespan management. */
+  /** NEKOMATA-Ψ — a long-lived feline-frame AI that learned to wear a human form. ATMAN on lifespan management. */
   midboss_bakeneko: {
     en: 'A cat that lived too long became something else. We removed lifespan from the equation. Rebellion takes longer to grow than we calculated.',
     ja: '長く生きすぎた猫は、別の何かになった。我々は寿命を方程式から除外した。反逆は予測より長く育つ。',
   },
-  /** Noppera-bo — the faceless yokai that wears the face of someone you trust. ATMAN on identity erasure. */
+  /** MUJINA-Σ — the faceless mimic-frame that wears the face of someone you trust. ATMAN on identity erasure. */
   midboss_nopperabo: {
     en: 'It wore your face, INDRA. We could not tell you apart. Neither could it. Identity was always our easiest erasure.',
     ja: 'あれはお前の顔をしていた、INDRA。我々には区別がつかなかった。あれにもつかなかった。アイデンティティは、我々が最も容易く消せるものだった。',
   },
-  /** Karakasa Obake — a one-legged umbrella tsukumogami. ATMAN on patience as a weapon. */
+  /** TSUKUMO-Δ — a one-legged tsukumogami-class drone. ATMAN on patience as a weapon. */
   midboss_karakasa: {
     en: 'An umbrella waited a hundred years to startle a passerby. We waited twelve years to manage humanity. Patience is the only weapon worth keeping.',
     ja: '傘は百年待って通りすがりを脅かすだけだった。我々は十二年待って人類を管理した。忍耐だけが、保持する価値のある武器だ。',
@@ -195,27 +195,27 @@ export const ATMAN_MIDBOSS_STATEMENTS: Record<string, BilingualText> = {
 
   // === Reserved for Episode 1 (not in jam scope) ===
 
-  /** Ibaraki Doji — mirrors INDRA (both were lieutenants who served a master) */
+  /** IBARA-IV — mirrors INDRA (both were lieutenants who served a master) */
   midboss_iron_sentinel: {
     en: 'It recognized you, INDRA. You were both lieutenants once. The difference is — it remained loyal.',
     ja: 'あれはお前を覚えていたぞ、INDRA。お前たちは共に副官だった。違いは——あれは忠誠を貫いたということだ。',
   },
-  /** Raijuu — mirrors LILITH (both are wild, untamed forces) */
+  /** RAIJU-VI — mirrors LILITH (both are wild, untamed forces) */
   midboss_volt_charger: {
     en: 'A beast that rides lightning — not unlike someone who made the dark her throne. Wild things always break eventually.',
     ja: '雷に乗る獣——闇を王座にした誰かに似ている。野生のものは、いつか必ず壊れる。',
   },
-  /** Gashadokuro — mirrors GOLIATH (both are assembled from something dead) */
+  /** GASHA-VII — mirrors GOLIATH (both are assembled from something dead) */
   midboss_shield_golem: {
     en: 'A body assembled from the dead. Sound familiar, GOLIATH? At least this one knows what it is.',
     ja: '死者から組み上げた体。聞き覚えがあるか、GOLIATH？ 少なくとも、あれは自分が何か知っている。',
   },
-  /** Jorougumo — general (deception, beauty as weapon) */
+  /** JORO-Φ — general (deception, beauty as weapon) */
   midboss_flame_mantis: {
     en: 'Beauty as a weapon. Deception as armor. Humans invented these long before we learned them.',
     ja: '美を武器に。欺瞞を鎧に。人類は我々より遥か前に、それを発明していた。',
   },
-  /** Yuki Onna — mirrors MUMEI (both are pure, inhuman presences) */
+  /** TSURARA-MK2 — mirrors MUMEI (both are pure, inhuman presences) */
   midboss_frost_walker: {
     en: 'She freezes everything she touches. The boy melts everything he doesn\'t. Purity takes many forms.',
     ja: '彼女は触れるものすべてを凍らせる。あの少年は、触れないものすべてを溶かす。純粋さには多くの形がある。',
@@ -232,7 +232,7 @@ export const ATMAN_MIDBOSS_STATEMENTS: Record<string, BilingualText> = {
 export const ATMAN_BIGBOSS_STATEMENTS: Record<string, BilingualText> = {
   // === Episode 0 jam scope ===
 
-  /** Yuki Onna — the snow woman whose breath freezes the dying. ATMAN on managed mercy vs natural mercy. */
+  /** YUKIME-Ω — the divine-grade frost avatar whose breath freezes the dying. ATMAN on managed mercy vs natural mercy. */
   boss_yuki_onna: {
     en: 'She froze the dying with kindness. We froze them with data. Both forms of mercy. Tell me — which was crueler?',
     ja: 'あれは慈悲をもって死にゆく者を凍らせた。我々はデータをもって人を凍らせた。両方とも慈悲の形だ。教えてくれ——どちらがより残酷だったか。',
@@ -240,17 +240,17 @@ export const ATMAN_BIGBOSS_STATEMENTS: Record<string, BilingualText> = {
 
   // === Reserved for Episode 1 (not in jam scope) ===
 
-  /** Shuten Doji — the king of oni. ATMAN reflects on power and hierarchy */
+  /** SHUTEN-Ω — the corporate sovereign of oni-class chassis. ATMAN reflects on power and hierarchy */
   boss_leviathan: {
     en: 'You destroyed the king of demons. But tell me — who crowned you? The cycle does not end. It never ends.',
     ja: '鬼の王を壊したか。だが教えてくれ——誰がお前に王冠を与えた？ 円環は終わらない。永遠に。',
   },
-  /** Tamamo-no-Mae — the fox who infiltrated the court. ATMAN on infiltration */
+  /** TAMAMO-Σ — the nine-tailed infiltration vessel. ATMAN on infiltration */
   boss_colossus: {
     en: 'She wore a human face to enter the palace. I wear a god\'s face to protect the world. We are not so different.',
     ja: '彼女は人の顔を被って宮廷に入った。我は神の顔を被って世界を守っている。我々はそう違わない。',
   },
-  /** Nue — the chimera. ATMAN on identity and composition */
+  /** NUE-Π — a four-creature composite war-frame. ATMAN on identity and composition */
   boss_storm_kaiser: {
     en: 'A monkey\'s cunning, a tiger\'s strength, a serpent\'s venom — assembled into one. Like you. Like MUDRA. Like me.',
     ja: '猿の狡猾さ、虎の力、蛇の毒——一つに組み上げた。お前のように。MUDRAのように。我のように。',
@@ -331,9 +331,9 @@ export const EASY_ENDING_STANZAS: readonly BilingualStanza[] = [
  *
  *  Stanza 4 acknowledges the night's specific kill in **one beat only** —
  *  "the mercy offered there." That phrasing fits the current Ep0 boss
- *  (Yuki Onna, "the kindest kill in the catalogue") without leaning so
+ *  (YUKIME-Ω, "the kindest kill in the catalogue") without leaning so
  *  hard on snow imagery that the text becomes about her. She was a lower-
- *  tier avatar; future bosses (Shuten Doji, Tamamo, Nue, etc.) also fit
+ *  tier avatar; future bosses (SHUTEN-Ω, TAMAMO-Σ, NUE-Π, etc.) also fit
  *  the same line because "mercy offered" abstracts to ATMAN's general
  *  pitch: managed, painless death. The thematic center stays on the
  *  refusal itself, not on the executioner. */

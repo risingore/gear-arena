@@ -159,7 +159,7 @@ const CSS = `
   font-size:11px;letter-spacing:.12em;color:#ffd94a;
 }
 .${ROOT_CLASS} .card.locked .placeholder{
-  font-family:'Bebas Neue',sans-serif;font-size:18px;color:#ff4444;
+  font-family:'Bebas Neue',sans-serif;font-size:18px;color:#6a7687;
 }
 .${ROOT_CLASS} .list{display:flex;flex-direction:column;gap:8px}
 .${ROOT_CLASS} .row{

@@ -1526,3 +1526,203 @@ mutations.
   (transparent).
 
 ---
+
+## Day 12 — evening (2026-04-26 17:00–22:00 JST)
+
+### Submission-readiness pass
+
+Last day of the jam. Morning landed cut-ins and order
+arbitration. The evening was a pure regression / polish
+sweep — every bug found during the late-stage Hard playtest
+got fixed, and the Collection screen was reconciled with
+the actual jam content.
+
+### Boss-ULT freeze (root cause: race with player gauge fill)
+
+When boss ULT and player gauge fill landed on the SAME
+`update()` tick, `update()` set `ultFiring=true` for the
+boss cut-in *and* called `startGijiren` → `showUltimateButton`
+in the gauge-ready branch at the bottom of the same call.
+The SOUL STRIKE DOM button (`z-index: 150`,
+`background: rgba(0,0,0,.55)`) mounted on top of the boss
+cut-in and the screen read as frozen even though the
+runtime was healthy — the player's input target was hidden
+under the dim overlay.
+
+Fix: the gauge-ready branch now bails when `ultFiring=true`.
+The check defers naturally — the next `update()` after the
+cut-in's `ultFiring=false` callback fires picks up the
+still-full gauge and runs `startGijiren` cleanly. Also
+hardened the path with three safety nets: `hp<=0` force
+`finishBattle`, `ultFiring` orphan-detect (>6 s force
+release), and per-step try/catch around the post-cut-in
+damage application so a thrown sprite-destroy can't strand
+the lock.
+
+### Boss sprite half-transparent persistence
+
+`playEnemyUltimateSpriteMotion()` calls
+`tweens.killTweensOf(visual)` to clear pending tweens
+before its shake chain. Phaser's `killTweensOf` stops the
+tween at its current value but never restores the target —
+so a hit-flash tween (`alpha: 0.3 → 1.0`, 160 ms) caught
+mid-stride left the boss sprite stuck at e.g. `0.5` alpha
+through the cut-in and beyond, reading as "boss is fading
+out / half-dead" while HP was still positive. Added
+`visual.setAlpha(1)` after `killTweensOf` (mirror in the
+player variant) — re-anchors the sprite before shake.
+
+### EnemyDef → runtime pipeline regression
+
+While diagnosing "YUKIME-Ω one-shot" reports the underlying
+bug surfaced: `defToEnemy` was silently stripping the
+boss-spec fields (`shieldCharges`, `repairAmount`,
+`repairIntervalSec`, `extraWeapons`) from `EnemyDef`, and
+`createEnemyCombatant` had them hardcoded to `0` / `1`. So
+**every boss in the jam was fighting with bare statline** —
+no shield, no repair, only one weapon. NEKOMATA-Ψ never
+threw Pounce, MUJINA-Σ had no Mimic Strike or 2-shield
+buffer, TSUKUMO-Δ skipped Hop Slam, YUKIME-Ω fought without
+shield charges or Frozen Breath. This explained the
+one-shot pattern and why the mid-bosses felt lighter than
+their tier suggested.
+
+Fix landed in three files:
+
+1. `data/schema.ts` — `EnemyData` extended with optional
+   boss-spec fields.
+2. `systems/enemyPool.ts` — `defToEnemy` passes them
+   through.
+3. `systems/combat.ts` — `createEnemyCombatant` wires them
+   into the runtime, layering `extraWeapons` onto the
+   default attack and applying `enemyDamageMultiplier` to
+   keep the balance curve intact.
+
+YUKIME-Ω's stats then got a deliberate bump now that her
+kit actually fires: `baseHp 700 → 1300`, `DR 0.20 → 0.25`,
+`shieldCharges 3 → 6`, `repairAmount 5 → 8`. Floor for a
+buff-less Hard clear is now 2-3 ULT exchanges, not one.
+
+### BGM overlap on rapid scene swaps
+
+`playMusic` runs the cross-fade as a Phaser tween scoped to
+the *calling* scene. Spamming SPACE through Result → Build →
+Battle let the calling scene shut down before its fade-out
+tween's `onComplete: prev.stop()` fired — Phaser killed the
+tween and the previous BGM kept playing. Two or three
+scenes' worth of BGM stacked.
+
+Fix: module-level `fadingSounds: Set<TweenableSound>`
+tracks every fade-out target. Each `playMusic` call
+force-stops the set before scheduling the new pair. Normal
+fade completion still removes itself from the set via
+`onComplete`. Single-track audio survives any
+scene-spam pattern.
+
+### Hard-mode 1-shot clear → balance pass
+
+A clean Hard run cleared on the first attempt with gold to
+spare — gear-walling wasn't biting. Two-handed fix:
+
+- `ECONOMY.roundRewardBase` 600 → 500,
+  `roundRewardPerRound` 100 → 80. Hard total purse:
+  11,400 → 9,600 g (~16 % drop). Player can ★3-merge
+  *or* keep buying through R9 — not both.
+- `BALANCE.roundDifficultyGrowthHard` 1.18 → 1.22. R5
+  ramp: 1.94× → 2.21×, R7: 2.70× → 3.30×, R9: 3.76× →
+  4.91×. Combined with the 1.30× `hardEnemyStatBoost`,
+  R9 effective scaling lands at 6.38×.
+
+Easy growth (`roundDifficultyGrowthEasy 1.10`) untouched.
+Easy gets a smaller wallet trim (~12 %) but stays
+buff-less-clearable.
+
+### Collection screen reconciled with jam scope
+
+`Collection.ts` was iterating every entry in `ALL_ROBOT_KEYS`
+/ all enemies / all skills, including dormant Episode 1
+content (GOLIATH-414 / STRIKER / ORACLE, IBARA-IV / RAIJU-VI
+/ etc., SHUTEN-Ω / TAMAMO-Σ / NUE-Π) and the excluded
+super boss Daitengu. Players saw a 26-entry enemy tab and a
+4-entry machine tab where 17 / 1 was correct. Skills
+mirrored the same problem — 4 of 10 (the big-boss tier) are
+gated by `isSuperRoute` which can't trigger on a
+10-round Hard layout, so they're permanently locked.
+
+Centralised the jam allow-lists at the data layer:
+
+- `JAM_ROBOT_KEYS` in `data/robots.ts` (INDRA only).
+- `JAM_NORMAL_IDS` / `JAM_MIDBOSS_IDS` / `JAM_BIGBOSS_IDS` /
+  `JAM_ENEMY_IDS` in `data/enemies.ts` — single source of
+  truth used by both `enemyPool.generateRunEnemies` and the
+  Collection scene.
+- Skills filtered to `tier === 'midBoss'` (6 reachable).
+
+Achievements got the same trim: `ach_all_robots` (4
+machines) and `ach_apex` (Daitengu) dropped as unreachable;
+`ach_all_enemies` recounted to 17. Added `ach_collect_king`
+(tier 5) — gated by 100 % across all four tabs, displays as
+the Title-screen banner once earned.
+
+### Debug helpers (Settings → Debug)
+
+QA needed a way to eyeball the Collection screen without
+grinding several Hard runs. Two new dev-only rows added to
+`Settings → Debug`:
+
+- `Collection: Unlock All` — fills every collection field
+  to its jam-scope ceiling (1 machine cleared, 25 parts
+  used, 17 enemies defeated, 6 mid-boss skills acquired,
+  easy/hardCleared = true). `ach_collect_king` lights up
+  immediately.
+- `Collection: Wipe` — inverse. Resets only collection
+  fields; leaves scrap, settings, and owned buff items
+  alone.
+
+Both share an `applyCollectionState('full' | 'empty')`
+mutator so the field list stays in one place. Helpers live
+in `scenes/settingsDebug.ts` behind the existing
+`import.meta.env.DEV` gate, so the prod bundle still
+strips them cleanly.
+
+### `/simplify` quality gate
+
+Three review agents (reuse / quality / efficiency) ran on
+the day's diff. Findings landed:
+
+- `JAM_*_IDS` had drifted into a duplicate inline definition
+  inside `enemyPool.ts`; collapsed to a single import from
+  `data/enemies` (CLAUDE.md §10.1 mandate).
+- Four `console.info` debug lines from the freeze
+  diagnosis were stripped — they would have spammed every
+  Hard R10.
+- `setSoulStrikeButtonVisible` was reaching across the
+  DOM/canvas boundary via `document.querySelector`. Moved
+  to a `setVisible(visible: boolean)` method on
+  `SoulStrikeButtonHandle`; Battle holds the handle and
+  calls it cleanly.
+- `unlockAllCollection` / `wipeCollection` collapsed to
+  the shared `applyCollectionState` helper.
+- `'robot_knight'` literals in Collection / settingsDebug
+  / achievements replaced with `JAM_ROBOT_KEYS`.
+- Long changelog-style comments in `balance.ts`,
+  `economy.ts`, `enemies.ts` trimmed to the load-bearing
+  WHY (the bumps and rationale) — date-stamped narration
+  and before/after diffs belong in commit messages.
+
+`bunx tsc --noEmit`: 0 errors after every fix.
+
+### Submission state — final
+
+Last commit before the 23:00 JST submission cutoff:
+
+- itch.io build: `/dist` skill produces a stripped zip
+  with all debug rows tree-shaken (verified by the grep
+  step in the skill). Upload via butler `risingore/soul-strike:html`.
+- Cloudflare Workers mirror at `machines.risingore.com`
+  exists from earlier deploys — itch is the canonical
+  jam target so the mirror is no longer advertised on the
+  jam form / README.
+- GitHub repo public for the Open Source Challenge entry.
+
+---

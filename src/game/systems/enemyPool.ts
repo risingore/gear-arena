@@ -19,6 +19,9 @@ import {
   NORMAL_ENEMIES,
   MID_BOSSES,
   BIG_BOSSES,
+  JAM_NORMAL_IDS,
+  JAM_MIDBOSS_IDS,
+  JAM_BIGBOSS_IDS,
   type EnemyDef
 } from '@/data/enemies';
 import type { EnemyData } from '@/data/schema';
@@ -80,6 +83,12 @@ const defToEnemy = (def: EnemyDef, applyVariance: boolean, difficultyMult: numbe
   // so statScale=100 doesn't blow past the player's pre-ult survival
   // window. See balance.ts comment for the full rationale.
   const dmgScaled = def.baseDamage * difficultyMult * BALANCE.enemyDamageMultiplier;
+  // Boss-spec fields (extraWeapons / shieldCharges / repairAmount /
+  // repairIntervalSec) live on EnemyDef but were silently stripped here
+  // before 2026-04-26 — meaning YUKIME-Ω's shield/repair/Frozen Breath
+  // never actually fired and the player one-shot her routinely. Pass
+  // them through so createEnemyCombatant can wire them up. Variance is
+  // not applied to these (boss tuning is hand-set, not RNG-rolled).
   return {
     name: def.name,
     hp: applyVariance ? vary(hpScaled, BALANCE.normalEnemyVariance) : Math.round(hpScaled),
@@ -90,7 +99,11 @@ const defToEnemy = (def: EnemyDef, applyVariance: boolean, difficultyMult: numbe
     damageReductionPct: applyVariance
       ? varyPct(def.baseDamageReductionPct, BALANCE.normalEnemyVariance)
       : def.baseDamageReductionPct,
-    assetKey: def.assetKey
+    assetKey: def.assetKey,
+    extraWeapons: def.extraWeapons,
+    shieldCharges: def.shieldCharges,
+    repairAmount: def.repairAmount,
+    repairIntervalSec: def.repairIntervalSec,
   };
 };
 
@@ -157,21 +170,16 @@ export function generateRunEnemies(
   const midPool = sortedNormals.filter((e) => e.tier >= BALANCE.midTierMin && e.tier <= BALANCE.midTierMax);
   const hardPool = sortedNormals.filter((e) => e.tier >= BALANCE.hardTierMin);
 
-  // Jam scope: only INDRA-ready enemies have sprites in Preloader. Both
-  // Easy and Hard filter through the same allow-list so the build never
-  // tries to render an unshipped sprite.
-  const JAM_NORMAL_IDS = new Set<string>([
-    'enemy_mob1', 'enemy_mob2', 'enemy_mob3', 'enemy_mob4', 'enemy_mob5',
-    'enemy_mob6', 'enemy_mob7', 'enemy_mob8', 'enemy_mob9', 'enemy_mob10',
-    'enemy_mob11', 'enemy_mob13', 'enemy_mob14',
-  ]);
-  const JAM_MIDBOSS_IDS = new Set<string>(['midboss_bakeneko', 'midboss_nopperabo', 'midboss_karakasa']);
-  const JAM_BIGBOSS_IDS = new Set<string>(['boss_yuki_onna']);
-  const jamEasyPool = easyPool.filter((e) => JAM_NORMAL_IDS.has(e.id));
-  const jamMidPool = midPool.filter((e) => JAM_NORMAL_IDS.has(e.id));
-  const jamHardPool = hardPool.filter((e) => JAM_NORMAL_IDS.has(e.id));
-  const jamMidBosses = MID_BOSSES.filter((e) => JAM_MIDBOSS_IDS.has(e.id));
-  const jamBigBosses = BIG_BOSSES.filter((e) => JAM_BIGBOSS_IDS.has(e.id));
+  // Jam scope allow-lists live in @/data/enemies as the single source of
+  // truth (CLAUDE.md §10.1). Convert to Set for O(1) `.has()` filtering.
+  const normalSet = new Set(JAM_NORMAL_IDS);
+  const midbossSet = new Set(JAM_MIDBOSS_IDS);
+  const bigbossSet = new Set(JAM_BIGBOSS_IDS);
+  const jamEasyPool = easyPool.filter((e) => normalSet.has(e.id));
+  const jamMidPool = midPool.filter((e) => normalSet.has(e.id));
+  const jamHardPool = hardPool.filter((e) => normalSet.has(e.id));
+  const jamMidBosses = MID_BOSSES.filter((e) => midbossSet.has(e.id));
+  const jamBigBosses = BIG_BOSSES.filter((e) => bigbossSet.has(e.id));
   // Fall back to the full pool when the jam subset is empty, so the run
   // never lands on `pickRandom([])`. Mid-tier jam pool is empty for now;
   // it falls through to the full mid pool (or easy if mid is empty too).
@@ -200,42 +208,52 @@ export function generateRunEnemies(
 
   if (mode === 'easy') {
     // Easy: 5 rounds, no big-boss climax — INDRA's introductory fall.
-    // Tuned to be clearable on a normal first attempt without SANCTUM buffs.
-    // R1-R2 easy pool, R3-R4 mid pool (was hard — too steep for Easy), R5 mid-boss.
-    // roundDiff(N) ramps HP/damage by +5%/round so progression feels real.
-    // Per-round gold rewards are 1.5× the original Hard-style ramp so an
-    // Easy run lands ~6600g of post-battle gold (8100g including the 1500g
-    // starting purse) — comfortably enough to ★1-fill the loadout and
-    // ★3-merge a slot or two before the R5 mid-boss climax.
+    // Tuned so a part-less loadout cannot stall a round: every enemy's
+    // baseHp / baseDamage gets a flat BALANCE.easyEnemyStatBoost (1.30×)
+    // multiplier on top of roundDiff(N). With this, R1 already requires
+    // at least one equipped part to win; the gold ramp (1.5× over the
+    // Hard baseline) covers the cost so "equip → win → equip more" is
+    // the natural loop. R5 mid-boss inherits the same boost.
+    const easyBoost = BALANCE.easyEnemyStatBoost;
     const r1 = pickRandom(eP);
-    rounds.push({ index: 1, enemy: defToEnemy(r1, true, roundDiff(1, mode)), enemyId: r1.id, goldReward: 1200, isBoss: false, isSuperBoss: false });
+    rounds.push({ index: 1, enemy: defToEnemy(r1, true, roundDiff(1, mode) * easyBoost), enemyId: r1.id, goldReward: 1200, isBoss: false, isSuperBoss: false });
     const r2 = pickRandom(eP);
-    rounds.push({ index: 2, enemy: defToEnemy(r2, true, roundDiff(2, mode)), enemyId: r2.id, goldReward: 1500, isBoss: false, isSuperBoss: false });
+    rounds.push({ index: 2, enemy: defToEnemy(r2, true, roundDiff(2, mode) * easyBoost), enemyId: r2.id, goldReward: 1500, isBoss: false, isSuperBoss: false });
     const r3 = pickRandom(mP);
-    rounds.push({ index: 3, enemy: defToEnemy(r3, true, roundDiff(3, mode)), enemyId: r3.id, goldReward: 1800, isBoss: false, isSuperBoss: false });
+    rounds.push({ index: 3, enemy: defToEnemy(r3, true, roundDiff(3, mode) * easyBoost), enemyId: r3.id, goldReward: 1800, isBoss: false, isSuperBoss: false });
     const r4 = pickRandom(mP);
-    rounds.push({ index: 4, enemy: defToEnemy(r4, true, roundDiff(4, mode)), enemyId: r4.id, goldReward: 2100, isBoss: false, isSuperBoss: false });
+    rounds.push({ index: 4, enemy: defToEnemy(r4, true, roundDiff(4, mode) * easyBoost), enemyId: r4.id, goldReward: 2100, isBoss: false, isSuperBoss: false });
     const mb = pickRandom(mbP);
-    rounds.push({ index: 5, enemy: defToEnemy(mb, false, roundDiff(5, mode)), enemyId: mb.id, goldReward: 0, isBoss: true,  isSuperBoss: false });
+    rounds.push({ index: 5, enemy: defToEnemy(mb, false, roundDiff(5, mode) * easyBoost), enemyId: mb.id, goldReward: 0, isBoss: true,  isSuperBoss: false });
   } else {
     // Hard: 10 rounds, full Episode 0 arc — R10 big-boss climax.
-    // roundDiff(N) ramps HP/damage by +5%/round (R1=1.00× → R10=1.45×) for
-    // normal enemies and mid-bosses. Big-boss (R10) is exempt — already tuned.
+    // Per-round gold ramp `(14 + i) * 100` lands every round at ~1500-2300g —
+    // about three parts' worth of purchasing power per round (avg part
+    // price ~570g) so the player can ★3-merge a slot or two by mid-run.
+    // Mid-boss rewards (R4=1700, R7=2000) sit slightly above the linear
+    // ramp as a payoff for the harder fight. Big-boss (R10) is the
+    // climax with no reward — surviving is the prize.
+    // roundDiff(N) is multiplied by hardEnemyStatBoost (1.30×) so the
+    // bigger purse is matched by tougher enemies — without that boost
+    // the new gold ramp would trivialise the late-game arms race.
+    // Big-boss (R10) is exempt from the ramp — passes 1.0 — already
+    // tuned with its own baseHp / DR / shield charges / repair tick.
+    const hardBoost = BALANCE.hardEnemyStatBoost;
     for (let i = 1; i <= 3; i += 1) {
       const e = pickRandom(eP);
-      rounds.push({ index: i, enemy: defToEnemy(e, true, roundDiff(i, mode)), enemyId: e.id, goldReward: (6 + i) * 100, isBoss: false, isSuperBoss: false });
+      rounds.push({ index: i, enemy: defToEnemy(e, true, roundDiff(i, mode) * hardBoost), enemyId: e.id, goldReward: (14 + i) * 100, isBoss: false, isSuperBoss: false });
     }
     const mb1 = pickRandom(mbP);
-    rounds.push({ index: 4, enemy: defToEnemy(mb1, false, roundDiff(4, mode)), enemyId: mb1.id, goldReward: 1200, isBoss: true, isSuperBoss: false });
+    rounds.push({ index: 4, enemy: defToEnemy(mb1, false, roundDiff(4, mode) * hardBoost), enemyId: mb1.id, goldReward: 1700, isBoss: true, isSuperBoss: false });
     for (let i = 5; i <= 6; i += 1) {
       const e = pickRandom(mP);
-      rounds.push({ index: i, enemy: defToEnemy(e, true, roundDiff(i, mode)), enemyId: e.id, goldReward: (9 + i) * 100, isBoss: false, isSuperBoss: false });
+      rounds.push({ index: i, enemy: defToEnemy(e, true, roundDiff(i, mode) * hardBoost), enemyId: e.id, goldReward: (14 + i) * 100, isBoss: false, isSuperBoss: false });
     }
     const mb2 = pickRandom(mbP);
-    rounds.push({ index: 7, enemy: defToEnemy(mb2, false, roundDiff(7, mode)), enemyId: mb2.id, goldReward: 1400, isBoss: true, isSuperBoss: false });
+    rounds.push({ index: 7, enemy: defToEnemy(mb2, false, roundDiff(7, mode) * hardBoost), enemyId: mb2.id, goldReward: 2000, isBoss: true, isSuperBoss: false });
     for (let i = 8; i <= 9; i += 1) {
       const e = pickRandom(hP);
-      rounds.push({ index: i, enemy: defToEnemy(e, true, roundDiff(i, mode)), enemyId: e.id, goldReward: (11 + i) * 100, isBoss: false, isSuperBoss: false });
+      rounds.push({ index: i, enemy: defToEnemy(e, true, roundDiff(i, mode) * hardBoost), enemyId: e.id, goldReward: (14 + i) * 100, isBoss: false, isSuperBoss: false });
     }
     const bb = pickRandom(bbP);
     rounds.push({ index: 10, enemy: defToEnemy(bb, false, 1.0), enemyId: bb.id, goldReward: 0, isBoss: true, isSuperBoss: false });

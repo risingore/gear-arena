@@ -276,8 +276,7 @@ export function mountEndingScrollOverlay(opts: EndingScrollOverlayOptions): () =
   }, fadeOutEndAt + EPILOGUE_DETACH_BUFFER_MS);
 
   // bgm_victory is the full 158.76s original (restored 2026-04-26 from the
-  // pre-trim Suno source after the 115s re-cut proved too short for the
-  // 8-section credits roll). Goal: scroll completion (= RETURN button
+  // pre-trim Suno source). Goal: scroll completion (= RETURN button
   // visible at the 百鬼夜行 reveal) ≈ music end, so the final yokai-march
   // reveal lands precisely as the music finishes.
   //
@@ -285,12 +284,14 @@ export function mountEndingScrollOverlay(opts: EndingScrollOverlayOptions): () =
   //   13s VICTORY screen + 22s stanzas + 7s HOLD + 1.5s fade + 0.2s gap
   //   ≈ 43.7s. Target scroll duration ≈ 158.76 − 43.7 = ~115s.
   //
-  // baseSpeed 18 px/s lands the 8-section credits roll (~2030px including
-  // the 百鬼夜行 block) at ~113s, fitting the 115s target with a 2s margin
-  // of music tail covering the closing reveal.
-  // If credits length changes again, re-measure with playwright and
-  // adjust baseSpeed (or change the bgm to match).
-  const baseSpeed = opts.scrollSpeed ?? 18;
+  // baseSpeed was 18 (target 113s @ ~2030px content) but the actual
+  // content height runs taller in practice (panel padding, line-height,
+  // 百鬼夜行 block render), so the music finished well before the scroll
+  // did. 23 px/s is the current balance — music ends close to the
+  // scroll, with RETURN appearing without a long silent tail. Adjust
+  // here in 2-4 px increments — higher = faster scroll, RETURN appears
+  // earlier relative to music.
+  const baseSpeed = opts.scrollSpeed ?? 23;
   let scrollOffset = 0;
   let raf = 0;
   let lastTs = performance.now();

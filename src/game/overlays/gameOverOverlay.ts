@@ -21,6 +21,10 @@ export interface GameOverOverlayOptions {
   scrapEarned: number;
   statsLines: readonly string[];
   hint: string;
+  /** SANCTUM (加持堂) call-to-action shown right under the scrap row when
+   *  scrap > 0 — prompts the player to spend it on next-run buffs before
+   *  diving back in. Empty string omits the prompt. */
+  sanctumPrompt?: string;
   onReturnToTitle(): void;
   returnLabel?: string;
 }
@@ -53,6 +57,14 @@ const CSS = `
 }
 .${ROOT_CLASS} .scrap{
   font-size:14px;letter-spacing:.18em;color:#aeeaff;opacity:.85;
+}
+.${ROOT_CLASS} .sanctum-prompt{
+  margin-top:4px;padding:6px 16px;
+  font-size:12px;letter-spacing:.14em;color:#cc66ff;
+  background:rgba(40,16,64,.55);
+  border:1px solid rgba(204,102,255,.4);
+  text-align:center;line-height:1.5;
+  max-width:520px;
 }
 .${ROOT_CLASS} .stats{
   text-align:center;font-size:12px;letter-spacing:.1em;color:#8da0ba;
@@ -96,6 +108,9 @@ export function mountGameOverOverlay(opts: GameOverOverlayOptions): () => void {
   const scrapHtml = opts.scrapEarned > 0
     ? `<div class="scrap">+${opts.scrapEarned} Scrap</div>`
     : '';
+  const sanctumHtml = opts.sanctumPrompt
+    ? `<div class="sanctum-prompt">${esc(opts.sanctumPrompt)}</div>`
+    : '';
 
   root.innerHTML = `
     <div class="stage ss-stage">
@@ -106,6 +121,7 @@ export function mountGameOverOverlay(opts: GameOverOverlayOptions): () => void {
       <div class="title">GAME OVER</div>
       <div class="round">REACHED ROUND ${opts.round} / ${opts.totalRounds}</div>
       ${scrapHtml}
+      ${sanctumHtml}
       <div class="stats">${statsHtml}</div>
       <div class="hint">${esc(opts.hint)}</div>
       <div class="return" data-role="return">${esc(opts.returnLabel ?? 'RETURN TO TITLE')}</div>

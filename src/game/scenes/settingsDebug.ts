@@ -15,6 +15,9 @@ import type { Scene } from 'phaser';
 import { createInitialRunState, setRunState } from '../systems/runState';
 import { fadeToScene } from '../systems/transition';
 import type { GeneratedRound } from '../systems/enemyPool';
+import { ALL_PART_KEYS, JAM_ROBOT_KEYS, SKILLS, type RobotKey } from '@/data';
+import { JAM_ENEMY_IDS } from '@/data/enemies';
+import { loadSaveData, saveSaveData } from '../systems/savedata';
 
 /** Jump straight to Result with the chosen ending flavour playing end to end. */
 export const jumpToEnding = (scene: Scene, mode: 'easy' | 'hard'): void => {
@@ -28,7 +31,7 @@ export const jumpToEnding = (scene: Scene, mode: 'easy' | 'hard'): void => {
   const finalRound: GeneratedRound = {
     index: 5,
     enemy: {
-      name: 'Yuki Onna',
+      name: 'YUKIME-Ω',
       hp: 1,
       damage: 1,
       cooldownSec: 1,
@@ -78,3 +81,39 @@ export const jumpToCutInPreview = (
   setRunState(scene, fake);
   fadeToScene(scene, 'Battle');
 };
+
+/**
+ * QA helpers to flip every collection-tracking field at once. Touches
+ * only what the Collection scene reads (defeated / used / acquired /
+ * unlocked / cleared flags + achievement-gating counters); run state
+ * (current scrap, equipped buffs, etc.) is left untouched.
+ *
+ * Skills cap at the mid-boss tier because big-boss skills are
+ * unreachable in jam scope (see Collection.ts re: isSuperRoute) —
+ * marking them "acquired" would lie about what the player can obtain.
+ */
+const applyCollectionState = (mode: 'full' | 'empty'): void => {
+  const full = mode === 'full';
+  const data = loadSaveData();
+  data.unlockedRobots = [...JAM_ROBOT_KEYS];
+  for (const k of Object.keys(data.perRobotClears) as RobotKey[]) {
+    data.perRobotClears[k] = 0;
+  }
+  if (full) {
+    for (const k of JAM_ROBOT_KEYS) data.perRobotClears[k] = 1;
+  }
+  data.defeatedEnemies = full ? [...JAM_ENEMY_IDS] : [];
+  data.usedParts = full ? [...ALL_PART_KEYS] : [];
+  data.acquiredSkillsEver = full
+    ? SKILLS.filter((s) => s.tier === 'midBoss').map((s) => s.id)
+    : [];
+  data.totalClears = full ? 10 : 0;
+  data.bestRound = full ? 10 : 0;
+  data.battlesCompleted = full ? 1 : 0;
+  data.easyCleared = full;
+  data.hardCleared = full;
+  saveSaveData(data);
+};
+
+export const unlockAllCollection = (): void => applyCollectionState('full');
+export const wipeCollection = (): void => applyCollectionState('empty');

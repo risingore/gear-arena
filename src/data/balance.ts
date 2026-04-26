@@ -79,6 +79,24 @@ export const BALANCE = {
    *  Easy grind still nets some scrap (psychologically rewarding, "you got
    *  something") but the actual SANCTUM stockpile must come from Hard runs. */
   scrapConversionRateEasy: 0.025,
+  /** Multiplier applied to Hard-mode DEATH scrap based on the round the
+   *  player died on. Index = round number (1-indexed); index 0 unused.
+   *  Anti-exploit: without this, dying at R1 with no parts pays out
+   *  1500 × 0.5 = 750 scrap in 70 seconds, beating an honest Hard run.
+   *  R7+ is the "normal" payout; earlier rounds are heavily penalised. */
+  scrapDeathMultiplierByRound: [
+    /* idx 0 unused */ 0,
+    /* R1  */ 0.05,
+    /* R2  */ 0.05,
+    /* R3  */ 0.05,
+    /* R4  */ 0.15,
+    /* R5  */ 0.35,
+    /* R6  */ 0.35,
+    /* R7  */ 1.00,
+    /* R8  */ 1.00,
+    /* R9  */ 1.00,
+    /* R10 */ 0.95,
+  ] as readonly number[],
 
   // ---------------------------------------------------------------------------
   // Enemy Generation
@@ -102,12 +120,33 @@ export const BALANCE = {
    *
    *   Easy (5 rounds, growth 1.10):
    *     R1=1.00× / R3=1.21× / R5=1.46×  — last mid-boss is a brief test.
-   *   Hard (10 rounds, growth 1.18):
-   *     R1=1.00× / R5=1.94× / R7=2.70× / R10=4.44×  — gear-walled without
-   *     ★3 merges or 3+ SANCTUM buffs by R7-R10.
+   *   Hard (10 rounds, growth 1.22):
+   *     R1=1.00× / R5=2.21× / R7=3.30× / R9=4.91× — gear-walled without
+   *     ★3 merges or 3+ SANCTUM buffs by R7-R10. Big-boss (R10) stays
+   *     exempt — tuned via its own baseHp / DR / shields.
    */
   roundDifficultyGrowthEasy: 1.10,
-  roundDifficultyGrowthHard: 1.18,
+  roundDifficultyGrowthHard: 1.22,
+
+  /** Extra HP / damage multiplier applied to ENEMIES in Easy mode only.
+   *  Goal: a part-less INDRA cannot survive a single round — every round
+   *  forces the player to equip at least one part to win. With the
+   *  baseline statScale (100×) and growth 1.10, INDRA's bare maxHp can
+   *  outlast R1 if the player just stalls. Bumping enemy baseHp / dmg by
+   *  this factor narrows the survival window so "buy nothing, fight
+   *  empty" is no longer viable, while equipping any single part keeps
+   *  the round winnable. Tuning this number directly trades against the
+   *  jam-clearable threshold — auto-play on adjustments. */
+  easyEnemyStatBoost: 1.30,
+
+  /** Extra HP / damage multiplier applied to ENEMIES in Hard mode only.
+   *  Symmetric to easyEnemyStatBoost: Hard's gold rewards were raised
+   *  so each round funds ~3 parts (~1700g/round), and this boost keeps
+   *  the difficulty calibrated against that wallet — without it, the
+   *  bigger purse would trivialise the run. Stacks on top of
+   *  roundDifficultyGrowthHard (1.18^N-1) so by R10 the effective enemy
+   *  scaling is 1.30 × 4.44 = ~5.77×. */
+  hardEnemyStatBoost: 1.30,
 
   // ---------------------------------------------------------------------------
   // Battle UX

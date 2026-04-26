@@ -759,6 +759,7 @@ export class Battle extends Scene {
     if (state.previewCutIn) {
       const preview = state.previewCutIn;
       this.ultFiring = true;
+      this.ultFiringStart = this.time.now;
       this.ultReady = false;
       this.time.delayedCall(700, () => {
         if (preview.kind === 'player' && this.player.ultimate) {
@@ -854,6 +855,21 @@ export class Battle extends Scene {
       return;
     }
 
+    // Orphan-detect safety net: if `ultFiring` has been held for >6s
+    // (any cut-in chain finishes well before that), assume a callback
+    // was dropped and force-release the lock. Without this, a single
+    // exception inside spawnUltimateFlash or its tween chain would
+    // freeze the scene permanently.
+    if (this.ultFiring && this.ultFiringStart > 0 &&
+        this.time.now - this.ultFiringStart > 6000) {
+      console.warn('[Battle] ultFiring held >6s — orphan release');
+      this.ultFiring = false;
+      this.ultFiringStart = 0;
+      if (this.ultReady && !this.finished) {
+        this.setSoulStrikeButtonVisible(true);
+      }
+    }
+
     // Frozen: waiting for ultimate button press
     if (this.ultReady) return;
 
@@ -903,11 +919,13 @@ export class Battle extends Scene {
       // the cut-in finishes. ultFiring=true freezes the next tick so
       // the player sees the cut-in BEFORE watching their HP drop.
       this.ultFiring = true;
+      this.ultFiringStart = this.time.now;
+      // SOUL STRIKE button is a DOM element on document.body, OUTSIDE
+      // the Phaser canvas, so canvas depth can't hide it during the
+      // boss cut-in. Toggle visibility directly so the two reveals
+      // don't fight each other on screen. Re-shown after the cut-in.
+      this.setSoulStrikeButtonVisible(false);
       const ultName = enemyTick.ultimateFired;
-      // Boss visibly tremors (slow → accelerating) BEFORE the cut-in
-      // covers the arena, then the cut-in plays, then 2400 ms later
-      // the damage popups / HP refresh land. Use the actual shake
-      // duration so the cut-in hits exactly when the boss settles.
       const shakeMs = this.playEnemyUltimateSpriteMotion();
       this.time.delayedCall(shakeMs, () => {
         try { this.spawnUltimateFlash(ultName, false); } catch (e) {
@@ -915,10 +933,9 @@ export class Battle extends Scene {
         }
       });
       this.time.delayedCall(shakeMs + 2400, () => {
-        // Wrap each step so a single failure (e.g. a destroyed sprite,
-        // a tween race, etc.) cannot orphan the ultFiring=true lock —
-        // that would freeze the entire scene because update() bails on
-        // ultFiring at the top.
+        // Wrap each step so a single failure (destroyed sprite, tween
+        // race) cannot orphan the ultFiring=true lock — that would
+        // freeze the scene because update() bails on ultFiring at top.
         try {
           enemyTick.attacks.forEach((e) => this.onAttack(e, this.playerSprite, false));
         } catch (e) {
@@ -927,10 +944,15 @@ export class Battle extends Scene {
         try { this.refreshHp(); } catch (e) {
           console.error('[Battle] post-cut-in refreshHp failed:', e);
         }
-        // Release the cut-in lock so the player ULT can proceed on the
-        // next tick. Mirror of the 2800ms unlock in triggerPlayerUltimate.
         this.ultFiring = false;
-        if (this.player.hp <= 0) this.finishBattle('lose');
+        if (this.ultReady && !this.finished) {
+          this.setSoulStrikeButtonVisible(true);
+        }
+        if (this.player.hp <= 0) {
+          try { this.finishBattle('lose'); } catch (e) {
+            console.error('[Battle] post-cut-in finishBattle failed:', e);
+          }
+        }
       });
     } else {
       enemyTick.attacks.forEach((e) => this.onAttack(e, this.playerSprite, false));
@@ -941,8 +963,15 @@ export class Battle extends Scene {
       this.refreshHp();
     }
 
-    // Check if ultimate gauge just filled → freeze → 擬似連 → button
-    if (!this.ultReady && !this.finished && this.player.ultimate &&
+    // Check if ultimate gauge just filled → freeze → 擬似連 → button.
+    // Defer this branch while ultFiring is true so a player gauge that
+    // happened to fill on the SAME tick the boss fired its ULT does not
+    // race startGijiren / showUltimateButton against the boss cut-in
+    // (they would mount the SOUL STRIKE DOM button on top of the cut-in
+    // and visually freeze the player after the cut-in resolves). When
+    // ultFiring clears in the post-cut-in callback, the next update tick
+    // will pick up the still-full gauge and run this branch normally.
+    if (!this.ultReady && !this.finished && !this.ultFiring && this.player.ultimate &&
         this.player.ultimateGauge >= this.player.ultimate.gaugeFillRatio) {
       this.ultReady = true;
       this.startGijiren();
@@ -1292,6 +1321,15 @@ export class Battle extends Scene {
       this.playerStatusTexts.push(indicator);
       offsetX += indicator.width + 8;
     }
+  }
+
+  /**
+   * Hide the SOUL STRIKE button during boss cut-ins so the DOM overlay
+   * (z-index 150) doesn't draw on top of the Phaser-canvas reveal.
+   * No-op when the button isn't mounted.
+   */
+  private setSoulStrikeButtonVisible(visible: boolean): void {
+    this.soulStrikeBtn?.setVisible(visible);
   }
 
   private finishBattle(outcome: 'win' | 'lose'): void {
@@ -2188,6 +2226,13 @@ export class Battle extends Scene {
   }
 
   private ultFiring = false;
+  /** `this.time.now` snapshot taken whenever ultFiring flips to true.
+   *  update()'s orphan-detect safety net uses this to force-release
+   *  the cut-in lock if it has been held for >6s — long enough that
+   *  any normal cut-in chain has finished, short enough that the
+   *  player doesn't sit on a frozen scene if a delayed callback
+   *  drops. 0 means no firing-start has been recorded yet. */
+  private ultFiringStart = 0;
 
   /**
    * Pre-ult tremor on the boss battle sprite — left/right shudder that
@@ -2202,7 +2247,15 @@ export class Battle extends Scene {
 
     const baseX = this.enemyBaseX;
     this.tweens.killTweensOf(visual);
+    // Restore the full visual baseline. killTweensOf freezes any
+    // in-flight tween at its current value, so a hit-flash tween (alpha
+    // 0.3 → 1.0 over 160 ms) caught mid-stride would leave the boss
+    // sprite stuck at e.g. 0.5 alpha through the entire ULT cut-in and
+    // beyond — visually reading as "boss is fading out / half-dead"
+    // even though hp is still positive. setAlpha(1) defensively
+    // re-anchors the sprite before the shake chain runs.
     visual.setX(baseX);
+    visual.setAlpha(1);
 
     // 16 alternations easing from slow (95 ms) to fast (22 ms). Linear
     // per-beat ease so each end-point lands hard; the cycle-duration
@@ -2309,6 +2362,10 @@ export class Battle extends Scene {
     // Idle bounce + scale-pulse get killed so they don't fight the
     // ult tween chain. They restart in the P4 onComplete.
     this.tweens.killTweensOf(visual);
+    // Re-anchor alpha for the same reason as the enemy variant: a
+    // pending hit-flash tween caught mid-stride would otherwise leave
+    // the player sprite at intermediate alpha through the cut-in.
+    visual.setAlpha(1);
 
     // P1: windup — rear up high and tilt back, like cocking a fist
     // overhead before the slam.
@@ -2377,6 +2434,7 @@ export class Battle extends Scene {
     if (!this.player.ultimate) return;
 
     this.ultFiring = true;
+    this.ultFiringStart = this.time.now;
     this.ultButtonShown = false;
 
     // Dismiss button but keep frozen
@@ -2422,15 +2480,27 @@ export class Battle extends Scene {
     // After full animation (including the extended hold in
     // spawnUltimateFlash): apply damage, then unfreeze combat.
     this.time.delayedCall(2800, () => {
-      attacks.forEach((e) => this.onAttack(e, this.enemySprite, true));
-      this.refreshHp();
+      // Wrap each step in try/catch so a single visual failure (destroyed
+      // sprite during a scene shutdown race, etc.) cannot orphan the
+      // ultFiring=true lock — that would freeze the scene because update()
+      // bails on ultFiring at the top.
+      try {
+        attacks.forEach((e) => this.onAttack(e, this.enemySprite, true));
+      } catch (e) {
+        console.error('[Battle] post-player-ULT onAttack failed:', e);
+      }
+      try { this.refreshHp(); } catch (e) {
+        console.error('[Battle] post-player-ULT refreshHp failed:', e);
+      }
 
       // Unfreeze
       this.ultReady = false;
       this.ultFiring = false;
 
       if (this.enemy.hp <= 0) {
-        this.finishBattle('win');
+        try { this.finishBattle('win'); } catch (e) {
+          console.error('[Battle] post-player-ULT finishBattle failed:', e);
+        }
       }
     });
   }

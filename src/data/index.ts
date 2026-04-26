@@ -11,7 +11,7 @@
 export { PARTS, ALL_PART_KEYS } from './parts';
 export type { PartKey } from './parts';
 
-export { ROBOTS, ALL_ROBOT_KEYS } from './robots';
+export { ROBOTS, ALL_ROBOT_KEYS, JAM_ROBOT_KEYS } from './robots';
 export type { RobotKey } from './robots';
 
 export { ECONOMY } from './economy';

@@ -154,7 +154,29 @@ export const createPlayerCombatant = (
 export const createEnemyCombatant = (
   round: RoundData,
   ultimate: UltimateDef | null = null
-): Combatant => ({
+): Combatant => {
+  // Boss-spec fields (extraWeapons / shieldCharges / repair*) flow in
+  // from EnemyDef via defToEnemy so YUKIME-Ω et al. actually run their
+  // signature kit. enemyDamageMultiplier already trimmed the primary
+  // weapon dmg in defToEnemy; mirror that scaling for the extras so
+  // both sources land on the same balance curve.
+  const baseWeapon = {
+    label: 'Enemy Strike',
+    damage: round.enemy.damage * BALANCE.statScale,
+    cooldownSec: round.enemy.cooldownSec,
+    timer: round.enemy.cooldownSec,
+  };
+  const extras = (round.enemy.extraWeapons ?? []).map((w) => ({
+    label: w.label,
+    damage: w.damage * BALANCE.enemyDamageMultiplier * BALANCE.statScale,
+    cooldownSec: w.cooldownSec,
+    timer: w.cooldownSec,
+  }));
+  const repairAmount = round.enemy.repairAmount ?? 0;
+  const repairIntervalSec = repairAmount > 0
+    ? (round.enemy.repairIntervalSec ?? BALANCE.repairIntervalSec)
+    : 0;
+  return ({
   name: round.enemy.name,
   // Same statScale as createPlayerCombatant — both sides scale together
   // so HP/DMG ratios stay invariant.
@@ -162,21 +184,14 @@ export const createEnemyCombatant = (
   hp: round.enemy.hp * BALANCE.statScale,
   damageReductionFlat: 0,
   damageReductionPct: round.enemy.damageReductionPct,
-  weapons: [
-    {
-      label: 'Enemy Strike',
-      damage: round.enemy.damage * BALANCE.statScale,
-      cooldownSec: round.enemy.cooldownSec,
-      timer: round.enemy.cooldownSec
-    }
-  ],
+  weapons: [baseWeapon, ...extras],
   overdriveMultiplier: 0,
   overdriveThresholdHp: 0,
   overdriveActive: false,
-  repairIntervalSec: 0,
-  repairAmount: 0,
-  repairTimer: 0,
-  shieldCharges: 0,
+  repairIntervalSec,
+  repairAmount: repairAmount * BALANCE.statScale,
+  repairTimer: repairIntervalSec,
+  shieldCharges: round.enemy.shieldCharges ?? 0,
   ultimate,
   ultimateGauge: 0,
   ultimateUsed: false,
@@ -194,7 +209,8 @@ export const createEnemyCombatant = (
   ultimateLifesteal: 0,
   ultimateArmorBreak: false,
   isAwakened: false
-});
+  });
+};
 
 
 /** Roll for and apply a weapon's status effect on the defender. */

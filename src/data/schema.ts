@@ -173,6 +173,16 @@ export interface EnemyData {
   readonly cooldownSec: number;
   readonly damageReductionPct: number;
   readonly assetKey: string;
+  /** Extra weapon hits this enemy fires (in addition to the default one).
+   *  Mid/big-bosses use this to layer signature attacks (e.g. YUKIME's
+   *  Frozen Breath, NEKOMATA's Pounce). Damage values are pre-statScale. */
+  readonly extraWeapons?: readonly { readonly label: string; readonly damage: number; readonly cooldownSec: number }[];
+  /** Block the first N incoming hits. Used by mid-/big-bosses. */
+  readonly shieldCharges?: number;
+  /** HP healed per repair tick (pre-statScale). 0 / undefined disables repair. */
+  readonly repairAmount?: number;
+  /** Repair interval in seconds (default 5 if repairAmount > 0). */
+  readonly repairIntervalSec?: number;
 }
 
 export interface RoundData {

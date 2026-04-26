@@ -26,6 +26,15 @@ type TweenableSound = Phaser.Sound.BaseSound & { volume: number; rate: number };
 let currentKey: string | null = null;
 let currentSound: TweenableSound | null = null;
 let muted = false;
+/**
+ * Sounds whose fade-out is in progress. Tracked in a module-level set
+ * so the next `playMusic()` call can force-stop them — a rapid scene
+ * transition (e.g. SPACE-spamming through Result → Build → Battle)
+ * shuts down the tween manager that owns the fade-out before its
+ * `onComplete` fires, leaving the old track playing forever and
+ * overlapping with the new BGM.
+ */
+const fadingSounds = new Set<TweenableSound>();
 
 /**
  * Keys registered here MUST match the asset keys loaded in Preloader.preload().
@@ -58,6 +67,16 @@ export const playMusic = (scene: Scene, key: MusicKey, loop = true): void => {
   }
   if (currentKey === key && currentSound && currentSound.isPlaying) return;
 
+  // Force-stop any sound whose previous fade-out tween may have been
+  // killed mid-flight when its owning scene shut down. Without this,
+  // SPACE-spamming through scene transitions leaks the old BGM, since
+  // `onComplete: prev.stop()` never fires when the scene that scheduled
+  // the tween is gone.
+  for (const s of fadingSounds) {
+    try { s.stop(); s.destroy(); } catch { /* ignore */ }
+  }
+  fadingSounds.clear();
+
   const next = scene.sound.add(key, { loop, volume: 0 }) as TweenableSound;
   try {
     next.play();
@@ -77,6 +96,7 @@ export const playMusic = (scene: Scene, key: MusicKey, loop = true): void => {
 
   const prev = currentSound;
   if (prev) {
+    fadingSounds.add(prev);
     scene.tweens.killTweensOf(prev);
     scene.tweens.add({
       targets: prev,
@@ -90,6 +110,7 @@ export const playMusic = (scene: Scene, key: MusicKey, loop = true): void => {
         } catch {
           // ignore
         }
+        fadingSounds.delete(prev);
       }
     });
   }

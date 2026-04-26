@@ -33,7 +33,7 @@ export const CREDITS: readonly CreditsSection[] = [
     ],
   },
   {
-    heading: 'AI-ASSISTED ASSETS',
+    heading: 'ART',
     lines: [
       'Grok',
       'Piskel',

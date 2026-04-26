@@ -24,6 +24,10 @@ export interface SoulStrikeButtonOptions {
 
 export interface SoulStrikeButtonHandle {
   setAura(auraHex: string | null): void;
+  /** Show or hide the button without unmounting. Used by Battle to
+   *  hide the button (DOM, z-index 150) during a boss cut-in so it
+   *  doesn't draw on top of the Phaser-canvas reveal. */
+  setVisible(visible: boolean): void;
   unmount(): void;
 }
 
@@ -35,14 +39,18 @@ const CSS = `
   position:fixed;inset:0;z-index:150;
   color:#fff;font-family:'Rajdhani',system-ui,sans-serif;
   pointer-events:none;opacity:0;transition:opacity 220ms ease;
-  background:transparent;overflow:hidden;
+  /* Dim the entire viewport, not just the 1280×720 stage rect — otherwise
+   * on viewports wider/taller than the stage a visible dark rectangle
+   * appears around the button. */
+  background:rgba(0,0,0,.55);
+  overflow:hidden;
   -webkit-user-select:none;user-select:none;
 }
 .${ROOT_CLASS}.visible{opacity:1}
 .${ROOT_CLASS} .stage{
   width:1280px;height:720px;position:absolute;left:50%;top:50%;
   transform:translate(-50%,-50%);
-  pointer-events:none;background:rgba(0,0,0,.55);
+  pointer-events:none;background:transparent;
 }
 .${ROOT_CLASS} .wrap{
   position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
@@ -173,6 +181,7 @@ export function mountSoulStrikeButton(opts: SoulStrikeButtonOptions): SoulStrike
 
   return {
     setAura: applyAura,
+    setVisible: (visible: boolean) => { root.style.display = visible ? '' : 'none'; },
     unmount: wrapUnmount(root, disposeFit),
   };
 }

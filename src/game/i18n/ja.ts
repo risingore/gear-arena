@@ -143,6 +143,10 @@ export const ja: LocaleDict = {
   'Cut-in: MUJINA-Σ': 'カットイン: MUJINA-Σ',
   'Cut-in: TSUKUMO-Δ': 'カットイン: TSUKUMO-Δ',
   'Cut-in: YUKIME-Ω': 'カットイン: YUKIME-Ω',
+  'Collection: Unlock All': 'コレクション: 全解放',
+  'Collection: Wipe': 'コレクション: 全削除',
+  RUN: '実行',
+  DONE: '完了',
   Recommended: '推奨解像度',
   'RESET ALL DATA': '全データリセット',
   'Click again to confirm': 'もう一度クリックで確定',
@@ -162,6 +166,8 @@ export const ja: LocaleDict = {
   READIED: '授かり済',
   'BUFFS READIED': '次戦バフ',
   'No buffs readied.': 'バフは授かっていない',
+  'Spend Scrap at SANCTUM (加持堂) to consecrate buffs for your next run. With 3+ buffs, even Hard mode bends.':
+    'スクラップを 加持堂 で奉納し、次戦のバフを授かれ。バフ3つ以上で、ハードも陥落する。',
 
   // Collection
   COLLECTION: 'コレクション',
@@ -330,6 +336,7 @@ export const ja: LocaleDict = {
   'Use all 5 weapon modules.': '全5種のモジュールを使用。',
   Hunter: 'ハンター',
   'Defeat every enemy type.': '全敵タイプを撃破。',
+  'Defeat all 17 enemy types.': '全17種の敵を撃破。',
   'Apex Hunter': 'エイペックスハンター',
   'Apex Predator': 'エイペックスプレデター',
   'Defeat the Daitengu.': '大天狗を撃破。',
@@ -338,6 +345,8 @@ export const ja: LocaleDict = {
   Cadet: 'カデット',
   Collector: 'コレクター',
   'Defeat 10 different enemy types.': '10種類の敵を撃破。',
+  'Collection King': 'コレクト王',
+  'Complete every collection — machines, parts, enemies, and skills.': '全コレクション完成 — 機体・パーツ・敵・スキル。',
 
   // Ultimate names
   'Iron Fist': 'アイアンフィスト',

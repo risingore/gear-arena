@@ -29,7 +29,15 @@ export class GameOver extends Scene {
     const conversionRate = state.endingMode === 'easy'
       ? BALANCE.scrapConversionRateEasy
       : BALANCE.scrapConversionRate;
-    const scrapEarned = Math.floor(state.gold * conversionRate);
+    // Hard mode applies a round-based multiplier to discourage R1-3 suicide
+    // farming (dying with 1500g intact at R1 used to pay 750 scrap in 70s).
+    // Easy already has a 1/20 conversion rate so no extra weighting needed.
+    const roundMult = state.endingMode === 'easy'
+      ? 1
+      : (BALANCE.scrapDeathMultiplierByRound[
+          Math.min(Math.max(state.currentRound, 1), BALANCE.scrapDeathMultiplierByRound.length - 1)
+        ] ?? 1);
+    const scrapEarned = Math.floor(state.gold * conversionRate * roundMult);
     if (scrapEarned > 0) recordScrap(scrapEarned);
     // SANCTUM unlock counter — only ticks on full-run completion
     // (this branch = defeat). Mid-run R-to-Title leaves it untouched.
@@ -58,12 +66,23 @@ export class GameOver extends Scene {
       fadeToScene(this, 'Title');
     };
 
+    // SANCTUM (加持堂) call-to-action — Hard mode only. Easy is meant
+    // to be clearable buff-less, so a defeat there points at loadout
+    // construction rather than meta-progression. Hard, by contrast,
+    // is gear-walled past R7 and the SANCTUM loop is the intended
+    // recovery arc, so we nudge the player toward it the moment they
+    // bank scrap from a failed run.
+    const sanctumPrompt = (state.endingMode === 'hard' && scrapEarned > 0)
+      ? t('Spend Scrap at SANCTUM (加持堂) to consecrate buffs for your next run. With 3+ buffs, even Hard mode bends.')
+      : '';
+
     this.unmountOverlay = mountGameOverOverlay({
       round: state.currentRound,
       totalRounds: state.generatedRounds?.length || 10,
       scrapEarned,
       statsLines,
       hint,
+      sanctumPrompt,
       onReturnToTitle: restart,
       returnLabel: t('RETURN TO TITLE'),
     });

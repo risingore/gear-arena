@@ -170,8 +170,8 @@ export function generateRunEnemies(
   const midPool = sortedNormals.filter((e) => e.tier >= BALANCE.midTierMin && e.tier <= BALANCE.midTierMax);
   const hardPool = sortedNormals.filter((e) => e.tier >= BALANCE.hardTierMin);
 
-  // Jam scope allow-lists live in @/data/enemies as the single source of
-  // truth (CLAUDE.md §10.1). Convert to Set for O(1) `.has()` filtering.
+  // Jam scope allow-lists live in @/data/enemies as the single source
+  // of truth. Convert to Set for O(1) `.has()` filtering.
   const normalSet = new Set(JAM_NORMAL_IDS);
   const midbossSet = new Set(JAM_MIDBOSS_IDS);
   const bigbossSet = new Set(JAM_BIGBOSS_IDS);

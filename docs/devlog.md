@@ -59,7 +59,7 @@ Pushed the second batch of Day-1 work without waiting for Day 2. Everything belo
 
 ### Deferred for designer decision
 
-Consolidated every open question into `tasks/kima-questions.md` so they can be batched-reviewed (Turbo Combo's real effect, Kinetic Shield's "block first hit" implementation, reroll cost curve, HP carry-over between rounds, etc.).
+Consolidated every open question into a single review queue so they can be batched (Turbo Combo's real effect, Kinetic Shield's "block first hit" implementation, reroll cost curve, HP carry-over between rounds, etc.).
 
 ### Numbers
 
@@ -306,7 +306,7 @@ Consolidated every open question into `tasks/kima-questions.md` so they can be b
 ### Day 5 — late session polish pass
 
 Second sweep after the overlay pivot, working through the Day 5 remainder
-of `tasks/todo.md`.
+of the polish queue.
 
 - **Title scanlines + holographic glitch tear.** Added `::before` /
   `::after` layers on the Title overlay stage for CRT-style scanline
@@ -345,7 +345,7 @@ Full type-check (`bunx tsc --noEmit`, 0 errors), production build
 Phaser — well under the 2 MB target), and `bun run package-itch`
 emitted `machines-itch.zip` at 3.4 MB, ready for itch.io upload.
 
-Placement synergy log-wiring (`tasks/todo.md` L305) was scoped out:
+Placement synergy log-wiring was scoped out:
 `src/data/placementSynergies.ts` has the 10 definitions but no
 `stats.ts` / `chargeSpeed` effect-application path yet. Adding log
 output without the numeric effect would read as fake feedback, so it
@@ -1253,8 +1253,7 @@ inside the frame with 24 px breathing room top and bottom.
 
 The stale-feedback cycle is the lesson. Three rounds of "still
 broken" with the same diagnosis loop ("compute frame bottom,
-recompute frame bottom") wasted real time. New rule promoted
-to `CLAUDE.md` and `memory/feedback_root_cause_first.md`:
+recompute frame bottom") wasted real time. New working rule:
 **stop after two repeats, live-dump before pixel arithmetic,
 audit the semantic intent of every variable in the failing
 path.** A live scene-walk in 30 seconds would have surfaced
@@ -1692,7 +1691,7 @@ the day's diff. Findings landed:
 
 - `JAM_*_IDS` had drifted into a duplicate inline definition
   inside `enemyPool.ts`; collapsed to a single import from
-  `data/enemies` (CLAUDE.md §10.1 mandate).
+  `data/enemies` (data-ownership rule).
 - Four `console.info` debug lines from the freeze
   diagnosis were stripped — they would have spammed every
   Hard R10.

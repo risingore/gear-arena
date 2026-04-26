@@ -5,7 +5,6 @@
 # any other .env value to stdout/stderr.
 #
 # Usage: bash scripts/butler-push.sh
-#        (Invoked by the /dist push skill step.)
 
 set -euo pipefail
 
@@ -20,7 +19,7 @@ fi
 
 if [ ! -x "$BUTLER_BIN" ]; then
   echo "Error: butler not found at $BUTLER_BIN." >&2
-  echo "Install: see .claude/skills/dist/SKILL.md" >&2
+  echo "Install butler from https://itch.io/docs/butler/installing.html and run 'butler login'." >&2
   exit 1
 fi
 

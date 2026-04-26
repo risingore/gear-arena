@@ -1,14 +1,9 @@
 /**
  * SOUL STRIKE — canonical robot data (v0.2, 2026-04-15).
  *
- * Heika is free to edit base stats, slot layouts, names, and passive text.
- * Slot x / y coordinates live in a virtual 192x220 space and are projected
- * onto the Build scene's blueprint panel at runtime. Kima is allowed to
- * nudge those coordinates during implementation — see `docs/data-ownership.md`.
- * All other values require explicit approval from Heika.
- *
- * Asset key fields point to placeholder keys until Day 7 replaces them with
- * Grok-generated images.
+ * Tunable: base stats, slot layouts, names, passive text. Slot x / y
+ * coordinates live in a virtual 192x220 space and are projected onto the
+ * Build scene's blueprint panel at runtime.
  *
  * v0.2: slot counts expanded ~1.5x per blueprint so the Build phase has
  * enough room for meaningful loadout decisions.
@@ -26,13 +21,13 @@ export const ROBOTS = {
     name: 'INDRA',
     archetype: 'balanced',
     description: 'Right arm carries a massive mechanical weapon. Balanced cyborg fighter.',
-    baseHp: 100,
-    baseDamageReductionPct: 0,
+    baseHp: 120,
+    baseDamageReductionPct: 0.05,
     baseAttackSpeedMultiplier: 1.0,
-    passiveText: 'No passive — raw striking power.',
+    passiveText: '+5% damage reduction baseline. Strike to live.',
     blueprintAssetKey: 'blueprint_indra',
     battleAssetKey: 'battle_indra',
-    buffSlots: 2,
+    buffSlots: 3,
     slots: [
       // Right arm gauntlet — shoulder to fist (top to bottom, 32-unit vertical spacing)
       { id: 'knight_shoulder',    slotType: 'arm_r', accepts: 'charger',  x: 96,  y: 24  },

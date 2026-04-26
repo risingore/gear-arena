@@ -40,9 +40,6 @@ export class Preloader extends Scene {
     // ULT-pose variant used by the SOUL STRIKE cut-in. Convention:
     // `<battleAssetKey>_ult` — cut-in code falls back to battle key if missing.
     this.load.image('battle_indra_ult', 'assets/images/battle_indra_ult.png');
-    // this.load.image('battle_goliath', 'assets/images/battle_goliath.png');
-    // this.load.image('battle_striker', 'assets/images/battle_striker.png');
-    // this.load.image('battle_oracle',  'assets/images/battle_oracle.png');
 
     // --- Robot blueprints (Build scene background) ---
     this.load.image('blueprint_indra', 'assets/images/blueprint_indra.png');

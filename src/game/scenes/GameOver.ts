@@ -1,5 +1,6 @@
 import { Scene } from 'phaser';
 
+import { BALANCE } from '@/data/balance';
 import { getRunState } from '../systems/runState';
 import { PALETTE } from '../systems/palette';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
@@ -22,7 +23,7 @@ export class GameOver extends Scene {
     fadeInCurrent(this);
 
     const state = getRunState(this);
-    const scrapEarned = Math.floor(state.gold * 0.5);
+    const scrapEarned = Math.floor(state.gold * BALANCE.scrapConversionRate);
     if (scrapEarned > 0) recordScrap(scrapEarned);
     // SANCTUM unlock counter — only ticks on full-run completion
     // (this branch = defeat). Mid-run R-to-Title leaves it untouched.

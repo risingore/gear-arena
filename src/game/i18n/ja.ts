@@ -189,7 +189,7 @@ export const ja: LocaleDict = {
     '左脚に破壊的な機械キック兵器。スピード型。',
   'An ordinary boy. The machine on his back is anything but.':
     'ただの少年。背中の機械だけが、普通じゃない。',
-  'No passive — raw striking power.': 'パッシブなし — 純粋な打撃力。',
+  '+5% damage reduction baseline. Strike to live.': 'ダメージ軽減+5%。耐えて撃て。',
   'Damage taken -10% / attack speed -20%.': '被ダメ-10% / 攻撃速度-20%。',
   'Attack speed +30% / damage taken +10%.': '攻撃速度+30% / 被ダメ+10%。',
   'Special effects +50% / weapon cooldown +15%.': '特殊効果+50% / モジュールCD+15%。',

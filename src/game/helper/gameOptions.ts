@@ -3,7 +3,6 @@ import type { Types } from 'phaser';
 /**
  * Central configuration for gameplay-wide constants.
  *
- * Rule (Kima): no magic numbers in scenes. Every scene reads width / height /
  * colors / text styles from here so a Jam can be retuned from a single file.
  */
 

@@ -8,7 +8,7 @@
  *   LILITH   — high register (1.25), UMA/elegant
  *   MUMEI    — ethereal high (1.5), the "soul" manifestation
  *
- * Heika may tune without touching code — edit the map below.
+ * Tune without touching code — edit the map below.
  */
 
 import type { RobotKey } from './robots';

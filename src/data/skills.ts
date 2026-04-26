@@ -5,8 +5,7 @@
  * Player picks 1 from 3 random options. Max 3 per run.
  * These are NOT sold in the shop — boss rewards only.
  *
- * Heika is free to edit numbers, names, and descriptions.
- * Kima must NOT overwrite without explicit instruction.
+ * All values are tunable. Edit numbers, names, and descriptions.
  */
 
 export type SkillEffectKind =

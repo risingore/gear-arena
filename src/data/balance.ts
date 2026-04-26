@@ -1,7 +1,7 @@
 /**
  * SOUL STRIKE — game balance configuration (single source of truth).
  *
- * Every gameplay-relevant number lives here. Heika can tune any value
+ * Every gameplay-relevant number lives here. Any value can be tuned
  * without touching implementation code.
  */
 

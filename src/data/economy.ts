@@ -1,7 +1,7 @@
 /**
  * SOUL STRIKE — canonical economy data (v0.1, 2026-04-15).
  *
- * Heika is free to edit every value. Kima must not rewrite without approval.
+ * All values are tunable. Edit every value. 
  */
 
 import type { EconomyData } from './schema';

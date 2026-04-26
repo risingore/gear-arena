@@ -2,7 +2,7 @@
  * SOUL STRIKE — data layer barrel export.
  *
  * Usage:
- *   import { PARTS, ROBOTS, ROUNDS, ECONOMY, SYNERGIES } from '@/data';
+ *   import { PARTS, ROBOTS, ECONOMY, SYNERGIES } from '@/data';
  *
  * Game code should always import through this module. Importing the sibling
  * files directly scatters paths across the codebase and makes refactors harder.
@@ -13,9 +13,6 @@ export type { PartKey } from './parts';
 
 export { ROBOTS, ALL_ROBOT_KEYS } from './robots';
 export type { RobotKey } from './robots';
-
-export { ROUNDS, ALL_ROUND_KEYS, TOTAL_ROUNDS } from './rounds';
-export type { RoundKey } from './rounds';
 
 export { ECONOMY } from './economy';
 

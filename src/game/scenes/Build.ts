@@ -193,7 +193,7 @@ export class Build extends Scene {
     this.drawStatsBlocks(textStyles);
 
     // REROLL — sits at the TOP of the SHOP column (header → REROLL →
-    // 6-card grid → preview). Heika 2026-04-25: this reads as "spend
+    // 6-card grid → preview). the owner 2026-04-25: this reads as "spend
     // gold to refresh the offer" before the offer itself, like a
     // toolbar above the table. The custom button keeps the cyan-
     // left-accent silhouette from the design brief.
@@ -441,13 +441,12 @@ export class Build extends Scene {
       .setOrigin(0, 0)
       .setLetterSpacing(1);
 
-    // --- SYNERGIES block (lifted up from y=458 → 418 per Heika
-    //     2026-04-25 to give the hover-preview block more breathing
-    //     room below the READY button). The SKILLS/BUFFS rows above
-    //     practically only fill 2-4 lines for INDRA-only / 5-round
-    //     scope, so the previous 108-px gap was visually wasteful.
-    //     Divider line between SKILLS/BUFFS and SYNERGIES removed
-    //     per Heika — the bullet + heading already mark the split.
+    // SYNERGIES block. Sits at y=418 (lifted from the original y=458)
+    // so the SHOP-column hover-preview block has breathing room below
+    // the READY button. The SKILLS / BUFFS rows above only fill 2-4
+    // lines for the INDRA-only / 5-round scope, so the previous 108 px
+    // gap was visually wasteful. No divider line above — the bullet +
+    // heading already mark the split.
     this.drawBlockBullet(bulletX, 426);
     this.add
       .text(headingX, 424, t('SYNERGIES'), {
@@ -470,10 +469,9 @@ export class Build extends Scene {
       .setOrigin(0, 0)
       .setLetterSpacing(1);
 
-    // Hover preview moved out of the OUTPUT (stats) column per Heika
-    // 2026-04-25 — it now lives under the SHOP card grid (created in
-    // drawShopArea), so OUTPUT shows ONLY the run state and not
-    // ephemeral hover-tooltip text.
+    // The hover preview lives under the SHOP card grid (created in
+    // drawShopArea) so the OUTPUT (stats) column shows ONLY the run
+    // state, never ephemeral hover-tooltip text.
   }
 
   /** Diamond-shaped orange bullet for section headings. */
@@ -521,7 +519,7 @@ export class Build extends Scene {
     this.drawColumnFrame(BLUEPRINT_X, frameTop, BLUEPRINT_BOX_W, colHeight, cornerCut);
     // SHOP frame is SHORTER than the others — it stops just under the
     // 6-card grid so the INTEL monitor below can read as its own
-    // independent panel (Heika 2026-04-25). Card-grid bottom +
+    // independent panel . Card-grid bottom +
     // SHOP_INNER_PAD inside the frame (matches the top margin), then
     // SHOP_VGAP of black between the frame's bottom and the INTEL
     // monitor's top.
@@ -1189,7 +1187,7 @@ export class Build extends Scene {
    * to mirror SANCTUM's "price — buy" foot row).
    */
   private buildPriceText(price: number, canAfford: boolean): GameObjects.Container {
-    // Center-aligned price block at the card foot — Heika 2026-04-25:
+    // Center-aligned price block at the card foot — the owner 2026-04-25:
     // foot-left placement read as off-balance vs. centered name above
     // it. We measure (number + 'G') total width and offset the
     // container so its content centers on x = 0 (= card center).

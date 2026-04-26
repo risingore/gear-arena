@@ -1508,7 +1508,7 @@ export class Battle extends Scene {
   }
 
   private updateAuraVisual(): void {
-    // Aura ring + floating "AURA" label removed (Heika 2026-04-24): the
+    // Aura ring + floating "AURA" label removed : the
     // pulsing circle around the mini-character read as clutter against
     // the sprite. Rush state now surfaces only via the ult gauge color
     // cue below — subtle but enough of a tell.
@@ -1706,7 +1706,7 @@ export class Battle extends Scene {
         break;
       }
       case 'fish': {
-        // Saved for later (Heika 2026-04-25): fish-school predict felt
+        // Saved for later : fish-school predict felt
         // off-tone against the post-cyberpunk / mandala vocabulary.
         // No SFX, no visuals — predictions.ts still lists the id so
         // flipping it back on later is a one-block revert.
@@ -1720,7 +1720,7 @@ export class Battle extends Scene {
         break;
       }
       case 'exclaim': {
-        // Saved for later (Heika 2026-04-25): big "! !" stamp read as
+        // Saved for later : big "! !" stamp read as
         // anime-loud noise against the chamfer / SS-tag vocabulary.
         // No SFX, no visuals. Data row preserved in predictions.ts.
         break;
@@ -1997,7 +1997,7 @@ export class Battle extends Scene {
     // FULL run completion (final victory or defeat), not on every
     // round transition. Counts now happen in Result.renderVictory and
     // GameOver.create. Mid-run R-to-Title therefore leaves the
-    // SANCTUM unlock counter untouched, per Heika 2026-04-25.
+    // SANCTUM unlock counter untouched, per the owner 2026-04-25.
     const state = getRunState(this);
     const nextScene = state.battleOutcome === 'lose' ? 'GameOver' : 'Result';
     fadeToScene(this, nextScene);

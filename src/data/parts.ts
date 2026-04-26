@@ -1,8 +1,7 @@
 /**
  * SOUL STRIKE — canonical parts data (v0.4, 2026-04-16).
  *
- * Heika is free to edit numbers, names, descriptions, and allowedSlots.
- * Kima must NOT overwrite without explicit instruction.
+ * Tunable — edit numbers, names, descriptions, and allowedSlots.
  *
  * v0.4: cyberpunk rename — 5 categories (module/implant/charger/booster/soul)
  * × 5 each. All stat numbers, prices, and effects are preserved exactly.
@@ -57,7 +56,7 @@ export const PARTS = {
     description: 'Forbidden tech. Extreme damage, slow charge.',
     category: 'module',
     allowedSlots: ['arm_l', 'arm_r'],
-    price: 9,
+    price: 8,
     rarity: 'epic',
     cooldownSec: 3.5,
     damage: 35,
@@ -306,7 +305,7 @@ export const PARTS = {
     description: 'One chance to defy death. Survive lethal hit at 1 HP.',
     category: 'soul',
     allowedSlots: ['back'],
-    price: 9,
+    price: 8,
     rarity: 'epic',
     effectKind: 'overdrive',
     magnitude: 0.8

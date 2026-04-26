@@ -4,7 +4,7 @@
  * Placement synergies trigger based on WHERE parts are placed on the body,
  * adding a spatial strategy layer on top of the existing category synergies.
  *
- * Heika owns all numeric values. Kima must not rewrite without approval.
+ * Numeric values are tunable. 
  */
 
 import type { SlotType, PartCategory } from './schema';

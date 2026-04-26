@@ -11,7 +11,7 @@
  *   - category-specific fields are constrained per variant
  *   - HMR-friendly; IDE surfaces mistakes inline on save
  *
- * Heika edits values in the sibling files. This schema file is owned by Kima
+ * Values edited in the sibling files. This schema file is owned by the platform layer
  * and is only changed when the game's data shape genuinely needs to evolve.
  */
 

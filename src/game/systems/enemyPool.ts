@@ -178,13 +178,15 @@ export function generateRunEnemies(
 
   if (mode === 'easy') {
     // Easy: 5 rounds, no big-boss climax — INDRA's introductory fall.
+    // Tuned to be clearable on a normal first attempt without SANCTUM buffs.
+    // R1-R2 easy pool, R3-R4 mid pool (was hard — too steep for Easy), R5 mid-boss.
     const r1 = pickRandom(eP);
     rounds.push({ index: 1, enemy: defToEnemy(r1, true), enemyId: r1.id, goldReward: 8,  isBoss: false, isSuperBoss: false });
     const r2 = pickRandom(eP);
     rounds.push({ index: 2, enemy: defToEnemy(r2, true), enemyId: r2.id, goldReward: 10, isBoss: false, isSuperBoss: false });
-    const r3 = pickRandom(hP);
+    const r3 = pickRandom(mP);
     rounds.push({ index: 3, enemy: defToEnemy(r3, true), enemyId: r3.id, goldReward: 12, isBoss: false, isSuperBoss: false });
-    const r4 = pickRandom(hP);
+    const r4 = pickRandom(mP);
     rounds.push({ index: 4, enemy: defToEnemy(r4, true), enemyId: r4.id, goldReward: 14, isBoss: false, isSuperBoss: false });
     const mb = pickRandom(mbP);
     rounds.push({ index: 5, enemy: defToEnemy(mb, false), enemyId: mb.id, goldReward: 0, isBoss: true,  isSuperBoss: false });

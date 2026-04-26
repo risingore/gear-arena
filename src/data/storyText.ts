@@ -3,7 +3,7 @@
  *
  * All narrative text shown during gameplay. Canonical source for
  * Select screen quotes, ATMAN statements, cut-in mantras, and
- * post-game teasers. Heika is free to edit all text here.
+ * post-game teasers. Edit text freely.
  */
 
 import type { RobotKey } from './robots';

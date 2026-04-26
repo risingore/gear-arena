@@ -4,8 +4,7 @@
  * Items are single-use: either consumed immediately in the Build phase
  * (e.g. healing) or applied as a buff for the next battle only.
  *
- * Heika is free to edit numbers, names, and descriptions.
- * Kima must NOT overwrite without explicit instruction.
+ * Tunable — edit numbers, names, and descriptions.
  */
 
 import type { ItemsRegistry } from './schema';
@@ -24,7 +23,7 @@ export const ITEMS = {
     id: 'item_adrenaline',
     name: 'Adrenaline Shot',
     description: 'Next battle: +30% attack speed.',
-    price: 5,
+    price: 4,
     timing: 'next_battle',
     effect: { kind: 'attack_speed', multiplier: 1.3 }
   },
@@ -32,7 +31,7 @@ export const ITEMS = {
     id: 'item_berserker_surge',
     name: 'Berserker Surge',
     description: 'Next battle: +50% attack speed.',
-    price: 9,
+    price: 8,
     timing: 'next_battle',
     effect: { kind: 'attack_speed', multiplier: 1.5 }
   },
@@ -58,7 +57,7 @@ export const ITEMS = {
     id: 'item_aegis_lattice',
     name: 'Aegis Lattice',
     description: 'Next battle: +20% damage reduction.',
-    price: 8,
+    price: 7,
     timing: 'next_battle',
     effect: { kind: 'damage_reduction', amount: 0.2 }
   },
@@ -76,7 +75,7 @@ export const ITEMS = {
     id: 'item_recon_scan',
     name: 'Recon Scan',
     description: 'Next battle: enemy takes +20% damage.',
-    price: 7,
+    price: 6,
     timing: 'next_battle',
     effect: { kind: 'enemy_vulnerability', multiplier: 1.2 }
   },
@@ -84,7 +83,7 @@ export const ITEMS = {
     id: 'item_targeting_override',
     name: 'Targeting Override',
     description: 'Next battle: enemy takes +35% damage.',
-    price: 11,
+    price: 9,
     timing: 'next_battle',
     effect: { kind: 'enemy_vulnerability', multiplier: 1.35 }
   }

@@ -2,7 +2,7 @@
  * SOUL STRIKE — pachislot system configuration.
  *
  * All tunable values for the hit/rush/aura system.
- * Heika is free to edit every number here.
+ * All values are tunable. Edit every number here.
  */
 
 import type { AuraColor } from '../game/systems/slotMachine';

@@ -1,7 +1,7 @@
 /**
  * SOUL STRIKE — canonical synergy data (v0.2, 2026-04-16).
  *
- * Heika is free to edit triggers and effects. Kima must not rewrite without
+ * Tunable — edit triggers and effects without
  * approval.
  *
  * v0.2: category rename (module/implant/charger/booster/soul).

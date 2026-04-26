@@ -4,7 +4,7 @@
  * Each prediction has a trust level (how likely it means a real hit)
  * and separate weights for hit vs miss scenarios.
  *
- * Heika is free to edit weights and add new predictions.
+ * All values are tunable. Edit weights and add new predictions.
  * Visual implementation lives in Battle.ts spawnPrediction.
  */
 

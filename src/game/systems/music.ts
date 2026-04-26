@@ -2,14 +2,14 @@
  * BGM playback + crossfade controller.
  *
  * Design:
- *   - BGM assets are loaded in the Preloader scene but registered as OPTIONAL:
- *     if the file is missing (404), Phaser's loader skips it gracefully and
- *     the scene still boots. This keeps the Jam build alive while Heika is
- *     still generating tracks via Suno.
+ *   - BGM assets are loaded in the Preloader scene but registered as
+ *     OPTIONAL: if the file is missing (404), Phaser's loader skips it
+ *     gracefully and the scene still boots. The build keeps running
+ *     when individual tracks are unavailable.
  *   - Only one track plays at a time per Phaser Game instance. Switching
  *     tracks cross-fades over a short duration.
- *   - Volume is controllable (future mute toggle), defaults sit well below
- *     1.0 because SFX and BGM share the master audio output.
+ *   - Volume defaults sit well below 1.0 because SFX and BGM share the
+ *     master audio output.
  *
  * Usage:
  *   import { playMusic, stopMusic } from '@/game/systems/music';

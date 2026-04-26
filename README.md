@@ -22,10 +22,10 @@ Beneath the surface runs an **[Echo Theory](https://note.com/risingore/n/nbff78b
 - **4 Machines** planned — INDRA (playable in Ep0), GOLIATH-414, LILITH, MUMEI (COMING SOON teasers)
 - **25 parts** across 5 categories (module, implant, charger, booster, soul) that power up your strike. Buy duplicates to ★-merge into higher tiers
 - **Buddhist mandala lore** — character names (Indra, Goliath, Lilith/Rakshasa, Mumei/Shunya) and ultimate names (Vajra, Karuna, Raksha, Nirvana) are drawn from the Kongō-kai and Taizō-kai mandala systems
-- **9 consumable buff items** — earn at SANCTUM (加持堂) for permanent run-to-run loadout buffs
+- **9 consumable buff items** — earn at SANCTUM for permanent run-to-run loadout buffs
 - **10 skills** — earned from boss rewards, permanent for the run
 - **Two campaign lengths** — Easy (5 rounds, mid-boss climax) or Hard (10 rounds, big-boss climax with HYAKKI YAKOU tease)
-- **SANCTUM (加持堂) meta-progression** — bank scrap from each run, consecrate buffs that auto-equip on the next
+- **SANCTUM meta-progression** — bank scrap from each run, consecrate buffs that auto-equip on the next
 - **Achievements and collection** — track unlocked Machines, discovered parts, defeated enemies, earned titles, and acquired skills
 - **HTML DOM Title overlay** — the Title screen is a native SVG + CSS layer riding on top of the Phaser canvas, so text and vector art render at full device resolution on Retina / 4K
 - **Trilogy tease** — defeat the final boss to glimpse the next chapter: `HYAKKI YAKOU — STANDING BY` and `TO BE CONTINUED: SOUL BREAKER`

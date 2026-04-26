@@ -23,6 +23,7 @@ import { Collection } from './scenes/Collection';
 import { Settings } from './scenes/Settings';
 import { Credits } from './scenes/Credits';
 import { Sanctum } from './scenes/Sanctum';
+import { Story } from './scenes/Story';
 import gameOptions from './helper/gameOptions';
 import { loadSettings } from './systems/settings';
 
@@ -70,7 +71,7 @@ const config: Types.Core.GameConfig = {
       debug: false
     }
   },
-  scene: [Boot, Preloader, Title, Select, Build, Battle, Result, GameOver, Collection, Settings, Credits, Sanctum]
+  scene: [Boot, Preloader, Title, Select, Build, Battle, Result, GameOver, Collection, Settings, Credits, Sanctum, Story]
 };
 
 export const startGame = (parent: string): Game => {

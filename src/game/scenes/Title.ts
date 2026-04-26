@@ -1,6 +1,6 @@
 import { Scene } from 'phaser';
 
-import { resetRunState } from '../systems/runState';
+import { getRunState, resetRunState, setRunState, type EndingMode } from '../systems/runState';
 import { PALETTE } from '../systems/palette';
 import { playSfx } from '../systems/audio';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
@@ -38,11 +38,19 @@ export class Title extends Scene {
     const save = loadSaveData();
     const playerTitle = getPlayerTitle(save);
 
+    const startRun = (mode: EndingMode): void => {
+      playSfx('click');
+      const state = getRunState(this);
+      state.endingMode = mode;
+      setRunState(this, state);
+      fadeToScene(this, 'Select');
+    };
+
     this.unmountOverlay = mountTitleOverlay({
-      onPlay: () => {
-        playSfx('click');
-        fadeToScene(this, 'Select');
-      },
+      onPlayEasy: () => startRun('easy'),
+      onPlayHard: () => startRun('hard'),
+      hardLocked: !save.easyCleared,
+      lockedHint: t('Clear Easy to unlock Hard'),
       onCollection: () => {
         playSfx('click');
         fadeToScene(this, 'Collection');
@@ -59,17 +67,23 @@ export class Title extends Scene {
         playSfx('click');
         fadeToScene(this, 'Sanctum');
       } : undefined,
+      onStory: save.hardCleared ? () => {
+        playSfx('click');
+        fadeToScene(this, 'Story');
+      } : undefined,
       saveData: {
         bestRound: save.bestRound,
         victories: save.totalClears,
         scrap: save.scrap,
         playerTitle: playerTitle || undefined,
       },
-      primaryLabel: t('PLAY'),
+      easyLabel: t('EASY'),
+      hardLabel: t('HARD'),
       collectionLabel: t('COLLECTION'),
       settingsLabel: t('SETTINGS'),
       creditsLabel: t('CREDITS'),
       sanctumLabel: t('SANCTUM'),
+      storyLabel: t('STORY'),
     });
 
     this.events.once('shutdown', () => {
@@ -81,9 +95,10 @@ export class Title extends Scene {
       this.unmountOverlay = null;
     });
 
-    this.input.keyboard?.once('keydown-SPACE', () => {
-      playSfx('click');
-      fadeToScene(this, 'Select');
-    });
+    // SPACE always starts an Easy run — the locked-Hard path requires an
+    // explicit click on the (also locked) HARD button to make the gating
+    // discoverable. Once Easy is cleared, SPACE keeps defaulting to Easy
+    // so the keyboard shortcut never silently changes meaning.
+    this.input.keyboard?.once('keydown-SPACE', () => startRun('easy'));
   }
 }

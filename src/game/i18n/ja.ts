@@ -91,6 +91,9 @@ export const ja: LocaleDict = {
   // Title overlay menu labels
   PLAY: 'プレイ',
   START: 'スタート',
+  EASY: 'イージー',
+  HARD: 'ハード',
+  'Clear Easy to unlock Hard': 'イージー攻略でハード解放',
   // ED sequence
   'TO BE CONTINUED:': '続く：',
   // Thesis and Atman quotes used by overlays and Select
@@ -133,6 +136,8 @@ export const ja: LocaleDict = {
   'Boss Mode': 'ボスモード',
   'One-Shot': '一撃',
   Ending: 'エンディング',
+  'Ending (Easy)': 'エンディング (Easy)',
+  'Ending (Hard)': 'エンディング (Hard)',
   Recommended: '推奨解像度',
   'RESET ALL DATA': '全データリセット',
   'Click again to confirm': 'もう一度クリックで確定',
@@ -149,11 +154,15 @@ export const ja: LocaleDict = {
   'Consecrate': '授かる',
   'Consecrated:': '授かった:',
   'Not enough scrap.': 'スクラップが足りない',
+  READIED: '授かり済',
   'BUFFS READIED': '次戦バフ',
   'No buffs readied.': 'バフは授かっていない',
 
   // Collection
   COLLECTION: 'コレクション',
+  STORY: 'ストーリー',
+  'I — THE FALLING': '一 — 堕ちるとき',
+  'II — THE FIRST FIST': '二 — はじまりの拳',
   CYBORGS: 'サイボーグ',
   PARTS: 'パーツ',
   ENEMIES: '敵',
@@ -187,7 +196,7 @@ export const ja: LocaleDict = {
 
   // Part names — Modules (was Weapons)
   'Phantom Limb': 'ファントムリム',
-  'Junk Pile Driver': 'ジャンクパイルドライバー',
+  'Junk Pile Driver': 'パイルドライバー',
   'Nerve Hijacker': 'ナーヴハイジャッカー',
   'ATMAN Breaker': 'アートマンブレイカー',
   'Rage Burner': 'レイジバーナー',
@@ -197,11 +206,11 @@ export const ja: LocaleDict = {
   'Scar Tissue Mesh': 'スカーティシュメッシュ',
   'Stolen Aegis': 'ストールンイージス',
   "Dead Man's Vest": 'デッドマンズベスト',
-  'Jury-Rigged Exoframe': 'ジュリーリグド・エクソフレーム',
+  'Jury-Rigged Exoframe': '廃材エクソフレーム',
 
   // Part names — Chargers (was Engines)
   'Salvage Reactor': 'サルベージリアクター',
-  'Overclocked Heart': 'オーバークロックドハート',
+  'Overclocked Heart': 'オーバークロックハート',
   'Stolen Core': 'ストールンコア',
   'Adrenaline Pump': 'アドレナリンポンプ',
   'Parasite Cell': 'パラサイトセル',
@@ -211,7 +220,7 @@ export const ja: LocaleDict = {
   'Rage Amplifier': 'レイジアンプリファイア',
   'Chrono Splice': 'クロノスプライス',
   'Junk Capacitor': 'ジャンクキャパシタ',
-  'Overdrive Injector': 'オーバードライブインジェクター',
+  'Overdrive Injector': '過給インジェクター',
 
   // Part names — Souls (was Specials)
   'Mandala Chip': 'マンダラチップ',
@@ -256,12 +265,24 @@ export const ja: LocaleDict = {
   'Every strike feeds the spirit. Heal 2 HP on hit.': '一撃ごとに魂を養う。命中時HP2回復。',
 
   // Item names and descriptions
+  'Trace Stim': 'トレース・スティム',
   'Adrenaline Shot': 'アドレナリン・ショット',
+  'Berserker Surge': 'バーサーカー・サージ',
+  'Reactive Plate': 'リアクティブ・プレート',
   'Hardened Coating': '硬化コーティング',
+  'Aegis Lattice': 'イージス・ラティス',
+  'Spotter Pulse': 'スポッター・パルス',
   'Recon Scan': '偵察スキャン',
+  'Targeting Override': '照準オーバーライド',
+  'Next battle: +15% attack speed.': '次の戦闘: 攻撃速度+15%。',
   'Next battle: +30% attack speed.': '次の戦闘: 攻撃速度+30%。',
+  'Next battle: +50% attack speed.': '次の戦闘: 攻撃速度+50%。',
+  'Next battle: +5% damage reduction.': '次の戦闘: ダメージ軽減+5%。',
   'Next battle: +10% damage reduction.': '次の戦闘: ダメージ軽減+10%。',
+  'Next battle: +20% damage reduction.': '次の戦闘: ダメージ軽減+20%。',
+  'Next battle: enemy takes +10% damage.': '次の戦闘: 敵の被ダメージ+10%。',
   'Next battle: enemy takes +20% damage.': '次の戦闘: 敵の被ダメージ+20%。',
+  'Next battle: enemy takes +35% damage.': '次の戦闘: 敵の被ダメージ+35%。',
 
   // Skill names and descriptions (ultimate-focused)
   'Impact Amp': 'インパクトアンプ',
@@ -395,4 +416,12 @@ export const ja: LocaleDict = {
   LOCKED: 'ロック中',
   'NEXT ROUND': '次のラウンド',
   READY: '準備完了',
+  '...': '...',
+  'ARMOR BREAK': 'アーマーブレイク',
+  'READY  ▶': '準備完了  ▶',
+  'SOUL STRIKE': 'SOUL STRIKE',
+  STRIKE: '撃',
+  STRIKES: '撃',
+  '← RETURN TO TITLE': '← タイトルに戻る',
+  SYNERGIES: 'シナジー',
 };

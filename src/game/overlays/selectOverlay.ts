@@ -82,6 +82,13 @@ const CSS = `
   opacity:0;transition:opacity 800ms ease .3s;
 }
 .${ROOT_CLASS}.visible .prologue{opacity:1}
+.${ROOT_CLASS} .prologue-echo{
+  position:absolute;left:80px;right:80px;top:64px;
+  text-align:center;font-size:11px;letter-spacing:.18em;
+  color:rgba(255,217,74,.34);font-style:italic;line-height:1.4;
+  opacity:0;transition:opacity 800ms ease .55s;
+}
+.${ROOT_CLASS}.visible .prologue-echo{opacity:1}
 
 .${ROOT_CLASS} .bg-wash{
   position:absolute;left:0;top:0;width:65%;height:100%;
@@ -166,13 +173,18 @@ const CSS = `
   margin-top:14px;align-self:flex-start;
   width:280px;height:56px;border:none;
   font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:.14em;color:#fff;
-  background:linear-gradient(90deg,var(--theme-border,#ff7a00),rgba(0,0,0,0));
-  border:1px solid var(--theme-border,#ff7a00);border-left:3px solid var(--theme-border,#ff7a00);
+  background:linear-gradient(90deg,rgba(255,122,0,.22),rgba(255,122,0,.04));
+  border:1px solid #ff7a00;border-left:3px solid #ff7a00;
   filter:drop-shadow(0 0 10px rgba(255,122,0,.45));
   clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px));
-  transition:transform .15s ease, filter .15s ease;
+  transition:transform .15s ease, background .15s ease, filter .15s ease, color .15s ease;
 }
-.${ROOT_CLASS} .action:hover{transform:translateX(3px);filter:drop-shadow(0 0 14px rgba(255,122,0,.7))}
+.${ROOT_CLASS} .action:hover{
+  transform:translateX(3px);
+  background:linear-gradient(90deg,#ff7a00,rgba(255,122,0,.55));
+  filter:drop-shadow(0 0 14px rgba(255,122,0,.7));
+  color:#0a0a10;
+}
 .${ROOT_CLASS} .action.locked{
   color:#ff4444;background:rgba(255,68,68,.08);
   border-color:#ff4444;border-left-color:#ff4444;
@@ -199,8 +211,17 @@ const CSS = `
   background:var(--theme-border,#ff7a00);border-color:#fff;border-width:3px;
   color:#0a0a10;font-size:56px;
 }
-.${ROOT_CLASS} .ch-icon:hover:not(.current){border-color:#aaaaaa}
+.${ROOT_CLASS} .ch-icon:hover:not(.current):not(.coming-soon){border-color:#aaaaaa}
 .${ROOT_CLASS} .ch-icon.locked{color:#333344}
+.${ROOT_CLASS} .ch-icon.coming-soon{
+  flex-direction:column;gap:6px;cursor:not-allowed;
+  background:#14141f;border-color:#2e2e42;color:#4a4a5c;
+}
+.${ROOT_CLASS} .ch-icon.coming-soon .ic-coming,
+.${ROOT_CLASS} .ch-icon.coming-soon .ic-soon{
+  font-size:15px;letter-spacing:.22em;line-height:1;
+  color:#c49bff;opacity:.9;font-weight:600;
+}
 
 .${ROOT_CLASS} .back{
   position:absolute;left:40px;bottom:30px;
@@ -222,8 +243,10 @@ export function mountSelectOverlay(opts: SelectOverlayOptions): SelectOverlayHan
 
   const iconsHtml = opts.characters
     .map((ch, i) => {
-      const letter = ch.locked ? '?' : ch.name.charAt(0).toUpperCase();
-      return `<button class="ch-icon${ch.locked ? ' locked' : ''}" data-idx="${i}">${esc(letter)}</button>`;
+      if (ch.comingSoon) {
+        return `<button class="ch-icon coming-soon" data-idx="${i}" aria-disabled="true" disabled><span class="ic-coming">COMING</span><span class="ic-soon">SOON</span></button>`;
+      }
+      return `<button class="ch-icon${ch.locked ? ' locked' : ''}" data-idx="${i}"></button>`;
     })
     .join('');
 
@@ -235,6 +258,7 @@ export function mountSelectOverlay(opts: SelectOverlayOptions): SelectOverlayHan
       })}
       <div class="bg-wash"></div>
       <div class="prologue">${esc(opts.thesisPrologue)}</div>
+      <div class="prologue-echo">and what could not convert is still ringing.</div>
       <div class="portrait-wrap"></div>
       <div class="info-panel">
         <div class="info"></div>
@@ -336,6 +360,7 @@ export function mountSelectOverlay(opts: SelectOverlayOptions): SelectOverlayHan
 
   iconEls.forEach((el, i) => {
     el.addEventListener('click', () => {
+      if (opts.characters[i]?.comingSoon) return;
       if (i === currentIdx) return;
       currentIdx = i;
       render(i);

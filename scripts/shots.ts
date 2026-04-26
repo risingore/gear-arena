@@ -1,8 +1,8 @@
 /**
  * Jam submission screenshot generator.
  *
- * Produces 5 polished 1280×720 PNGs (Title / Select / Build / Battle /
- * Result) in docs/screenshots/ for the itch.io page.
+ * Produces 6 polished 1280×720 PNGs (Title / Select / Build / Battle /
+ * Result / Sanctum) in docs/screenshots/ for the itch.io page.
  *
  * Runs with debug mode OFF so no red DEBUG badge leaks into the shots.
  * Requires `bun dev` on localhost:8080.
@@ -92,6 +92,30 @@ async function run(): Promise<void> {
   }
   await page.waitForTimeout(1500);
   await page.screenshot({ path: `${DIR}/05_result.png` });
+
+  console.log('=== 06_sanctum ===');
+  // SANCTUM is unlocked by `save.battlesCompleted > 0` and the cards
+  // need scrap to read meaningfully. Inject both into localStorage and
+  // reload back to Title so the SANCTUM button renders.
+  await page.evaluate(() => {
+    const KEY = 'soul-strike-save-v2';
+    const raw = localStorage.getItem(KEY);
+    const data = raw ? JSON.parse(raw) : {};
+    data.battlesCompleted = Math.max(1, data.battlesCompleted || 0);
+    data.scrap = Math.max(80, data.scrap || 0);
+    localStorage.setItem(KEY, JSON.stringify(data));
+  });
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForTimeout(2000);
+  // Title overlay's fade-in may still be in progress; force-click bypasses
+  // the visibility / actionability heuristics that were tripping the
+  // 30 s timeout when the overlay fades intercepted hit-tests.
+  await page.click('.soul-strike-title-overlay [data-role="sanctum"]', {
+    force: true,
+    timeout: 5000,
+  });
+  await page.waitForTimeout(1800);
+  await page.screenshot({ path: `${DIR}/06_sanctum.png` });
 
   await browser.close();
   console.log(`\nShots saved to ${DIR}/`);

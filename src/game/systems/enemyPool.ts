@@ -92,14 +92,38 @@ export interface GeneratedRound {
 }
 
 /**
- * Generate enemy lineup.
- * @param shortRun true = 5 rounds (INDRA first clear), false = 10 rounds (standard)
+ * Run mode for enemy generation. Mirrors `RunState.endingMode` — both
+ * the in-fiction ending flavor and the round structure key off this.
+ */
+export type RunMode = 'easy' | 'hard';
+
+/**
+ * Generate enemy lineup for a run.
+ *
+ * Easy (5 rounds):
+ *   R1-R2: normal (easy tier)
+ *   R3-R4: normal (hard tier)
+ *   R5:    mid-boss
+ *
+ * Hard (10 rounds):
+ *   R1-R3: normal (easy tier)
+ *   R4:    mid-boss
+ *   R5-R6: normal (mid tier)
+ *   R7:    mid-boss
+ *   R8-R9: normal (hard tier)
+ *   R10:   big boss
+ *
+ * Both modes filter pools through the INDRA-only jam allow-list so we
+ * never spawn an enemy whose sprite isn't shipped in this build, falling
+ * back to the full pool when the jam subset is empty.
+ *
+ * @param mode 'easy' (5 rounds) or 'hard' (10 rounds)
  * @param bossOnly true = debug mode, 3 rounds (mid-boss, mid-boss, big-boss)
  */
 export function generateRunEnemies(
   _superBossUnlocked: boolean,
   seed?: number,
-  shortRun = false,
+  mode: RunMode = 'hard',
   bossOnly = false,
 ): GeneratedRound[] {
   const prevRng = rng;
@@ -111,62 +135,78 @@ export function generateRunEnemies(
   const midPool = sortedNormals.filter((e) => e.tier >= BALANCE.midTierMin && e.tier <= BALANCE.midTierMax);
   const hardPool = sortedNormals.filter((e) => e.tier >= BALANCE.hardTierMin);
 
+  // Jam scope: only INDRA-ready enemies have sprites in Preloader. Both
+  // Easy and Hard filter through the same allow-list so the build never
+  // tries to render an unshipped sprite.
+  const JAM_NORMAL_IDS = new Set<string>([
+    'enemy_mob1', 'enemy_mob2', 'enemy_mob3', 'enemy_mob4', 'enemy_mob5',
+    'enemy_mob6', 'enemy_mob7', 'enemy_mob8', 'enemy_mob9', 'enemy_mob10',
+    'enemy_mob11', 'enemy_mob13', 'enemy_mob14',
+  ]);
+  const JAM_MIDBOSS_IDS = new Set<string>(['midboss_bakeneko', 'midboss_nopperabo', 'midboss_karakasa']);
+  const JAM_BIGBOSS_IDS = new Set<string>(['boss_yuki_onna']);
+  const jamEasyPool = easyPool.filter((e) => JAM_NORMAL_IDS.has(e.id));
+  const jamMidPool = midPool.filter((e) => JAM_NORMAL_IDS.has(e.id));
+  const jamHardPool = hardPool.filter((e) => JAM_NORMAL_IDS.has(e.id));
+  const jamMidBosses = MID_BOSSES.filter((e) => JAM_MIDBOSS_IDS.has(e.id));
+  const jamBigBosses = BIG_BOSSES.filter((e) => JAM_BIGBOSS_IDS.has(e.id));
+  // Fall back to the full pool when the jam subset is empty, so the run
+  // never lands on `pickRandom([])`. Mid-tier jam pool is empty for now;
+  // it falls through to the full mid pool (or easy if mid is empty too).
+  const eP = jamEasyPool.length > 0 ? jamEasyPool : easyPool;
+  const mP =
+    jamMidPool.length > 0
+      ? jamMidPool
+      : midPool.length > 0
+        ? midPool
+        : easyPool;
+  const hP = jamHardPool.length > 0 ? jamHardPool : hardPool;
+  const mbP = jamMidBosses.length > 0 ? jamMidBosses : MID_BOSSES;
+  const bbP = jamBigBosses.length > 0 ? jamBigBosses : BIG_BOSSES;
+
   if (bossOnly) {
     // Debug: skip normal enemies entirely. Mid-boss -> mid-boss -> big-boss -> ending.
-    const mb1 = pickRandom(MID_BOSSES);
+    const mb1 = pickRandom(mbP);
     rounds.push({ index: 1, enemy: defToEnemy(mb1, false), enemyId: mb1.id, goldReward: 12, isBoss: true, isSuperBoss: false });
-    const mb2 = pickRandom(MID_BOSSES);
+    const mb2 = pickRandom(mbP);
     rounds.push({ index: 2, enemy: defToEnemy(mb2, false), enemyId: mb2.id, goldReward: 14, isBoss: true, isSuperBoss: false });
-    const bb = pickRandom(BIG_BOSSES);
+    const bb = pickRandom(bbP);
     rounds.push({ index: 3, enemy: defToEnemy(bb, false), enemyId: bb.id, goldReward: 0, isBoss: true, isSuperBoss: false });
     rng = prevRng;
     return rounds;
   }
 
-  if (shortRun) {
-    const JAM_NORMAL_IDS = new Set<string>(['enemy_scrap_drone', 'enemy_rust_walker', 'enemy_heavy_bipod']);
-    const JAM_MIDBOSS_IDS = new Set<string>(['midboss_iron_sentinel']);
-    const JAM_BIGBOSS_IDS = new Set<string>(['boss_leviathan']);
-    const jamEasyPool = easyPool.filter((e) => JAM_NORMAL_IDS.has(e.id));
-    const jamHardPool = hardPool.filter((e) => JAM_NORMAL_IDS.has(e.id));
-    const jamMidBosses = MID_BOSSES.filter((e) => JAM_MIDBOSS_IDS.has(e.id));
-    const jamBigBosses = BIG_BOSSES.filter((e) => JAM_BIGBOSS_IDS.has(e.id));
-    // Fall back to the full pool when the jam subset is empty, so the run
-    // never lands on `pickRandom([])`.
-    const eP = jamEasyPool.length > 0 ? jamEasyPool : easyPool;
-    const hP = jamHardPool.length > 0 ? jamHardPool : hardPool;
-    const mP = jamMidBosses.length > 0 ? jamMidBosses : MID_BOSSES;
-    const bP = jamBigBosses.length > 0 ? jamBigBosses : BIG_BOSSES;
-
+  if (mode === 'easy') {
+    // Easy: 5 rounds, no big-boss climax — INDRA's introductory fall.
     const r1 = pickRandom(eP);
-    rounds.push({ index: 1, enemy: defToEnemy(r1, true), enemyId: r1.id, goldReward: 8, isBoss: false, isSuperBoss: false });
+    rounds.push({ index: 1, enemy: defToEnemy(r1, true), enemyId: r1.id, goldReward: 8,  isBoss: false, isSuperBoss: false });
     const r2 = pickRandom(eP);
     rounds.push({ index: 2, enemy: defToEnemy(r2, true), enemyId: r2.id, goldReward: 10, isBoss: false, isSuperBoss: false });
-    const mb = pickRandom(mP);
-    rounds.push({ index: 3, enemy: defToEnemy(mb, false), enemyId: mb.id, goldReward: 14, isBoss: true, isSuperBoss: false });
+    const r3 = pickRandom(hP);
+    rounds.push({ index: 3, enemy: defToEnemy(r3, true), enemyId: r3.id, goldReward: 12, isBoss: false, isSuperBoss: false });
     const r4 = pickRandom(hP);
-    rounds.push({ index: 4, enemy: defToEnemy(r4, true), enemyId: r4.id, goldReward: 12, isBoss: false, isSuperBoss: false });
-    const bb = pickRandom(bP);
-    rounds.push({ index: 5, enemy: defToEnemy(bb, false), enemyId: bb.id, goldReward: 0, isBoss: true, isSuperBoss: false });
+    rounds.push({ index: 4, enemy: defToEnemy(r4, true), enemyId: r4.id, goldReward: 14, isBoss: false, isSuperBoss: false });
+    const mb = pickRandom(mbP);
+    rounds.push({ index: 5, enemy: defToEnemy(mb, false), enemyId: mb.id, goldReward: 0, isBoss: true,  isSuperBoss: false });
   } else {
-    // Full 10-round run: R1-R3 easy, R4 mid-boss, R5-R6 mid, R7 mid-boss, R8-R9 hard, R10 big boss
+    // Hard: 10 rounds, full Episode 0 arc — R10 big-boss climax.
     for (let i = 1; i <= 3; i += 1) {
-      const e = pickRandom(easyPool);
+      const e = pickRandom(eP);
       rounds.push({ index: i, enemy: defToEnemy(e, true), enemyId: e.id, goldReward: 6 + i, isBoss: false, isSuperBoss: false });
     }
-    const mb1 = pickRandom(MID_BOSSES);
+    const mb1 = pickRandom(mbP);
     rounds.push({ index: 4, enemy: defToEnemy(mb1, false), enemyId: mb1.id, goldReward: 12, isBoss: true, isSuperBoss: false });
     for (let i = 5; i <= 6; i += 1) {
-      const e = pickRandom(midPool);
+      const e = pickRandom(mP);
       rounds.push({ index: i, enemy: defToEnemy(e, true), enemyId: e.id, goldReward: 9 + i, isBoss: false, isSuperBoss: false });
     }
-    const mb2 = pickRandom(MID_BOSSES);
+    const mb2 = pickRandom(mbP);
     rounds.push({ index: 7, enemy: defToEnemy(mb2, false), enemyId: mb2.id, goldReward: 14, isBoss: true, isSuperBoss: false });
     for (let i = 8; i <= 9; i += 1) {
-      const e = pickRandom(hardPool);
+      const e = pickRandom(hP);
       rounds.push({ index: i, enemy: defToEnemy(e, true), enemyId: e.id, goldReward: 11 + i, isBoss: false, isSuperBoss: false });
     }
-    const bb = pickRandom(BIG_BOSSES);
+    const bb = pickRandom(bbP);
     rounds.push({ index: 10, enemy: defToEnemy(bb, false), enemyId: bb.id, goldReward: 0, isBoss: true, isSuperBoss: false });
   }
 

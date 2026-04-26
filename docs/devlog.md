@@ -961,6 +961,111 @@ than to keep the dead body warm.
 
 ---
 
+## Day 9 — 2026-04-23
+
+Meta-progression layer day. The gold-shop buff items had been
+sitting alongside parts as if they were equivalent, but they
+read more like persistent rewards than per-run economy: you'd
+buy "Adrenaline Shot" once, see its effect, and want it
+*again* on the next run instead of grinding the gold shop for
+it every time. So buffs got moved out of the run economy into
+a persistent meta-shop — **SANCTUM (加持堂)**, accessible
+from the Title menu once the player has completed at least
+one battle.
+
+### Persistence layer
+
+Saved-data schema gained two fields and three helpers
+(`src/game/systems/savedata.ts`):
+
+- `battlesCompleted: number` — incremented on
+  `Battle.goToResult`, regardless of win/loss. Used as the
+  unlock gate for the Sanctum button on Title.
+- `ownedBuffItems: ItemKey[]` — pending inventory of
+  consecrated buff items. Drained at the next run's start.
+- `purchaseSanctumBuff(itemKey, scrapCost)` — atomic deduct +
+  push, returns the new SaveData or null on insufficient
+  scrap / duplicate.
+- `consumeOwnedBuffs()` — drains the pending list and returns
+  it; called from Select on run start.
+- `recordBattleCompleted()` — increments the counter.
+
+### Sanctum scene
+
+`scenes/Sanctum.ts` + `overlays/sanctumOverlay.ts` are a
+hybrid (Phaser cards + DOM frame) following the same pattern
+as Collection. Three buff-item cards (Adrenaline Shot,
+Stabilizer Plate, Battery Cell) each show a scrap-price tag
+and a Consecrate button. Below the cards a "BUFFS READIED"
+readout shows the pending inventory the player will take into
+the next run. Cancel / Embark exits to Title.
+
+Title gained a purple-accent **SANCTUM** button (mirrors the
+PLAY button visual but with a `accentPurple` palette entry)
+that only renders when `save.battlesCompleted > 0` — first-
+time judges see only PLAY and the screen reads cleanly, then
+SANCTUM appears organically after their first defeat or
+victory.
+
+### Build screen gutted
+
+The buff items leaving the run economy let us delete a *lot*:
+
+- The whole **STORAGE column + SELL box + drag-and-drop
+  system** is gone. Fifteen methods, the `DragSource` enum,
+  pointermove / pointerup listeners, the drag-ghost visual
+  layer, and `runState.storedParts` itself — deleted. Shop is
+  now strictly click-to-buy: clicking a card auto-places the
+  part into the first free matching slot, or merges with an
+  existing same-key part. No-slot rejection is silent.
+- The leftmost column (former STORAGE real estate) now
+  renders the run's `equippedBuffs` as chamfered read-only
+  cards. Header strip reads "BUFFS" instead of the old
+  "CACHE".
+- `runState.storedParts` removed across the build pipeline;
+  `equippedBuffs` is now exclusively fed by the SANCTUM
+  inventory drain on Select.
+
+The drag-and-drop deletion was the single largest code
+removal of the jam — a substantial chunk of Build.ts plus
+matching overlay support evaporated. The trade-off is real:
+players can't repent on a placement once they've bought it.
+But the click-to-buy flow is dramatically easier to learn
+inside the 30-second judge window, and SANCTUM gives a
+parallel "save your favourite gear for next time" outlet that
+absorbs most of the player intent the drag system used to
+carry.
+
+### Pipeline plumbing
+
+- `Battle.goToResult` calls `recordBattleCompleted()` so
+  `battlesCompleted` ticks regardless of outcome.
+- `Select.start` calls `consumeOwnedBuffs()` and routes the
+  drained items into the new run's `equippedBuffs`.
+- `Build.drawBuffsColumn` reads `equippedBuffs` from
+  `runState`, renders read-only cards, no interaction.
+
+### Quality bar
+
+- `hiDpiText.applyHiDpiToScene` was missing a recursion case
+  for Phaser containers — text nested inside shop cards or
+  popups was rendering at DPR 1 (blurry on Retina). Now
+  recurses into Container children. This was a long-standing
+  silent bug exposed by inspecting the new Sanctum cards.
+- i18n strings added: `SANCTUM`, `Scrap`, `Consecrate`,
+  `Buffs Readied`, `Owned Buffs`, plus a few status lines.
+- `bun run tsc --noEmit`: 0 errors. `bun run build`: 232 kB
+  / 67 kB gzip main bundle (+ Phaser 350 kB gzip).
+
+### Next
+
+- Day 10 polish: Build screen layout cleanup (the four-column
+  alignment is still visibly off — frames eating COL_GAPs),
+  ULT cut-in rebuild (current implementation is "JPEG at an
+  angle"), aura-ring removal on the mini-character.
+
+---
+
 ## Day 10 — 2026-04-24
 
 Two-front polish pass: (1) land the Claude Design Build screen
@@ -1097,5 +1202,212 @@ solution and reads the same onscreen.
   per-scene crossfade), (3) final screenshot + GIF refresh for
   the itch page, (4) Cloudflare Workers deploy via
   `scripts/release.sh deploy`.
+
+---
+
+## Day 11 — 2026-04-25 / 2026-04-26 (final session)
+
+The closing day of the jam. Started with cleanup of the Build
+screen visuals that had been "looks fine" for two days but
+turned out to be off; ended with a STORY library scene, a
+Victory layout fix, a credits + music re-cut, and a repo
+cleanup pass for the public push.
+
+### SHOP frame off-by-43 — three patches around a wrong premise
+
+The morning's first user report: "shop cards overflow the
+SHOP frame, you've fixed this twice and it's still wrong."
+The first two patches that day moved `SHOP_FRAME_BOTTOM_PAD`
+around (`+24` → equal-margin reformulation), each time
+verifying the *frame* arithmetic rather than the *card* y
+arithmetic. Both passes left the user looking at the same
+visual overflow.
+
+The actual bug: a 43-pixel semantic mismatch on `SHOP_GRID_TOP`.
+The constant was *computed* as if it meant "row-0 centre y"
+(`REROLL_BOTTOM + SHOP_VGAP + CARD_H/2`) but *consumed* in the
+card-placement formula
+
+```text
+cardCenterY = SHOP_GRID_TOP + row * (CARD_H + GAP) + CARD_H/2
+```
+
+as if it meant "row-0 top y." Both author and reader could read
+the formula and not notice — the symptom is just that every
+card sits 43 px lower than the frame author thought.
+
+Cracked it open by dumping the live scene via Playwright +
+Phaser scene walk:
+
+```text
+expected centres: 201 / 301 / 401
+actual centres:   244 / 344 / 444  ← + 43 everywhere
+```
+
+The 43 is `SHOP_CARD_H / 2`. Once the offset is named, the
+fix is two lines: `SHOP_GRID_TOP` becomes the genuine top of
+row 0 (drop the `+ 43`), and the frame-bottom formula's
+`+ SHOP_CARD_H / 2` becomes `+ SHOP_CARD_H` (the actual
+last-row bottom, not the last-row centre). Cards now sit
+inside the frame with 24 px breathing room top and bottom.
+
+The stale-feedback cycle is the lesson. Three rounds of "still
+broken" with the same diagnosis loop ("compute frame bottom,
+recompute frame bottom") wasted real time. New rule promoted
+to `CLAUDE.md` and `memory/feedback_root_cause_first.md`:
+**stop after two repeats, live-dump before pixel arithmetic,
+audit the semantic intent of every variable in the failing
+path.** A live scene-walk in 30 seconds would have surfaced
+the +43 immediately.
+
+### STORY library scene — Title-screen entry, gated by hardCleared
+
+User asked for a STORY button to the right of SETTINGS on the
+Title screen, available only after the player has cleared
+HARD mode. Content: the joined Easy + Hard endings, including
+the 百鬼夜行 reveal, no production credits, no "TO BE
+CONTINUED" beat — purely the in-fiction archive.
+
+Wiring:
+
+- `savedata.ts` gained a `hardCleared: boolean` flag with
+  `recordHardCleared()` (idempotent guard mirroring
+  `recordEasyCleared()`).
+- `Result.renderVictory()` calls `recordHardCleared()` when
+  `endingMode === 'hard' && !previewOnly`. The
+  `previewOnly` gate stops the Settings → Ending (Hard) debug
+  preview from quietly unlocking STORY for everybody.
+- `titleOverlay.ts` learned an `onStory?` handler. When it's
+  `undefined` the button is *not rendered* at all — same
+  pattern as SANCTUM's `onSanctum?`, no greyed-out preview.
+  CSS uses an amber palette (`#ffd94a`) so it reads as a
+  separate variant from the violet SANCTUM button.
+- `Title.ts` passes `save.hardCleared ? handler : undefined`.
+- New `scenes/Story.ts` + `overlays/storyOverlay.ts` deliver
+  the read-at-your-own-pace view. Visual language matches
+  Settings / Collection: ss-frame brackets, navy panel with a
+  cyan hairline, Bebas Neue title, BACK button bottom-left.
+
+The stanza copy lives in `src/data/storyText.ts` (already the
+canonical bilingual source for `EASY_ENDING_STANZAS`,
+`HARD_ENDING_STANZAS`, `HYAKKI_SUB_LINES`) so the library and
+the post-victory ending scroll resolve from one array each
+via `bl()` at mount time.
+
+Verified live via Playwright walking three save states: fresh
+save → STORY hidden; `hardCleared = true` → button visible at
+`(740, 526)` next to SETTINGS; click → Story scene mounts
+with two chapter headings ("I — THE FALLING" / "II — THE
+FIRST FIST"), 9 stanzas (3 Easy + 6 Hard), 百鬼夜行 reveal
+visible after scroll, credits not leaked.
+
+### Victory screen: stats vs machine-summary overlap
+
+User: "victory screen has overlapping text." Live-dumped the
+overlay first this time (per the new rule):
+
+```text
+.stats:           y=430..532 (5 lines × 21 px line-height)
+.machine-summary: y=510..526
+                  ↑ inside stats — 22 px overlap
+```
+
+The hard-coded `top:510px` on `.machine-summary` was authored
+when `statsLines` was ~3 lines long. It now ships 5 lines
+(`victoryLine` + blank + DMG / Healed / Parts) which extend
+to y ≈ 535. Replaced the constant with a derived
+`summaryY = statsY + statsLines.length * STATS_LINE_PX +
+SUMMARY_PAD_PX`. The `.machine-summary` block now lands at
+y=559 with 24 px clear of the stats bottom, no matter how the
+stats array changes.
+
+### Credits + bgm_victory re-cut
+
+User wanted CREDITS slimmed to three sections (separate
+`MUSIC` from `AUDIO`):
+
+```text
+AI-ASSISTED ASSETS — Grok, Piskel
+MUSIC              — Suno
+AUDIO              — Web Audio API
+```
+
+…and the Hard ED music shortened to fit. The original
+`bgm_victory.mp3` was 158.76 s, tuned for the old long credits
+roll. Measured the new ED scroll end-to-end with Playwright
+on the slimmed `CREDITS` array: total 106.9 s from Result
+mount → RETURN visible (12 s VICTORY screen + ~95 s scroll).
+
+Single-pass `ffmpeg` re-cut to 115 s (`-t 115 -af
+"afade=t=out:st=109:d=6"`) — 109 s body plus a 6 s fade-out.
+That leaves an 8 s tail covering the player's 百鬼夜行 reading
+window before the music dies cleanly. Original 158 s file
+backed up to `/tmp` outside the repo. The `~158s` comment in
+`endingScrollOverlay.ts` is now updated with the new
+arithmetic and a re-measure SOP for next time the credits
+length changes.
+
+### Repo cleanup before push
+
+A pre-push sweep produced a meaningful list:
+
+- All `*:Zone.Identifier` files (Windows alternate-data-stream
+  metadata that snuck in via WSL imports) deleted from disk;
+  `*:Zone.Identifier` added to `.gitignore` to prevent
+  re-occurrence.
+- `scripts/__pycache__/` deleted; pattern gitignored.
+- `scripts/*.py` (the sprite preprocessing tools — rembg
+  variants, halo cleanup, spritesheet stitcher) kept on disk
+  for Heika's local reuse but added to `.gitignore`. They
+  were referenced from `package.json`'s scripts section;
+  those entries removed from the public manifest. The `.ts`
+  automation scripts (`auto-play`, `browser-test`,
+  `debug-resize`, `shots*`, `playthrough`) stay tracked —
+  they're part of the public dev experience.
+- `public/assets/images/alpha/` (pre-rembg sprite sources),
+  `public/assets/images/rembg-compare/` (side-by-side renders
+  for halo-cleanup tuning), and `public/assets/images/indra.jpg`
+  (raw INDRA portrait, replaced by `sprites/indra_battle_idle.png`)
+  added to `.gitignore`. Phaser's Preloader does not load any
+  of them, confirmed by grep.
+- `docs/design/enemy-boss-prompts.md` (Japanese internal
+  prompt notes for boss image generation) re-ignored. The
+  whitelist now correctly says: only `docs/design/build-spec.md`
+  ships under `docs/design/`.
+
+`bun run build` still produces `dist/` cleanly (78 modules,
+275 kB main bundle gzipped to 78 kB). `bunx tsc --noEmit`
+returns 0 errors.
+
+### Quality bar
+
+- `bun run tsc --noEmit`: 0 errors.
+- `bun run build`: clean, no new size regression.
+- `/simplify` (3 reviewers — reuse / quality / efficiency):
+  efficiency was clean; reuse + quality flagged Story.ts /
+  storyOverlay.ts CSS overlap with Settings / Collection.
+  Promoted the small low-risk fixes (consolidated ESC / R /
+  BACK behind a single `goBack` closure with consistent
+  `playSfx`, trimmed redundant scene JSDoc and free-floating
+  block comment in storyOverlay). Larger refactors
+  (extracting a shared scene-base helper, lifting common
+  panel CSS into `overlayBase`) deferred — they would touch
+  Settings / Collection / Sanctum and need their own
+  regression pass, not worth the risk on submission day.
+
+### Submission state
+
+This is the last commit before the Cloudflare Workers deploy.
+Open paths from here:
+
+- `bun run release deploy` to roll the trimmed `dist/` to
+  Workers Static Assets behind the existing custom domain.
+- itch.io HTML5 zip via `bun run package-itch` (not yet
+  re-exported with the new `bgm_victory.mp3`; needs one more
+  pass before submission).
+- Final screenshot refresh — `06_sanctum.png` is in, the
+  others are stale relative to the post-cleanup STORY-button
+  Title and the new Victory layout. Optional polish if there
+  is time before 15:00 UTC.
 
 ---

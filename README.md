@@ -6,6 +6,8 @@ Cyborg humans augmented with mechanical weapons fight in an ultimate-only combat
 
 Episode 0 of the planned **CIRCLE OF SAMSARA** trilogy. Built with **Phaser 4 + TypeScript + Vite + Bun**.
 
+Beneath the surface runs an **[Echo Theory](https://note.com/risingore/n/nbff78bf31a50)** layer: residual signals threaded across Title, Select, broadcasts, and endings. The transmitter is dead; the signal kept ringing.
+
 ## Play Now
 
 [machines.risingore.com](https://machines.risingore.com)
@@ -23,6 +25,7 @@ Episode 0 of the planned **CIRCLE OF SAMSARA** trilogy. Built with **Phaser 4 + 
 - **Achievements and collection** — track unlocked cyborgs, discovered parts, defeated enemies, earned titles, and acquired skills
 - **HTML DOM Title overlay** — the Title screen is a native SVG + CSS layer riding on top of the Phaser canvas, so text and vector art render at full device resolution on Retina / 4K
 - **Trilogy tease** — defeat the final boss to glimpse the next chapter: `HYAKKI YAKOU — STANDING BY` and `TO BE CONTINUED: SOUL BREAKER`
+- **Echo Theory layer** — residual signals stitched into Title, Select, broadcasts, and endings. Decode the echo and the cycle becomes legible. ([source article](https://note.com/risingore/n/nbff78bf31a50))
 - **Zero-byte audio** — all SFX synthesized at runtime via Web Audio API
 - **Japanese localization** — auto-detected from browser language
 - **PWA support** — installable as a standalone app

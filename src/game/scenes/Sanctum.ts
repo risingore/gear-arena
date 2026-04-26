@@ -1,7 +1,13 @@
 import { Scene } from 'phaser';
 
 import { ITEMS, ALL_ITEM_KEYS, type ItemKey } from '@/data';
-import { PALETTE, CATEGORY_COLORS } from '../systems/palette';
+import {
+  PALETTE,
+  SANCTUM_KIND_COLORS,
+  SANCTUM_KIND_LABEL,
+  SANCTUM_KIND_ORDER,
+  type SanctumKind,
+} from '../systems/palette';
 import { playSfx } from '../systems/audio';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { t, bl } from '../systems/i18n';
@@ -13,6 +19,7 @@ import {
   mountSanctumOverlay,
   type SanctumOverlayHandle,
   type SanctumBuffCard,
+  type SanctumBuffSection,
 } from '../overlays/sanctumOverlay';
 import { applyHiDpiToScene, showDebugBadge } from '../helper/hiDpiText';
 import { isDebugEnabled } from '../systems/debug';
@@ -35,18 +42,36 @@ export class Sanctum extends Scene {
 
     const save = loadSaveData();
 
-    const cards: SanctumBuffCard[] = ALL_ITEM_KEYS.map((key) => {
+    // Group items by effect.kind so SANCTUM displays a 3×3 grid:
+    // one row per kind (OFFENSE / DEFENSE / RECON), 3 buffs per row.
+    const hex = (n: number): string => `#${n.toString(16).padStart(6, '0')}`;
+
+    const cardsByKind = new Map<SanctumKind, SanctumBuffCard[]>();
+    for (const kind of SANCTUM_KIND_ORDER) cardsByKind.set(kind, []);
+    for (const key of ALL_ITEM_KEYS) {
       const item = ITEMS[key];
-      // Scrap price = Phaser-gold price. Tuned in src/data/items.ts.
-      const scrapPrice = item.price;
-      return {
+      const kind = item.effect.kind as SanctumKind;
+      const bucket = cardsByKind.get(kind);
+      if (!bucket) continue;
+      bucket.push({
         key,
         name: t(item.name),
         description: t(item.description),
-        scrapPrice,
-        categoryHex: `#${CATEGORY_COLORS.charger.toString(16).padStart(6, '0')}`,
-      };
-    });
+        scrapPrice: item.price,
+      });
+    }
+    for (const bucket of cardsByKind.values()) {
+      bucket.sort((a, b) => a.scrapPrice - b.scrapPrice);
+    }
+
+    const sections: SanctumBuffSection[] = SANCTUM_KIND_ORDER
+      .map((kind): SanctumBuffSection => ({
+        kindKey: kind,
+        kindLabel: SANCTUM_KIND_LABEL[kind],
+        kindHex: hex(SANCTUM_KIND_COLORS[kind]),
+        cards: cardsByKind.get(kind) ?? [],
+      }))
+      .filter((s) => s.cards.length > 0);
 
     const ownedNames = (items: readonly string[]): string[] =>
       items.map((k) => {
@@ -62,12 +87,13 @@ export class Sanctum extends Scene {
       }),
       scrapLabel: t('Scrap:'),
       scrapAmount: save.scrap,
-      consecrateLabel: t('Consecrate'),
       notEnoughLabel: t('Not enough scrap.'),
+      ownedLabel: t('READIED'),
       readiedHeading: t('BUFFS READIED'),
       readiedEmpty: t('No buffs readied.'),
       readied: ownedNames(save.ownedBuffItems),
-      cards,
+      ownedKeys: save.ownedBuffItems,
+      sections,
       backLabel: t('← BACK'),
       onPurchase: (key: string) => {
         const item = ITEMS[key as ItemKey];
@@ -78,7 +104,7 @@ export class Sanctum extends Scene {
           return;
         }
         playSfx('buy');
-        this.overlay?.update(updated.scrap, ownedNames(updated.ownedBuffItems));
+        this.overlay?.update(updated.scrap, ownedNames(updated.ownedBuffItems), updated.ownedBuffItems);
       },
       onBack: () => {
         playSfx('click');

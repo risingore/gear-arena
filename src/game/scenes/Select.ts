@@ -3,7 +3,7 @@ import { Scene } from 'phaser';
 import { ROBOTS, ALL_ROBOT_KEYS, ROBOT_ULTIMATES, type RobotKey } from '@/data';
 import { CHARACTER_QUOTES, THESIS_PROLOGUE } from '@/data/storyText';
 import { bl, t } from '../systems/i18n';
-import { setRunState, resetRunState } from '../systems/runState';
+import { getRunState, setRunState, resetRunState } from '../systems/runState';
 import { PALETTE, ROBOT_COLORS } from '../systems/palette';
 import { generateShopOffer } from '../systems/shop';
 import { generateRunEnemies } from '../systems/enemyPool';
@@ -135,13 +135,14 @@ export class Select extends Scene {
       return;
     }
     playSfx('buy');
+    // Read the mode Title set on click before resetRunState wipes it.
+    // Easy = 5 rounds (R1-4 normal, R5 mid-boss). Hard = 10 rounds full arc.
+    const previousMode = getRunState(this).endingMode;
     const fresh = resetRunState(this);
-    // Jam scope: every run is a 5-round short run (INDRA-only release).
-    const shortRun = true;
     const generatedRounds = generateRunEnemies(
       isSuperBossUnlocked(),
       undefined,
-      shortRun,
+      previousMode,
       isBossModeEnabled(),
     );
     const debugGold = isDebugEnabled() ? 100000 : fresh.gold;
@@ -151,6 +152,7 @@ export class Select extends Scene {
     const next = {
       ...fresh,
       robotKey,
+      endingMode: previousMode,
       gold: debugGold,
       shopOffer: generateShopOffer(),
       generatedRounds,

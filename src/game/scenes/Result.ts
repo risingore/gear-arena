@@ -8,6 +8,7 @@ import {
   ATMAN_NORMAL_STATEMENTS,
   ATMAN_MIDBOSS_STATEMENTS,
   ATMAN_BIGBOSS_STATEMENTS,
+  ATMAN_EASY_VICTORY_STATEMENT,
 } from '@/data/storyText';
 import { getRunState, setRunState } from '../systems/runState';
 import { PALETTE } from '../systems/palette';
@@ -18,13 +19,19 @@ import { playSfx } from '../systems/audio';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import {
   recordVictory,
+  recordEasyCleared,
+  recordHardCleared,
   recordDefeatedEnemy,
   recordUsedPart,
   recordAcquiredSkill,
   recordScrap,
+  recordBattleCompleted,
   loadSaveData,
 } from '../systems/savedata';
-import { mountEndingScrollOverlay } from '../overlays/endingScrollOverlay';
+import {
+  mountEndingScrollOverlay,
+  mountEasyEndingOverlay,
+} from '../overlays/endingScrollOverlay';
 import {
   mountResultOverlay,
   type ResultOverlayAtmanStatement,
@@ -50,11 +57,17 @@ export class Result extends Scene {
     const outcome = state.battleOutcome;
     if (outcome === 'victory') playMusic(this, MUSIC_KEYS.victory, false);
 
-    // Track defeated enemies and used parts in the collection.
-    if ((outcome === 'win' || outcome === 'victory') && state.lastDefeatedEnemyId) {
+    // Track defeated enemies and used parts in the collection. Skipped
+    // when this run is a debug preview (Settings → Ending) — preview
+    // playback must not contaminate the player's real save data.
+    if (
+      !state.previewOnly &&
+      (outcome === 'win' || outcome === 'victory') &&
+      state.lastDefeatedEnemyId
+    ) {
       recordDefeatedEnemy(state.lastDefeatedEnemyId);
     }
-    if (outcome === 'win' || outcome === 'victory') {
+    if (!state.previewOnly && (outcome === 'win' || outcome === 'victory')) {
       for (const entry of Object.values(state.equipped)) {
         if (entry?.key) recordUsedPart(entry.key);
       }
@@ -78,10 +91,14 @@ export class Result extends Scene {
     this.events.once('destroy', cleanup);
 
     // Global R shortcut: matches every other scene — bail to Title.
-    this.input.keyboard?.on('keydown-R', () => {
-      playSfx('click');
-      fadeToScene(this, 'Title');
-    });
+    // Suppressed on victory so the ED sequence plays uninterrupted; the
+    // ED overlay owns its own "RETURN TO TITLE" button instead.
+    if (outcome !== 'victory') {
+      this.input.keyboard?.on('keydown-R', () => {
+        playSfx('click');
+        fadeToScene(this, 'Title');
+      });
+    }
 
     showDebugBadge(this, isDebugEnabled());
   }
@@ -199,10 +216,23 @@ export class Result extends Scene {
     title: string,
     titleColor: string,
   ): void {
-    const priorClears = loadSaveData().totalClears;
-    if (state.robotKey) recordVictory(state.robotKey);
+    // Read per-mode clear flags BEFORE recordEasy/HardCleared flips them.
+    // First-time viewing of either ED must be unskippable; previewOnly
+    // (debug ED preview from Settings) always allows skip.
+    const priorSave = loadSaveData();
+    const priorEasyCleared = priorSave.easyCleared;
+    const priorHardCleared = priorSave.hardCleared;
+    // previewOnly runs are debug ED previews triggered from Settings —
+    // they must not flip easyCleared (which would unlock HARD), bump
+    // totalClears, accrue scrap, or otherwise touch persistent state.
+    if (!state.previewOnly && state.robotKey) recordVictory(state.robotKey);
+    if (!state.previewOnly && state.endingMode === 'easy') recordEasyCleared();
+    if (!state.previewOnly && state.endingMode === 'hard') recordHardCleared();
     const scrapEarned = Math.floor(state.gold * BALANCE.scrapConversionRate);
-    if (scrapEarned > 0) recordScrap(scrapEarned);
+    if (!state.previewOnly && scrapEarned > 0) recordScrap(scrapEarned);
+    // SANCTUM unlock counter — only ticks on full-run completion
+    // (this branch = victory). Mid-run R-to-Title leaves it untouched.
+    if (!state.previewOnly) recordBattleCompleted();
 
     const totalRounds = state.generatedRounds.length;
     const rs = state.runStats;
@@ -222,14 +252,42 @@ export class Result extends Scene {
       scrapEarned,
       statsLines: [victoryLine, '', ...statsLines],
       machineSummary: summary || undefined,
-      atman: this.findAtmanStatement(state.lastDefeatedEnemyId),
+      atman: this.findVictoryAtmanStatement(state),
     });
     this.unmountOverlay = () => handle.unmount();
 
     // Start the typewriter immediately so players watch ATMAN's final
     // statement unfold during the Victory screen.
     handle.startAtmanTypewriter(8000);
-    this.scheduleEndingScroll(priorClears > 0, handle);
+    // First-time viewing per mode is unskippable; preview always skippable.
+    if (state.endingMode === 'easy') {
+      this.scheduleEasyEnding(state.previewOnly === true || priorEasyCleared, handle);
+    } else {
+      this.scheduleEndingScroll(state.previewOnly === true || priorHardCleared, handle);
+    }
+  }
+
+  private scheduleEasyEnding(
+    showSkip: boolean,
+    handle: import('../overlays/resultOverlay').ResultOverlayHandle,
+  ): void {
+    this.time.delayedCall(8000, () => {
+      handle.startGlitch();
+    });
+    this.time.delayedCall(10000, () => {
+      this.unmountEnding = mountEasyEndingOverlay({
+        returnLabel: t('← RETURN TO TITLE'),
+        showSkip,
+        onReturn: () => {
+          playSfx('click');
+          fadeToScene(this, 'Title');
+        },
+      });
+    });
+    this.time.delayedCall(10800, () => {
+      this.unmountOverlay?.();
+      this.unmountOverlay = null;
+    });
   }
 
   private scheduleEndingScroll(showSkip: boolean, handle: import('../overlays/resultOverlay').ResultOverlayHandle): void {
@@ -267,6 +325,23 @@ export class Result extends Scene {
     this.unmountOverlay = () => handle.unmount();
 
     this.input.keyboard?.once('keydown-SPACE', () => fadeToScene(this, 'Title'));
+  }
+
+  /**
+   * Victory-screen ATMAN line. Easy runs always show the fixed Echo
+   * Theory denial line; Hard runs fall through to the per-boss
+   * statement based on whichever avatar was the final kill.
+   *
+   * Episode 0 scope reminder: never reach for ATMAN_SUPERBOSS_STATEMENT
+   * here — Yamata no Orochi is not fought in this build.
+   */
+  private findVictoryAtmanStatement(
+    state: import('../systems/runState').RunState,
+  ): ResultOverlayAtmanStatement | undefined {
+    if (state.endingMode === 'easy') {
+      return { label: '— ATMAN —', text: bl(ATMAN_EASY_VICTORY_STATEMENT) };
+    }
+    return this.findAtmanStatement(state.lastDefeatedEnemyId);
   }
 
   private findAtmanStatement(enemyId: string | null | undefined): ResultOverlayAtmanStatement | undefined {

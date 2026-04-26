@@ -26,7 +26,7 @@ import {
 } from '../systems/combat';
 import { playSfx } from '../systems/audio';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
-import { recordRoundReached, recordBattleCompleted } from '../systems/savedata';
+import { recordRoundReached } from '../systems/savedata';
 import { t } from '../systems/i18n';
 import { playMusic, MUSIC_KEYS, setMusicPlaybackRate } from '../systems/music';
 import { applyHiDpiToScene, TEXT_DPR, showDebugBadge } from '../helper/hiDpiText';
@@ -64,6 +64,25 @@ const LOG_LINE_COUNT = 3;
 const POPUP_RISE_PX = 48;
 const POPUP_DURATION_MS = 600;
 
+/**
+ * Battle-speed rungs. Two parallel arrays keep the HUD label decoupled
+ * from the actual time-scale multiplier:
+ *   - SPEED_INTERNAL  drives the simulation; every dt is scaled by it.
+ *   - SPEED_DISPLAY   is what the player sees in the SPEED indicator.
+ *
+ * The mapping (1.2 → "×1", 1.6 → "×1.5", 2.0 → "×2") gives us a 20 %
+ * baseline pace uplift even at the slowest rung — the simulation feels
+ * snappier without making the label scary for first-time judges.
+ */
+const SPEED_INTERNAL = [1.2, 1.6, 2] as const;
+const SPEED_DISPLAY = [1, 1.5, 2] as const;
+/** Map an internal multiplier back to its display label. Returns the
+ *  internal value as a fallback if it isn't one of the known rungs. */
+const toSpeedDisplay = (internal: number): number => {
+  const idx = SPEED_INTERNAL.findIndex((v) => Math.abs(v - internal) < 1e-6);
+  return idx >= 0 ? SPEED_DISPLAY[idx]! : internal;
+};
+
 export class Battle extends Scene {
   private player!: Combatant;
   private enemy!: Combatant;
@@ -89,7 +108,12 @@ export class Battle extends Scene {
   private enemyImg: GameObjects.Image | null = null;
   private playerBaseX = 0;
   private enemyBaseX = 0;
-  private timeScale = 1;
+  /** Internal time-scale multiplier applied to dt every frame.
+   *  Three rungs (×1.2 / ×1.6 / ×2.0) — but the HUD shows them to the
+   *  player as the simpler "×1 / ×1.5 / ×2" labels via SPEED_DISPLAY,
+   *  so the baseline pace already gets a 20 % uplift even when the
+   *  player thinks they're at "×1". */
+  private timeScale: number = SPEED_INTERNAL[0];
   private battleOverlay: BattleOverlayHandle | null = null;
   private elapsedBattleSec = 0;
   private debugTimerText!: GameObjects.Text;
@@ -112,14 +136,24 @@ export class Battle extends Scene {
   private auraSfxFired = false;
   /** Whether combat is frozen waiting for ultimate button press. */
   private ultReady = false;
+  /**
+   * Whether the SOUL STRIKE button is actually mounted on screen and accepts
+   * input. Distinct from `ultReady` because between gauge-fill and button
+   * mount there is a 擬似連 pulse window during which the player must NOT
+   * be able to fire — otherwise the deferred showUltimateButton call mounts
+   * a button that never gets cleared (ult already fired, ultReady reset to
+   * false, button click ignored, button stays on screen forever).
+   */
+  private ultButtonShown = false;
   /** The big ULTIMATE button (shown during freeze). */
   private ultButton: GameObjects.Container | null = null;
   /** DOM mandala-style SOUL STRIKE button (shown during freeze). */
   private soulStrikeBtn: SoulStrikeButtonHandle | null = null;
   /** Real seconds elapsed before auto fast-forward kicks in. */
   private static readonly AUTO_FF_SEC = 15;
-  /** Speed multiplier applied after AUTO_FF_SEC elapses. */
-  private static readonly AUTO_FF_SPEED = 1.5;
+  /** Internal speed multiplier applied after AUTO_FF_SEC elapses (the
+   *  middle rung — display label = ×1.5). */
+  private static readonly AUTO_FF_SPEED = SPEED_INTERNAL[1]; // 1.6
 
   constructor() {
     super('Battle');
@@ -138,15 +172,17 @@ export class Battle extends Scene {
     this.finished = false;
     this.finishDelay = 0;
     this.logLines = [];
-    // Debug mode boots at 2× so balance / auto-play sweeps run faster;
-    // normal play starts at 1× to give first-time judges a readable
-    // pace, then `update()` ramps to AUTO_FF_SPEED after AUTO_FF_SEC.
-    this.timeScale = isDebugEnabled() ? 2 : 1;
+    // Debug mode boots at the top rung (internal 2× / display ×2) so
+    // balance / auto-play sweeps run faster; normal play starts at the
+    // bottom rung (internal 1.2× / display ×1) and `update()` ramps to
+    // AUTO_FF_SPEED (internal 1.6× / display ×1.5) after AUTO_FF_SEC.
+    this.timeScale = isDebugEnabled() ? SPEED_INTERNAL[2] : SPEED_INTERNAL[0];
     this.elapsedBattleSec = 0;
     this.slotState = createSlotState();
     this.auraSfxFired = false;
     this.ultFiring = false;
     this.ultReady = false;
+    this.ultButtonShown = false;
 
     const robot = ROBOTS[state.robotKey];
     this.playerRobotArchetypeLabel = robot.archetype.toUpperCase();
@@ -255,7 +291,7 @@ export class Battle extends Scene {
       isBoss: genRound.isBoss === true,
       subheadingBattle: t('BATTLE'),
       subheadingBoss: t('⚠  BOSS BATTLE  ⚠'),
-      initialSpeed: this.timeScale,
+      initialSpeed: toSpeedDisplay(this.timeScale),
     });
     this.events.once('shutdown', () => {
       this.battleOverlay?.unmount();
@@ -309,22 +345,59 @@ export class Battle extends Scene {
       .text(playerX, arenaY - SPRITE_H / 2 - 28, t(robot.name), textStyles.body)
       .setOrigin(0.5);
 
-    // Enemy visual — placeholder rectangle (real sprites come later).
+    // Enemy visual — load the round's enemy sprite if its texture exists,
+    // otherwise fall back to a coloured rectangle placeholder. Sprites are
+    // generated facing right (matches INDRA's source orientation) and
+    // flipped horizontally at runtime so the enemy faces the player on
+    // the left side of the arena.
     this.enemyBaseX = enemyX;
     this.enemyImg = null;
+    const enemyAssetKey = roundEnemy.assetKey;
+    if (enemyAssetKey && this.textures.exists(enemyAssetKey)) {
+      const eImg = this.add.image(enemyX, arenaY, enemyAssetKey);
+      eImg.setFlipX(true);
+      const eScale = Math.min(SPRITE_W / eImg.width, SPRITE_H / eImg.height);
+      eImg.setScale(eScale);
+      this.enemyImg = eImg;
+    }
     this.enemySprite = this.add
-      .rectangle(enemyX, arenaY, SPRITE_W, SPRITE_H, PALETTE.accentRed, 1)
-      .setStrokeStyle(3, PALETTE.textPrimary);
+      .rectangle(
+        enemyX,
+        arenaY,
+        SPRITE_W,
+        SPRITE_H,
+        this.enemyImg ? 0x000000 : PALETTE.accentRed,
+        this.enemyImg ? 0 : 1,
+      );
+    if (!this.enemyImg) this.enemySprite.setStrokeStyle(3, PALETTE.textPrimary);
 
-    // --- Idle breathing animation (skip player when pixel idle anim is running) ---
+    // --- Idle breathing animation (skip when a multi-frame pixel
+    //     spritesheet is driving its own anim instead). The single-
+    //     frame INDRA portrait gets a vertical bob + a subtle scale
+    //     pulse here so the character reads as "alive" between
+    //     attacks. Both run on the same period so they breathe
+    //     together; randomised duration desyncs player vs enemy. ---
     if (!playerUsesPixelIdle) {
+      const pVisual = this.playerImg ?? this.playerSprite;
+      const pBaseScaleX = pVisual.scaleX;
+      const pBaseScaleY = pVisual.scaleY;
+      const pPeriod = 1300 + Math.random() * 300;
       this.tweens.add({
-        targets: this.playerImg ?? this.playerSprite,
-        y: (this.playerImg ?? this.playerSprite).y - 5,
-        duration: 1400 + Math.random() * 400,
+        targets: pVisual,
+        y: pVisual.y - 8,
+        duration: pPeriod,
         yoyo: true,
         repeat: -1,
-        ease: 'Sine.easeInOut'
+        ease: 'Sine.easeInOut',
+      });
+      this.tweens.add({
+        targets: pVisual,
+        scaleX: pBaseScaleX * 1.025,
+        scaleY: pBaseScaleY * 1.025,
+        duration: pPeriod,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
       });
     }
     this.tweens.add({
@@ -403,29 +476,153 @@ export class Battle extends Scene {
       .setColor('#ffd94a')
       .setAlpha(0.85);
 
-    // Active synergies: detect and show aura + labels
+    // Active synergies: tiered halo escalates with synergy count.
+    //   Tier 1 (3+):  inner white aura just outside the character
+    //   Tier 2 (5+):  middle gold mandala (ring + rotating ticks)
+    //   Tier 3 (7+):  outer orange storm (wide ring + radial spokes)
+    //
+    // Layout constraints (do not violate):
+    //   - Character sprite half-width = SPRITE_W/2 = 140, half-height = SPRITE_H/2 = 180
+    //   - HP bar top edge at arenaY + 202 (hpBarY - HP_BAR_H/2)
+    //   - All halo radii must be > 180 to clear the character body, so the
+    //     ring is visible as a true circle around the character.
+    //   - Tier 3 (orange) intentionally extends past the HP/ULT bars, so all
+    //     halo elements are placed at depth -1 and the bars/labels render on top.
+    // Halo tier counts BOTH placement and category synergies so it matches the
+    // count shown on the Build screen (otherwise category-only would cap at 3
+    // for INDRA and Tier 3 would never fire).
     const activeSynergies = this.getActiveSynergies(state.equipped);
-    if (activeSynergies.length > 0) {
-      // Pulsing aura ring around the player
-      const aura = this.add
-        .circle(playerX, arenaY, SPRITE_W * 0.6, 0xffd94a, 0)
-        .setStrokeStyle(3, 0xffd94a)
-        .setAlpha(0);
+    const placementNames = this.activePlacementSynergies.map((s) => s.name);
+    const allSynergyNames = [...placementNames, ...activeSynergies];
+    const synergyCount = allSynergyNames.length;
+    if (synergyCount >= 3) {
+      const HALO_DEPTH = -1;
+      const whiteHex = 0xffffff;
+      const goldHex = 0xffd94a;
+      const cyanHex = 0xaeeaff;
+      const orangeHex = 0xff7a00;
+
+      // Tier 1 — white halo (3+), radius 185, just outside character silhouette
+      const whiteR = 185;
+      const whiteRing = this.add
+        .circle(playerX, arenaY, whiteR, whiteHex, 0)
+        .setStrokeStyle(2, whiteHex, 0.7)
+        .setDepth(HALO_DEPTH);
+      const whiteGlow = this.add
+        .circle(playerX, arenaY, whiteR * 0.96, whiteHex, 0.05)
+        .setDepth(HALO_DEPTH);
       this.tweens.add({
-        targets: aura,
-        alpha: { from: 0, to: 0.4 },
-        scale: { from: 0.9, to: 1.1 },
-        duration: 1200,
-        yoyo: true,
-        repeat: -1,
-        ease: 'Sine.easeInOut'
+        targets: whiteRing,
+        scale: { from: 0.96, to: 1.05 },
+        alpha: { from: 0.6, to: 0.95 },
+        duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+      });
+      this.tweens.add({
+        targets: whiteGlow,
+        alpha: { from: 0.03, to: 0.12 },
+        duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
       });
 
-      const synergyText = activeSynergies.map((s) => `⚡ ${s}`).join('  ');
+      // Tier 2 — gold mandala (5+), radius 220, outside white
+      if (synergyCount >= 5) {
+        const goldR = 220;
+        const goldOuter = this.add
+          .circle(playerX, arenaY, goldR, goldHex, 0)
+          .setStrokeStyle(2, goldHex, 0.55)
+          .setDepth(HALO_DEPTH);
+        const goldInner = this.add
+          .circle(playerX, arenaY, goldR * 0.92, goldHex, 0)
+          .setStrokeStyle(1, goldHex, 0.55)
+          .setDepth(HALO_DEPTH);
+        this.tweens.add({
+          targets: goldOuter,
+          scale: { from: 0.96, to: 1.05 },
+          alpha: { from: 0.5, to: 0.9 },
+          duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+        });
+        this.tweens.add({
+          targets: goldInner,
+          scale: { from: 1.02, to: 0.95 },
+          alpha: { from: 0.85, to: 0.5 },
+          duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+        });
+
+        const goldTicks = this.add.container(playerX, arenaY).setDepth(HALO_DEPTH);
+        for (let i = 0; i < 4; i += 1) {
+          const a = (i * Math.PI) / 2;
+          const tick = this.add.rectangle(Math.cos(a) * goldR, Math.sin(a) * goldR, 16, 2, goldHex, 0.95)
+            .setRotation(a + Math.PI / 2);
+          goldTicks.add(tick);
+        }
+        this.tweens.add({ targets: goldTicks, angle: 360, duration: 9000, repeat: -1, ease: 'Linear' });
+
+        const cyanTicks = this.add.container(playerX, arenaY).setDepth(HALO_DEPTH);
+        const cyanR = goldR * 0.92;
+        for (let i = 0; i < 6; i += 1) {
+          const a = (i * Math.PI) / 3 + Math.PI / 6;
+          const tick = this.add.rectangle(Math.cos(a) * cyanR, Math.sin(a) * cyanR, 8, 2, cyanHex, 0.85)
+            .setRotation(a + Math.PI / 2);
+          cyanTicks.add(tick);
+        }
+        this.tweens.add({ targets: cyanTicks, angle: -360, duration: 7000, repeat: -1, ease: 'Linear' });
+      }
+
+      // Tier 3 — orange outer storm (7+), radius 260, intentionally extends past UI
+      // (depth -1 → HP/ULT bars overlay the bottom arc cleanly)
+      if (synergyCount >= 7) {
+        const orangeR = 260;
+        const orangeRing = this.add
+          .circle(playerX, arenaY, orangeR, orangeHex, 0)
+          .setStrokeStyle(3, orangeHex, 0.55)
+          .setDepth(HALO_DEPTH);
+        const orangeGlow = this.add
+          .circle(playerX, arenaY, orangeR * 1.08, orangeHex, 0)
+          .setStrokeStyle(1, orangeHex, 0.3)
+          .setDepth(HALO_DEPTH);
+        this.tweens.add({
+          targets: orangeRing,
+          scale: { from: 0.97, to: 1.06 },
+          alpha: { from: 0.55, to: 0.95 },
+          duration: 1800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+        });
+        this.tweens.add({
+          targets: orangeGlow,
+          scale: { from: 1.0, to: 1.12 },
+          alpha: { from: 0.25, to: 0.6 },
+          duration: 1800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+        });
+
+        // 8 radial spokes — long dashes pointing outward
+        const spokes = this.add.container(playerX, arenaY).setDepth(HALO_DEPTH);
+        for (let i = 0; i < 8; i += 1) {
+          const a = (i * Math.PI) / 4;
+          const spoke = this.add.rectangle(Math.cos(a) * orangeR, Math.sin(a) * orangeR, 22, 3, orangeHex, 0.9)
+            .setRotation(a);
+          spokes.add(spoke);
+        }
+        this.tweens.add({ targets: spokes, angle: -360, duration: 12000, repeat: -1, ease: 'Linear' });
+
+        // 12 small sparkle dots between spokes, slow clockwise drift
+        const sparkles = this.add.container(playerX, arenaY).setDepth(HALO_DEPTH);
+        const sparkleR = orangeR * 1.04;
+        for (let i = 0; i < 12; i += 1) {
+          const a = (i * Math.PI) / 6 + Math.PI / 12;
+          const dot = this.add.circle(Math.cos(a) * sparkleR, Math.sin(a) * sparkleR, 3, orangeHex, 0.85);
+          sparkles.add(dot);
+          this.tweens.add({
+            targets: dot, alpha: { from: 0.3, to: 1 },
+            duration: 700 + (i % 4) * 120, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+          });
+        }
+        this.tweens.add({ targets: sparkles, angle: 360, duration: 14000, repeat: -1, ease: 'Linear' });
+      }
+
+      const synergyText = allSynergyNames.map((s) => `⚡ ${s}`).join('  ');
+      const labelColor = synergyCount >= 7 ? '#ff7a00' : (synergyCount >= 5 ? '#ffd94a' : '#ffffff');
       const label = this.add
         .text(playerX, ultBarY + 38, synergyText, textStyles.small)
         .setOrigin(0.5)
-        .setColor('#ffd94a');
+        .setColor(labelColor);
       this.tweens.add({
         targets: label,
         alpha: { from: 0.5, to: 1 },
@@ -467,11 +664,11 @@ export class Battle extends Scene {
 
     this.input.keyboard?.on('keydown-R', () => fadeToScene(this, 'Title'));
     this.input.keyboard?.on('keydown-SPACE', () => {
-      if (this.ultReady) this.triggerPlayerUltimate();
+      if (this.ultButtonShown) this.triggerPlayerUltimate();
     });
     this.input.keyboard?.on('keydown-S', () => this.cycleSpeed());
     this.input.on('pointerdown', () => {
-      if (this.ultReady) this.triggerPlayerUltimate();
+      if (this.ultButtonShown) this.triggerPlayerUltimate();
     });
 
     // Record best round reached (even if this battle is lost).
@@ -525,10 +722,13 @@ export class Battle extends Scene {
   }
 
   private cycleSpeed(): void {
-    const sequence = [1, 1.5, 2];
-    const idx = sequence.indexOf(this.timeScale);
-    this.timeScale = sequence[(idx + 1) % sequence.length]!;
-    this.battleOverlay?.setSpeed(this.timeScale);
+    // Cycle through the internal multipliers (1.2 / 1.6 / 2). The
+    // overlay receives the corresponding display label so the player
+    // sees the "×1 / ×1.5 / ×2" rungs they expect.
+    const idx = SPEED_INTERNAL.findIndex((v) => Math.abs(v - this.timeScale) < 1e-6);
+    const nextIdx = ((idx >= 0 ? idx : -1) + 1) % SPEED_INTERNAL.length;
+    this.timeScale = SPEED_INTERNAL[nextIdx]!;
+    this.battleOverlay?.setSpeed(SPEED_DISPLAY[nextIdx]!);
     playSfx('click');
   }
 
@@ -564,7 +764,7 @@ export class Battle extends Scene {
       this.timeScale < Battle.AUTO_FF_SPEED
     ) {
       this.timeScale = Battle.AUTO_FF_SPEED;
-      this.battleOverlay?.setSpeed(this.timeScale);
+      this.battleOverlay?.setSpeed(toSpeedDisplay(this.timeScale));
     }
 
     const dtSec = realDtSec * this.timeScale;
@@ -687,28 +887,39 @@ export class Battle extends Scene {
     else if (isMelee) playSfx('attack_melee');
     else playSfx(fromPlayer ? 'attack_ranged' : 'hit');
 
-    // Attacker slide — melee slides far, ranged slides less
+    // Attacker slide — melee slides far, ranged slides less.
+    // Guard: while the player ult is firing, the dedicated ult-motion
+    // tween chain owns the player visual; per-strike slides on the
+    // same target would overwrite its x/scale/angle and produce a
+    // stuttering blend. We skip just the player-side slide here;
+    // enemy slides on player ULT (defender knockback below) still run.
     const attackerVisual = fromPlayer
       ? (this.playerImg ?? this.playerSprite)
       : (this.enemyImg ?? this.enemySprite);
     const slideDir = fromPlayer ? 1 : -1;
     const attackerBaseX = fromPlayer ? this.playerBaseX : this.enemyBaseX;
     const slideDist = isMelee ? 80 : isHeavy ? 20 : 40;
-    this.tweens.add({
-      targets: attackerVisual,
-      x: attackerBaseX + slideDist * slideDir,
-      duration: isMelee ? 60 : 100,
-      yoyo: true,
-      ease: 'Cubic.easeOut'
-    });
+    if (!(fromPlayer && this.ultFiring)) {
+      this.tweens.add({
+        targets: attackerVisual,
+        x: attackerBaseX + slideDist * slideDir,
+        duration: isMelee ? 60 : 100,
+        yoyo: true,
+        ease: 'Cubic.easeOut'
+      });
+    }
 
     // --- Angle tween for attack / hit feel ---
+    // Same guard as above: the ult-motion tween locks the player
+    // angle for the strike pose; we let the ult own it.
     if (fromPlayer) {
-      // Player attacks: lean forward
-      const pv = this.playerImg ?? this.playerSprite;
-      this.tweens.add({ targets: pv, angle: -5, duration: 80, yoyo: true, ease: 'Cubic.easeOut' });
+      if (!this.ultFiring) {
+        const pv = this.playerImg ?? this.playerSprite;
+        this.tweens.add({ targets: pv, angle: -5, duration: 80, yoyo: true, ease: 'Cubic.easeOut' });
+      }
     } else {
-      // Player got hit: reel backward
+      // Player got hit: reel backward (always — even during ult, a
+      // counter-hit from the enemy should register).
       const pv = this.playerImg ?? this.playerSprite;
       this.tweens.add({ targets: pv, angle: 5, duration: 100, yoyo: true, ease: 'Back.easeOut' });
     }
@@ -853,14 +1064,10 @@ export class Battle extends Scene {
       });
     }
 
-    // Ultimate gauge (smooth tween instead of instant jump)
+    // Ultimate gauge — direct width update for seamless per-frame fill.
     const pUltMax = this.player.ultimate?.gaugeFillRatio ?? 1;
     const pUltRatio = this.player.ultimateUsed ? 0 : Math.min(1, this.player.ultimateGauge / pUltMax);
-    const pUltTargetW = HP_BAR_W * pUltRatio;
-    if (Math.abs(this.playerUltFill.width - pUltTargetW) > 1) {
-      this.tweens.killTweensOf(this.playerUltFill);
-      this.tweens.add({ targets: this.playerUltFill, width: pUltTargetW, duration: 200, ease: 'Sine.easeOut' });
-    }
+    this.playerUltFill.width = HP_BAR_W * pUltRatio;
 
     const eUltMax = this.enemy.ultimate?.gaugeFillRatio ?? 1;
     const eUltRatio = this.enemy.ultimateUsed ? 0 : Math.min(1, this.enemy.ultimateGauge / eUltMax);
@@ -1115,14 +1322,32 @@ export class Battle extends Scene {
       const portraitKey = ultKey && this.textures.exists(ultKey) ? ultKey : battleKey;
       const hasPortrait = !!portraitKey && this.textures.exists(portraitKey);
 
-      // Oversize the portrait so the image's raw rectangle border
-      // sits outside the viewport — visible glyphs only, no edges.
-      let portraitScale = 1.15;
+      // Frame the character on its FACE rather than its full body. The
+      // ult portrait artwork puts the character roughly centred but
+      // upper-body-heavy; we shift the y-anchor downward (= push the
+      // image up on screen) so the head/face lands at the screen-y
+      // sweet-spot ≈40 % from the top. We also boot smaller and zoom
+      // in over P3 so judges see "character revealed" rather than
+      // "wallpaper of pixels".
+      let portraitBaseScale = 1.0;
       if (hasPortrait) {
         const tex = this.textures.get(portraitKey);
-        const baseW = (tex.getSourceImage(0) as { width?: number })?.width || 1360;
-        portraitScale = (gameWidth / baseW) * 1.15;
+        const baseH = (tex.getSourceImage(0) as { height?: number })?.height || 768;
+        // Target: portrait covers ~110% of viewport HEIGHT at the climax,
+        // so a chest-up read of the face fills the screen vertically.
+        portraitBaseScale = (gameHeight / baseH) * 1.10;
       }
+      // Two-stage zoom: enter at 0.78× of climax scale (face visible,
+      // some breathing room), tween to 1.0× across P3 so the character
+      // grows into the frame.
+      const portraitStartScale = portraitBaseScale * 0.78;
+      const portraitEndScale = portraitBaseScale;
+      // Vertical anchor: the artwork's face sits roughly at image-y =
+      // 32 % from the top, so anchoring at the screen centre with no
+      // offset puts the head near the upper third — exactly where a
+      // fighting-game cut-in expects it.
+      const portraitX = cx;
+      const portraitY = cy + 60;  // tiny down-shift = head lands ~screen 40 %
 
       /** Create a portrait layer; falls back to a tinted rect if the
        *  asset is missing so the cut-in still reads visually. */
@@ -1130,15 +1355,15 @@ export class Battle extends Scene {
         if (hasPortrait) {
           const tex = this.textures.get(portraitKey);
           const obj = tex.frameTotal > 1
-            ? this.add.sprite(cx + xOffset, cy, portraitKey, 0)
-            : this.add.image(cx + xOffset, cy, portraitKey);
-          obj.setScale(portraitScale).setAlpha(alpha).setDepth(depth);
+            ? this.add.sprite(portraitX + xOffset, portraitY, portraitKey, 0)
+            : this.add.image(portraitX + xOffset, portraitY, portraitKey);
+          obj.setScale(portraitStartScale).setAlpha(alpha).setDepth(depth);
           if (tint !== 0xffffff) obj.setTint(tint);
           if (blend) obj.setBlendMode(blend as Phaser.BlendModes);
           return obj;
         }
         return this.add
-          .rectangle(cx + xOffset, cy, 320, 420, tint !== 0xffffff ? tint : (robot ? ROBOT_COLORS[robot.archetype] : 0x9bbdff), alpha)
+          .rectangle(portraitX + xOffset, portraitY, 320, 420, tint !== 0xffffff ? tint : (robot ? ROBOT_COLORS[robot.archetype] : 0x9bbdff), alpha)
           .setDepth(depth);
       };
 
@@ -1158,12 +1383,19 @@ export class Battle extends Scene {
         alpha: 1,
         duration: 90, delay: 430,
       });
+      // Slow zoom-in across the whole P3 + P4 window — sells the
+      // "character closes in on you" beat without overdoing it.
       this.tweens.add({
-        targets: rLayer, x: cx,
+        targets: [silhouette, rLayer, gLayer, bLayer],
+        scale: portraitEndScale,
+        duration: 1100, delay: 350, ease: 'Cubic.easeOut',
+      });
+      this.tweens.add({
+        targets: rLayer, x: portraitX,
         duration: 220, delay: 520, ease: 'Cubic.easeOut',
       });
       this.tweens.add({
-        targets: bLayer, x: cx,
+        targets: bLayer, x: portraitX,
         duration: 220, delay: 520, ease: 'Cubic.easeOut',
       });
 
@@ -1405,25 +1637,24 @@ export class Battle extends Scene {
   }
 
   private showUltimateButton(): void {
-    // ultReady already set by startGijiren caller
-    const { gameWidth, gameHeight, textStyles } = gameOptions;
+    // Bail if we somehow fired the ult during the 擬似連 pulse window,
+    // the player died during the pulses, or any other state that
+    // invalidates the freeze. Mounting the button after one of these
+    // would leave a click-dead overlay on screen forever.
+    if (this.ultFiring || !this.ultReady || this.finished) return;
+
+    const { gameWidth, gameHeight } = gameOptions;
 
     // Phaser container holds the aura hint + prediction effects.
     const container = this.add.container(0, 0).setDepth(180);
 
-    // Aura color indicator (Phaser — sits above the DOM button at top).
-    if (this.slotState.aura) {
-      const auraHint = this.add
-        .text(gameWidth / 2, gameHeight / 2 - 220, `${this.slotState.aura.toUpperCase()} AURA`, {
-          ...textStyles.body, color: AURA_CSS[this.slotState.aura], fontStyle: 'bold'
-        })
-        .setOrigin(0.5);
-      container.add(auraHint);
-      this.tweens.add({ targets: auraHint, scale: { from: 1, to: 1.15 }, duration: 300, yoyo: true, repeat: -1 });
-    }
+    // Aura is conveyed by the DOM mandala button glow color (auraHex below);
+    // no on-screen aura name label — color alone communicates the tier.
 
     // Prediction effect: randomly chosen when a hit is flagged.
-    const btnAnchor = this.add.rectangle(gameWidth / 2, gameHeight / 2, 260, 260, 0xffffff, 0)
+    // Circle (radius 130) matches the DOM mandala button (260x260, border-radius 50%)
+    // so rainbow fill stays inscribed instead of poking out as square corners.
+    const btnAnchor = this.add.circle(gameWidth / 2, gameHeight / 2, 130, 0xffffff, 0)
       .setDepth(-1);
     container.add(btnAnchor);
     if (this.slotState.nextIsHit || (this.slotState.inRush && this.slotState.aura)) {
@@ -1439,9 +1670,12 @@ export class Battle extends Scene {
       hint: 'Press SPACE or Click',
       auraHex,
       onFire: () => {
-        if (this.ultReady) this.triggerPlayerUltimate();
+        if (this.ultButtonShown) this.triggerPlayerUltimate();
       },
     });
+
+    // Now the button is on screen and click-eligible.
+    this.ultButtonShown = true;
 
     playSfx('shield_block');
   }
@@ -1454,9 +1688,8 @@ export class Battle extends Scene {
     container: GameObjects.Container,
     gw: number,
     gh: number,
-    btnBg: GameObjects.Rectangle
+    btnBg: GameObjects.Arc
   ): void {
-    const { textStyles } = gameOptions;
     const isActualHit = this.slotState.nextIsHit || (this.slotState.inRush && !!this.slotState.aura);
     const pred = rollPrediction(isActualHit);
 
@@ -1470,20 +1703,13 @@ export class Battle extends Scene {
           callback: () => { btnBg.setFillStyle(colors[ci % colors.length]!, 1); ci++; }
         });
         container.once('destroy', () => timer.destroy());
-        const txt = this.add.text(gw / 2, gh / 2 - 90, '★ RAINBOW ★', {
-          ...textStyles.body, color: '#ff00ff', fontStyle: 'bold'
-        }).setOrigin(0.5);
-        container.add(txt);
-        this.tweens.add({ targets: txt, scale: { from: 1, to: 1.3 }, duration: 300, yoyo: true, repeat: -1 });
         break;
       }
       case 'fish': {
-        playSfx('pred_fish');
-        for (let i = 0; i < 8; i++) {
-          const fish = this.add.text(-60, gh * 0.3 + i * 25 + Math.random() * 20, '🐟', { fontSize: '24px' });
-          container.add(fish);
-          this.tweens.add({ targets: fish, x: gw + 60, duration: 1500 + Math.random() * 500, delay: i * 100, ease: 'Linear' });
-        }
+        // Saved for later (Heika 2026-04-25): fish-school predict felt
+        // off-tone against the post-cyberpunk / mandala vocabulary.
+        // No SFX, no visuals — predictions.ts still lists the id so
+        // flipping it back on later is a one-block revert.
         break;
       }
       case 'red_flash': {
@@ -1494,12 +1720,9 @@ export class Battle extends Scene {
         break;
       }
       case 'exclaim': {
-        playSfx('pred_exclaim');
-        const ex = this.add.text(gw / 2, gh / 2 - 120, '! !', {
-          ...textStyles.title, fontSize: '80px', color: '#ff7a00', fontStyle: 'bold'
-        }).setOrigin(0.5).setAlpha(0);
-        container.add(ex);
-        this.tweens.add({ targets: ex, alpha: 1, scale: { from: 2, to: 1 }, duration: 300, ease: 'Back.easeOut' });
+        // Saved for later (Heika 2026-04-25): big "! !" stamp read as
+        // anime-loud noise against the chamfer / SS-tag vocabulary.
+        // No SFX, no visuals. Data row preserved in predictions.ts.
         break;
       }
       case 'lightning': {
@@ -1577,39 +1800,131 @@ export class Battle extends Scene {
   private playPlayerUltimateSpriteMotion(): void {
     const spr = this.playerBattleSprite;
     const baseKey = this.playerBattleAssetKey;
-    if (!spr || !baseKey) return;
 
-    const ultKey = `${baseKey}_ult_sheet`;
-    if (!this.textures.exists(ultKey)) return;
-
-    const tex = this.textures.get(ultKey);
-    if (tex.frameTotal <= 1) return;
-
-    const animKey = `${ultKey}_play_once`;
-    if (!this.anims.exists(animKey)) {
-      this.anims.create({
-        key: animKey,
-        frames: this.anims.generateFrameNumbers(ultKey, { start: 0, end: tex.frameTotal - 1 }),
-        frameRate: BATTLE_ULT_SHEET_FPS,
-        repeat: 0
-      });
+    // --- Branch A: dedicated multi-frame ult spritesheet ---
+    // When `<battleKey>_ult_sheet` exists with >1 frames, play it back
+    // as a one-shot anim and restore frame 0 of the idle sheet on
+    // completion. Used when an animator ships proper ULT frames.
+    if (spr && baseKey) {
+      const ultKey = `${baseKey}_ult_sheet`;
+      if (this.textures.exists(ultKey)) {
+        const tex = this.textures.get(ultKey);
+        if (tex.frameTotal > 1) {
+          const animKey = `${ultKey}_play_once`;
+          if (!this.anims.exists(animKey)) {
+            this.anims.create({
+              key: animKey,
+              frames: this.anims.generateFrameNumbers(ultKey, { start: 0, end: tex.frameTotal - 1 }),
+              frameRate: BATTLE_ULT_SHEET_FPS,
+              repeat: 0,
+            });
+          }
+          const fitScale = (textureKey: string, frameIdx: number): number => {
+            const f = this.textures.getFrame(textureKey, frameIdx);
+            return Math.min(SPRITE_W / f.width, SPRITE_H / f.height);
+          };
+          spr.anims.stop();
+          spr.setTexture(ultKey);
+          spr.setScale(fitScale(ultKey, 0));
+          spr.play(animKey);
+          spr.once('animationcomplete', () => {
+            spr.anims.stop();
+            spr.setTexture(baseKey, 0);
+            spr.setScale(fitScale(baseKey, 0));
+            spr.setFrame(0);
+          });
+          return;
+        }
+      }
     }
 
-    const fitScale = (textureKey: string, frameIdx: number): number => {
-      const f = this.textures.getFrame(textureKey, frameIdx);
-      return Math.min(SPRITE_W / f.width, SPRITE_H / f.height);
-    };
+    // --- Branch B: tween-based fallback ---
+    // No dedicated ult sheet → choreograph the existing static
+    // portrait through a 4-phase tween sequence styled as a
+    // "rear up + body-slam from above":
+    //   P1 (0-220 ms)    windup: rise up + slight pull-back + lean back
+    //                    (the fighter rears up like cocking a hammer)
+    //   P2 (220-380 ms)  slam: drop back to ground level while lunging
+    //                    forward onto the enemy + lean forward + max
+    //                    scale (Cubic.easeIn so the fall accelerates,
+    //                    selling the body-slam impact)
+    //   P3 (380-2400 ms) HOLD the slam pose (cut-in covers 0-1900;
+    //                    the hold keeps the silhouette read after
+    //                    the cut-in clears, before recovery)
+    //   P4 (2400-2700 ms) recovery to idle baseline + restart idle
+    //                    bounce / scale-pulse loops
+    const visual: GameObjects.Image | GameObjects.Sprite | GameObjects.Rectangle | null =
+      this.playerImg ?? this.playerSprite ?? null;
+    if (!visual) return;
 
-    spr.anims.stop();
-    spr.setTexture(ultKey);
-    spr.setScale(fitScale(ultKey, 0));
-    spr.play(animKey);
+    const baseX = this.playerBaseX;
+    const baseY = (visual as GameObjects.Image).y;
+    const baseScaleX = visual.scaleX;
+    const baseScaleY = visual.scaleY;
+    const baseAngle = visual.angle;
 
-    spr.once('animationcomplete', () => {
-      spr.anims.stop();
-      spr.setTexture(baseKey, 0);
-      spr.setScale(fitScale(baseKey, 0));
-      spr.setFrame(0);
+    // Idle bounce + scale-pulse get killed so they don't fight the
+    // ult tween chain. They restart in the P4 onComplete.
+    this.tweens.killTweensOf(visual);
+
+    // P1: windup — rear up high and tilt back, like cocking a fist
+    // overhead before the slam.
+    this.tweens.add({
+      targets: visual,
+      x: baseX - 18,
+      y: baseY - 70,
+      scaleX: baseScaleX * 1.10,
+      scaleY: baseScaleY * 1.10,
+      angle: baseAngle - 10,
+      duration: 220,
+      ease: 'Cubic.easeOut',
+    });
+    // P2: slam — drop back to ground level while charging forward
+    // into the enemy. easeIn so the fall accelerates and reads as a
+    // body slam from above rather than a flat horizontal lunge.
+    this.tweens.add({
+      targets: visual,
+      x: baseX + 78,
+      y: baseY,
+      scaleX: baseScaleX * 1.24,
+      scaleY: baseScaleY * 1.24,
+      angle: baseAngle + 14,
+      duration: 160,
+      delay: 220,
+      ease: 'Cubic.easeIn',
+    });
+    // P4: recovery (P3 is implicit hold — no tween between 300 and 2400)
+    this.tweens.add({
+      targets: visual,
+      x: baseX,
+      y: baseY,
+      scaleX: baseScaleX,
+      scaleY: baseScaleY,
+      angle: baseAngle,
+      duration: 300,
+      delay: 2400,
+      ease: 'Cubic.easeOut',
+      onComplete: () => {
+        // Restart idle breath (mirrors create-time setup).
+        const period = 1300 + Math.random() * 300;
+        this.tweens.add({
+          targets: visual,
+          y: baseY - 8,
+          duration: period,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+        });
+        this.tweens.add({
+          targets: visual,
+          scaleX: baseScaleX * 1.025,
+          scaleY: baseScaleY * 1.025,
+          duration: period,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+        });
+      },
     });
   }
 
@@ -1619,6 +1934,7 @@ export class Battle extends Scene {
     if (!this.player.ultimate) return;
 
     this.ultFiring = true;
+    this.ultButtonShown = false;
 
     // Dismiss button but keep frozen
     if (this.ultButton) {
@@ -1677,7 +1993,11 @@ export class Battle extends Scene {
   }
 
   private goToResult(): void {
-    recordBattleCompleted();
+    // recordBattleCompleted() moved out of here so it only fires on a
+    // FULL run completion (final victory or defeat), not on every
+    // round transition. Counts now happen in Result.renderVictory and
+    // GameOver.create. Mid-run R-to-Title therefore leaves the
+    // SANCTUM unlock counter untouched, per Heika 2026-04-25.
     const state = getRunState(this);
     const nextScene = state.battleOutcome === 'lose' ? 'GameOver' : 'Result';
     fadeToScene(this, nextScene);

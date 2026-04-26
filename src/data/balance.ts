@@ -55,6 +55,12 @@ export const BALANCE = {
   ultimateBaseMult: 3.5,
   /** Per-engine charge rate bonus (1 + engineCount * this). */
   engineChargeRate: 0.3,
+  /**
+   * Base ultimate gauge fill per second (continuous, time-based).
+   * Multiplied by `attacker.ultimateChargeRate` (engines, rush, etc.).
+   * 0.04 → ~10s base for a 0.4 fillRatio robot (auto-FF 1.5× → ~6.7s, rush 1.8× → ~5.6s).
+   */
+  ultimateGaugeFillPerSec: 0.04,
 
   // ---------------------------------------------------------------------------
   // Shop & Economy

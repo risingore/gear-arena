@@ -54,6 +54,15 @@ const SHOP_HEAD_LEFT = 648;
 const SHOP_HEAD_W = 294;
 const STATS_HEAD_LEFT = 962;
 const STATS_HEAD_W = 260;
+// INTEL monitor panel-head — separate sub-frame below the SHOP card
+// grid (see Build.ts drawColumnFrames + drawShopArea). Top y mirrors
+// Build.ts:
+//   SHOP_GRID_TOP (201) + 200 (3 rows × 100 spacing)
+//   + 43 (half-card)    + SHOP_INNER_PAD (24)
+//   + SHOP_VGAP (16)    = 484.
+const INTEL_HEAD_LEFT = 648;
+const INTEL_HEAD_TOP = 484;
+const INTEL_HEAD_W = 294;
 
 const CSS = `
 .${ROOT_CLASS}{
@@ -217,6 +226,10 @@ export function mountBuildOverlay(opts: BuildOverlayOptions): BuildOverlayHandle
       <div class="panel-head" style="left:${STATS_HEAD_LEFT}px;top:${HEAD_TOP}px;width:${STATS_HEAD_W}px">
         <span class="ident">${outputHtml}</span>
         <span class="status">SIM <span class="dot"></span></span>
+      </div>
+      <div class="panel-head" style="left:${INTEL_HEAD_LEFT}px;top:${INTEL_HEAD_TOP}px;width:${INTEL_HEAD_W}px">
+        <span class="ident"><span class="tag">INTEL</span><span class="sep">·</span><span class="val">READOUT</span></span>
+        <span class="status">LIVE <span class="dot"></span></span>
       </div>
       <div class="monologue"></div>
       ${opts.tutorialHint ? `<div class="hint">${esc(opts.tutorialHint)}</div>` : ''}

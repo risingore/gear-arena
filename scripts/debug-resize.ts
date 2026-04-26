@@ -17,6 +17,12 @@ const sizes: Array<{ w: number; h: number; label: string }> = [
   { w: 800, h: 600, label: 'classic' },
   { w: 600, h: 900, label: 'tall' },
   { w: 1600, h: 600, label: 'wide' },
+  // Mobile portrait — Phaser FIT mode shrinks the 1280×720 design to a
+  // tiny strip; canvas-internal hit boxes still work but DOM overlays
+  // become hard to tap. Captured here so Heika can eyeball whether the
+  // play / sanctum buttons are still finger-sized at these widths.
+  { w: 390, h: 844, label: 'iphone14_portrait' },
+  { w: 360, h: 800, label: 'android_portrait' },
 ];
 
 async function run(): Promise<void> {

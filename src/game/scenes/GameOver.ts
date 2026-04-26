@@ -4,7 +4,7 @@ import { getRunState } from '../systems/runState';
 import { PALETTE } from '../systems/palette';
 import { fadeInCurrent, fadeToScene } from '../systems/transition';
 import { playSfx } from '../systems/audio';
-import { recordScrap } from '../systems/savedata';
+import { recordScrap, recordBattleCompleted } from '../systems/savedata';
 import { t } from '../systems/i18n';
 import { isDebugEnabled } from '../systems/debug';
 import { showDebugBadge } from '../helper/hiDpiText';
@@ -24,6 +24,9 @@ export class GameOver extends Scene {
     const state = getRunState(this);
     const scrapEarned = Math.floor(state.gold * 0.5);
     if (scrapEarned > 0) recordScrap(scrapEarned);
+    // SANCTUM unlock counter — only ticks on full-run completion
+    // (this branch = defeat). Mid-run R-to-Title leaves it untouched.
+    recordBattleCompleted();
 
     const equipped = state.equipped ?? {};
     const partCount = Object.keys(equipped).length;

@@ -299,14 +299,25 @@ export function mountResultOverlay(opts: ResultOverlayOptions): ResultOverlayHan
       : '';
 
   const statsY = opts.outcome === 'victory' ? 430 : 0;
+  // Stats line-height (12px × 1.7 ≈ 21px) → height per `<br/>`-joined line.
+  // Compute the summary's top dynamically so it lands clear of the stats
+  // block regardless of how many lines we pack into statsLines (currently
+  // 5: victoryLine / blank / dmg / healed / parts). A previous hardcoded
+  // 510 collided with the 5-line stats which extends to ~535.
+  const STATS_LINE_PX = 21;
+  const SUMMARY_PAD_PX = 24;
   const statsBlock =
     opts.outcome === 'victory' && opts.statsLines
       ? `<div class="stats" style="top:${statsY}px">${opts.statsLines.map(esc).join('<br/>')}</div>`
       : '';
 
+  const summaryY =
+    opts.outcome === 'victory' && opts.statsLines
+      ? statsY + opts.statsLines.length * STATS_LINE_PX + SUMMARY_PAD_PX
+      : 510;
   const summaryBlock =
     opts.outcome === 'victory' && opts.machineSummary
-      ? `<div class="machine-summary" style="top:510px">${esc(opts.machineSummary)}</div>`
+      ? `<div class="machine-summary" style="top:${summaryY}px">${esc(opts.machineSummary)}</div>`
       : '';
 
   const scrapBlock =

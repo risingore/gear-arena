@@ -28,7 +28,14 @@ export interface TitleOverlaySaveData {
 }
 
 export interface TitleOverlayOptions {
-  onPlay(): void;
+  /** Start a fresh run in Easy mode. Always available. */
+  onPlayEasy(): void;
+  /**
+   * Start a fresh run in Hard mode. Only fires when `hardLocked` is false;
+   * locked clicks are absorbed silently (and the button reads a small
+   * "Clear Easy to unlock" hint underneath).
+   */
+  onPlayHard(): void;
   onCollection(): void;
   onSettings(): void;
   onCredits?(): void;
@@ -38,11 +45,26 @@ export interface TitleOverlayOptions {
   atmanQuoteLine1?: string;
   atmanQuoteLine2?: string;
   atmanAttribution?: string;
-  primaryLabel?: string;
+  /** Defaults to "EASY". Always-available primary button. */
+  easyLabel?: string;
+  /** Defaults to "HARD". Locked until the player has cleared Easy at least once. */
+  hardLabel?: string;
+  /** True until the player has completed an Easy mode run. */
+  hardLocked?: boolean;
+  /** Optional override for the locked-state hint line. */
+  lockedHint?: string;
   collectionLabel?: string;
   settingsLabel?: string;
   creditsLabel?: string;
   sanctumLabel?: string;
+  storyLabel?: string;
+  /**
+   * Open the joined Easy + Hard epilogue archive. Wired only when the
+   * player has cleared HARD at least once; absence of the handler hides
+   * the STORY button entirely (no greyed-out preview), mirroring the
+   * way SANCTUM appears only after the first battle.
+   */
+  onStory?(): void;
 }
 
 const STYLE_ELEMENT_ID = 'title-overlay-style';
@@ -135,20 +157,21 @@ const CSS = `
 
 .${ROOT_CLASS} .menu{
   position:absolute;left:50%;bottom:150px;transform:translateX(-50%);
-  display:flex;flex-direction:column;gap:10px;align-items:center;z-index:4;
+  display:flex;flex-direction:column;gap:12px;align-items:center;z-index:4;
 }
 .${ROOT_CLASS} .menu-backing{
   position:absolute;left:50%;bottom:140px;transform:translateX(-50%);
-  width:530px;height:130px;
+  width:600px;height:134px;
   background:rgba(10,10,16,.7);
   border:1px solid rgba(174,234,255,.12);
   filter:drop-shadow(0 0 18px rgba(10,10,16,.55));
   z-index:3;
   clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px));
 }
+.${ROOT_CLASS} .primary-row{display:flex;gap:10px}
 .${ROOT_CLASS} .menu .primary{
-  width:280px;height:56px;padding:0 22px;
-  display:flex;align-items:center;justify-content:center;gap:16px;
+  width:160px;height:56px;padding:0 18px;
+  display:flex;align-items:center;justify-content:center;gap:10px;
   background:linear-gradient(90deg,rgba(255,122,0,.22),rgba(255,122,0,.04));
   border:1px solid #ff7a00;border-left:3px solid #ff7a00;
   filter:drop-shadow(0 0 10px rgba(255,122,0,.45));
@@ -157,25 +180,43 @@ const CSS = `
 }
 .${ROOT_CLASS} .menu .primary:hover{background:linear-gradient(90deg,#ff7a00,rgba(255,122,0,.55));filter:drop-shadow(0 0 14px rgba(255,122,0,.7))}
 .${ROOT_CLASS} .menu .primary:hover .lbl{color:#0a0a10;text-shadow:none}
-.${ROOT_CLASS} .menu .primary .lbl{font-family:'Bebas Neue',sans-serif;font-size:30px;letter-spacing:.1em;color:#fff;text-shadow:0 0 10px rgba(255,122,0,.55);transition:all .15s}
-
-.${ROOT_CLASS} .primary-row{display:flex;gap:10px;align-items:center}
-.${ROOT_CLASS} .menu .sanctum{
-  width:200px;height:56px;padding:0 18px;
-  display:flex;align-items:center;justify-content:center;gap:12px;
+.${ROOT_CLASS} .menu .primary .lbl{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:.12em;color:#fff;text-shadow:0 0 10px rgba(255,122,0,.55);transition:all .15s}
+.${ROOT_CLASS} .menu .primary.hard{
+  background:linear-gradient(90deg,rgba(255,68,68,.22),rgba(255,68,68,.04));
+  border:1px solid #ff4444;border-left:3px solid #ff4444;
+  filter:drop-shadow(0 0 10px rgba(255,68,68,.45));
+}
+.${ROOT_CLASS} .menu .primary.hard:hover{background:linear-gradient(90deg,#ff4444,rgba(255,68,68,.55));filter:drop-shadow(0 0 14px rgba(255,68,68,.7))}
+.${ROOT_CLASS} .menu .primary.hard .lbl{text-shadow:0 0 10px rgba(255,68,68,.55)}
+.${ROOT_CLASS} .menu .primary.locked{
+  background:linear-gradient(90deg,rgba(120,120,140,.18),rgba(60,60,80,.04));
+  border-color:#5a6075;border-left-color:#5a6075;
+  filter:drop-shadow(0 0 4px rgba(60,60,80,.3));
+  cursor:not-allowed;opacity:.55;
+}
+.${ROOT_CLASS} .menu .primary.locked:hover{
+  background:linear-gradient(90deg,rgba(120,120,140,.18),rgba(60,60,80,.04));
+  filter:drop-shadow(0 0 4px rgba(60,60,80,.3));
+}
+.${ROOT_CLASS} .menu .primary.locked:hover .lbl{color:#888da0;text-shadow:none}
+.${ROOT_CLASS} .menu .primary.locked .lbl{color:#888da0;text-shadow:none}
+.${ROOT_CLASS} .menu .primary .lock-icon{font-size:14px;line-height:1;color:#888da0}
+.${ROOT_CLASS} .menu .primary.sanctum{
   background:linear-gradient(90deg,rgba(196,155,255,.22),rgba(196,155,255,.04));
   border:1px solid #c49bff;border-left:3px solid #c49bff;
-  filter:drop-shadow(0 0 10px rgba(196,155,255,.35));
-  clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px));
-  cursor:pointer;transition:all .15s ease;pointer-events:auto;
+  filter:drop-shadow(0 0 10px rgba(196,155,255,.45));
 }
-.${ROOT_CLASS} .menu .sanctum:hover{background:linear-gradient(90deg,#c49bff,rgba(196,155,255,.55));filter:drop-shadow(0 0 14px rgba(196,155,255,.7))}
-.${ROOT_CLASS} .menu .sanctum:hover .lbl{color:#0a0a10;text-shadow:none}
-.${ROOT_CLASS} .menu .sanctum .lbl{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:.14em;color:#fff;text-shadow:0 0 10px rgba(196,155,255,.55);transition:all .15s}
+.${ROOT_CLASS} .menu .primary.sanctum:hover{background:linear-gradient(90deg,#c49bff,rgba(196,155,255,.55));filter:drop-shadow(0 0 14px rgba(196,155,255,.7))}
+.${ROOT_CLASS} .menu .primary.sanctum .lbl{text-shadow:0 0 10px rgba(196,155,255,.55)}
+.${ROOT_CLASS} .menu .lock-hint{
+  font-family:'Rajdhani',sans-serif;font-size:10px;letter-spacing:.18em;
+  color:rgba(255,217,74,.55);text-align:center;text-transform:uppercase;
+  font-style:italic;margin:2px 0 -2px;
+}
 
 .${ROOT_CLASS} .secondary-row{display:flex;gap:10px}
 .${ROOT_CLASS} .secondary{
-  width:240px;height:44px;padding:0 18px;
+  width:180px;height:44px;padding:0 14px;
   display:flex;align-items:center;justify-content:center;gap:12px;
   background:linear-gradient(90deg,rgba(174,234,255,.18),rgba(174,234,255,.03));
   border:1px solid rgba(174,234,255,.35);border-left:3px solid rgba(174,234,255,.6);
@@ -185,7 +226,25 @@ const CSS = `
 }
 .${ROOT_CLASS} .secondary:hover{background:linear-gradient(90deg,#3a7fbf,#1f4d80);border-color:#5aaaff;filter:drop-shadow(0 0 12px rgba(90,170,255,.55))}
 .${ROOT_CLASS} .secondary:hover .lbl{color:#eaf6ff;text-shadow:0 0 10px rgba(174,234,255,.5)}
-.${ROOT_CLASS} .secondary .lbl{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:.1em;color:#cfd8e4;transition:color .15s}
+.${ROOT_CLASS} .secondary .lbl{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:.1em;color:#cfd8e4;transition:color .15s}
+
+.${ROOT_CLASS} .secondary.sanctum{
+  background:linear-gradient(90deg,rgba(196,155,255,.22),rgba(196,155,255,.04));
+  border:1px solid #c49bff;border-left:3px solid #c49bff;
+  filter:drop-shadow(0 0 8px rgba(196,155,255,.28));
+}
+.${ROOT_CLASS} .secondary.sanctum:hover{background:linear-gradient(90deg,#c49bff,rgba(196,155,255,.55));border-color:#c49bff;filter:drop-shadow(0 0 12px rgba(196,155,255,.6))}
+.${ROOT_CLASS} .secondary.sanctum:hover .lbl{color:#0a0a10;text-shadow:none}
+.${ROOT_CLASS} .secondary.sanctum .lbl{color:#fff;text-shadow:0 0 10px rgba(196,155,255,.55)}
+
+.${ROOT_CLASS} .secondary.story{
+  background:linear-gradient(90deg,rgba(255,217,74,.20),rgba(255,217,74,.04));
+  border:1px solid #ffd94a;border-left:3px solid #ffd94a;
+  filter:drop-shadow(0 0 8px rgba(255,217,74,.28));
+}
+.${ROOT_CLASS} .secondary.story:hover{background:linear-gradient(90deg,#ffd94a,rgba(255,217,74,.55));border-color:#ffd94a;filter:drop-shadow(0 0 12px rgba(255,217,74,.6))}
+.${ROOT_CLASS} .secondary.story:hover .lbl{color:#0a0a10;text-shadow:none}
+.${ROOT_CLASS} .secondary.story .lbl{color:#fff;text-shadow:0 0 10px rgba(255,217,74,.55)}
 
 .${ROOT_CLASS} .pilot-title{
   position:absolute;left:50%;top:116px;transform:translateX(-50%);z-index:4;
@@ -210,6 +269,14 @@ const CSS = `
   padding-right:min(150px, 20%);
   text-align:right;letter-spacing:.04em;
 }
+.${ROOT_CLASS} .atman-echo{
+  position:absolute;left:0;right:0;bottom:50px;z-index:4;
+  font-family:'Rajdhani',sans-serif;font-style:italic;font-weight:400;font-size:11px;
+  color:rgba(255,217,74,.34);letter-spacing:.16em;
+  max-width:620px;margin:0 auto;
+  text-align:center;pointer-events:none;
+}
+.${ROOT_CLASS}.visible .stage .atman-echo{animation:fadeIn 1.4s ease both 1.2s}
 
 .${ROOT_CLASS} .hud{
   position:absolute;left:50%;transform:translateX(-50%);bottom:34px;z-index:4;
@@ -244,9 +311,13 @@ const CSS = `
 `;
 
 function buildStageHtml(opts: TitleOverlayOptions): string {
-  const primary = opts.primaryLabel ?? 'PLAY';
+  const easyLabel = opts.easyLabel ?? 'EASY';
+  const hardLabel = opts.hardLabel ?? 'HARD';
+  const hardLocked = !!opts.hardLocked;
+  const lockedHint = opts.lockedHint ?? 'Clear Easy to unlock Hard';
   const collection = opts.collectionLabel ?? 'COLLECTION';
   const settings = opts.settingsLabel ?? 'SETTINGS';
+  const story = opts.storyLabel ?? 'STORY';
   const q1 = opts.atmanQuoteLine1 ?? '&ldquo;The soul is a myth.';
   const q2 = opts.atmanQuoteLine2 ?? "What you call &lsquo;soul&rsquo; is merely unprocessed data.&rdquo;";
   const attr = opts.atmanAttribution ?? '— ATMAN, broadcast';
@@ -319,12 +390,17 @@ function buildStageHtml(opts: TitleOverlayOptions): string {
     <div class="menu-backing"></div>
     <div class="menu">
       <div class="primary-row">
-        <div class="primary" data-role="play"><span class="lbl">${escapeHtml(primary)}</span></div>
-        ${opts.onSanctum ? `<div class="sanctum" data-role="sanctum"><span class="lbl">${escapeHtml(opts.sanctumLabel ?? 'SANCTUM')}</span></div>` : ''}
+        <div class="primary hard${hardLocked ? ' locked' : ''}" data-role="play-hard" ${hardLocked ? 'aria-disabled="true"' : ''}>
+          ${hardLocked ? '<span class="lock-icon">🔒</span>' : ''}<span class="lbl">${escapeHtml(hardLabel)}</span>
+        </div>
+        <div class="primary easy" data-role="play-easy"><span class="lbl">${escapeHtml(easyLabel)}</span></div>
+        ${opts.onSanctum ? `<div class="primary sanctum" data-role="sanctum"><span class="lbl">${escapeHtml(opts.sanctumLabel ?? 'SANCTUM')}</span></div>` : ''}
       </div>
+      ${hardLocked ? `<div class="lock-hint">${escapeHtml(lockedHint)}</div>` : ''}
       <div class="secondary-row">
         <div class="secondary" data-role="collection"><span class="lbl">${escapeHtml(collection)}</span></div>
         <div class="secondary" data-role="settings"><span class="lbl">${escapeHtml(settings)}</span></div>
+        ${opts.onStory ? `<div class="secondary story" data-role="story"><span class="lbl">${escapeHtml(story)}</span></div>` : ''}
       </div>
     </div>
 
@@ -332,6 +408,7 @@ function buildStageHtml(opts: TitleOverlayOptions): string {
       <div class="q">${q1}<br/>${q2}</div>
       <div class="attr">${attr}</div>
     </div>
+    <div class="atman-echo">the broadcast ends. something still rings.</div>
 
     ${hud}
 
@@ -425,16 +502,23 @@ export function mountTitleOverlay(opts: TitleOverlayOptions): () => void {
   const disposeFit = fitStageToCanvas(stage);
 
   // Button wiring
-  const onClick = (role: 'play' | 'collection' | 'settings' | 'credits' | 'sanctum', handler: () => void): void => {
+  const onClick = (
+    role: 'play-easy' | 'play-hard' | 'collection' | 'settings' | 'credits' | 'sanctum' | 'story',
+    handler: () => void,
+  ): void => {
     const el = root.querySelector(`[data-role="${role}"]`) as HTMLElement | null;
     if (!el) return;
     el.addEventListener('click', () => handler());
   };
-  onClick('play', opts.onPlay);
+  onClick('play-easy', opts.onPlayEasy);
+  // Locked HARD swallows the click silently — the lock-hint underneath
+  // tells the player why nothing happened.
+  if (!opts.hardLocked) onClick('play-hard', opts.onPlayHard);
   onClick('collection', opts.onCollection);
   onClick('settings', opts.onSettings);
   if (opts.onCredits) onClick('credits', opts.onCredits);
   if (opts.onSanctum) onClick('sanctum', opts.onSanctum);
+  if (opts.onStory) onClick('story', opts.onStory);
 
   // Fade in on next frame
   requestAnimationFrame(() => root.classList.add('visible'));

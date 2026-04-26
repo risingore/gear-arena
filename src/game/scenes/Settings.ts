@@ -158,36 +158,20 @@ export class Settings extends Scene {
           },
         },
         {
-          label: t('Ending'),
+          label: t('Ending (Easy)'),
           value: t('PLAY'),
           onCycle: () => {
             playSfx('click');
-            // Jump directly to the victory + ending sequence. Sets up a
-            // minimal victory run state so Result.renderVictory can run
-            // without requiring a full completed playthrough.
-            const fake = createInitialRunState();
-            fake.robotKey = 'robot_knight';
-            fake.battleOutcome = 'victory';
-            fake.gold = 300;
-            fake.lastDefeatedEnemyId = 'boss_leviathan';
-            const finalRound: GeneratedRound = {
-              index: 5,
-              enemy: {
-                name: 'Shuten Doji',
-                hp: 1,
-                damage: 1,
-                cooldownSec: 1,
-                damageReductionPct: 0,
-                assetKey: 'boss_leviathan',
-              },
-              enemyId: 'boss_leviathan',
-              goldReward: 0,
-              isBoss: true,
-              isSuperBoss: false,
-            };
-            fake.generatedRounds = [finalRound];
-            setRunState(this, fake);
-            fadeToScene(this, 'Result');
+            this.jumpToEnding('easy');
+            return t('PLAY');
+          },
+        },
+        {
+          label: t('Ending (Hard)'),
+          value: t('PLAY'),
+          onCycle: () => {
+            playSfx('click');
+            this.jumpToEnding('hard');
             return t('PLAY');
           },
         },
@@ -233,5 +217,41 @@ export class Settings extends Scene {
     this.input.keyboard?.on('keydown-R', () => fadeToScene(this, 'Title'));
 
     showDebugBadge(this, isDebugEnabled());
+  }
+
+  /**
+   * Jump directly to the victory + ending sequence with a minimal fake
+   * run state, so the chosen ending flavor (`easy` / `hard`) plays end
+   * to end without requiring a full completed playthrough.
+   */
+  private jumpToEnding(mode: 'easy' | 'hard'): void {
+    const fake = createInitialRunState();
+    fake.robotKey = 'robot_knight';
+    fake.battleOutcome = 'victory';
+    fake.gold = 300;
+    fake.lastDefeatedEnemyId = 'boss_yuki_onna';
+    fake.endingMode = mode;
+    // Preview mode — Result must not write any save mutations, otherwise
+    // pressing this debug button would unlock HARD (or pump scrap, or
+    // mark enemies as defeated) without an actual playthrough.
+    fake.previewOnly = true;
+    const finalRound: GeneratedRound = {
+      index: 5,
+      enemy: {
+        name: 'Yuki Onna',
+        hp: 1,
+        damage: 1,
+        cooldownSec: 1,
+        damageReductionPct: 0,
+        assetKey: 'boss_yuki_onna',
+      },
+      enemyId: 'boss_yuki_onna',
+      goldReward: 0,
+      isBoss: true,
+      isSuperBoss: false,
+    };
+    fake.generatedRounds = [finalRound];
+    setRunState(this, fake);
+    fadeToScene(this, 'Result');
   }
 }

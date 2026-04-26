@@ -16,6 +16,18 @@ secrets/
 # public/assets/ should ship.
 assets-raw/
 
+# Sprite preprocessing intermediates — pre-rembg sources, side-by-side
+# comparison renders, and unprocessed raw portraits. Kept on disk for
+# future reuse; not shipped (Phaser only loads the post-processed PNGs
+# under public/assets/sprites/ and public/assets/images/enemy/).
+public/assets/images/alpha/
+public/assets/images/rembg-compare/
+public/assets/images/indra.jpg
+
+# Windows download alternate-data-stream metadata. Snuck in via WSL
+# imports; useless to the build and to git.
+*:Zone.Identifier
+
 # --- Kima governance layer (never ship to GitHub) ---
 # Any game derived from this template must keep the governance layer out of
 # the public repo.
@@ -29,6 +41,9 @@ tasks/
 # The public-facing material (README.md at the repo root) is separate.
 docs/*
 !docs/devlog.md
+!docs/design
+docs/design/*
+!docs/design/build-spec.md
 !docs/screenshots
 !docs/screenshots/**
 # Media exports: repo stores the 5 stills; GIF / webm live on itch.io only.
@@ -47,6 +62,13 @@ tests/
 # All Python utility tools (audio-analyze, youtube-dl, pdf-rotate, etc.)
 # are Heika's local workflow and stay out of the public repo.
 tools/
+
+# Sprite-preprocessing Python scripts under scripts/ are also Heika's
+# local workflow only. The .ts automation scripts (debug-resize,
+# browser-test, shots, etc.) stay tracked because they are part of the
+# public dev experience; the .py sprite tools are not.
+scripts/*.py
+scripts/__pycache__/
 
 # --- Node / Bun ---
 node_modules/

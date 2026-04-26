@@ -25,6 +25,7 @@ import {
   type SanctumKind,
 } from '../systems/palette';
 import { computeLoadoutStats } from '../systems/stats';
+import { getSynergyStatuses } from '../systems/synergyCheck';
 import { generateShopOffer } from '../systems/shop';
 import { attemptReroll, getRerollCost } from '../systems/loadout';
 import { playSfx } from '../systems/audio';
@@ -57,9 +58,23 @@ const SLOT_RADIUS = 30;
 const SHOP_CARD_W = 140;
 const SHOP_CARD_H = 86;
 const SHOP_CARD_GAP = 14;
-/** Y of first shop card CENTER. Must sit below the DOM panel-head strip
- *  (which ends at y=74). First-card top = SHOP_GRID_TOP - SHOP_CARD_H/2. */
-const SHOP_GRID_TOP = 130;
+/** Inter-element gap between REROLL and the first card row, and
+ *  between the SHOP frame's bottom and the INTEL monitor's top. */
+const SHOP_VGAP = 16;
+/** Padding INSIDE the SHOP frame on the top edge (panel-head bottom →
+ *  REROLL top) AND the bottom edge (last card bottom → frame bottom).
+ *  Kept in a single constant so the two margins read identically and
+ *  the cards never appear to kiss the chamfered frame edge. */
+const SHOP_INNER_PAD = 24;
+/** REROLL button center y — sits SHOP_INNER_PAD below the panel-head
+ *  strip (which ends y=74), giving the column a generous top margin. */
+const REROLL_CENTER_Y = 74 + SHOP_INNER_PAD + 22; // 120
+/** TOP-edge y of the shop card grid (NOT center!). The card placement
+ *  formula in drawShopArea is
+ *    cardCenterY = SHOP_GRID_TOP + row * (CARD_H + GAP) + CARD_H / 2
+ *  so SHOP_GRID_TOP itself is the top of row 0, not its center. Sits
+ *  REROLL bottom (142) + SHOP_VGAP below the REROLL button. */
+const SHOP_GRID_TOP = REROLL_CENTER_Y + 22 + SHOP_VGAP; // 158
 /** REROLL button width — narrower than the shop column for visual breathing. */
 const REROLL_W = 180;
 const SHOP_COLS = 2;
@@ -134,6 +149,7 @@ export class Build extends Scene {
   private statsDefRows!: GameObjects.Text;
   private statsBuffRows!: GameObjects.Text;
   private statsSkillRows!: GameObjects.Text;
+  private statsSynergyRows!: GameObjects.Text;
   private chargeBarFill!: GameObjects.Rectangle;
   private previewText!: GameObjects.Text;
   private buildOverlay: BuildOverlayHandle | null = null;
@@ -176,11 +192,13 @@ export class Build extends Scene {
     // Right column — stats blocks (frame already drawn in drawColumnFrames).
     this.drawStatsBlocks(textStyles);
 
-    // REROLL — custom-drawn with cyan-left-accent matching the design brief.
+    // REROLL — sits at the TOP of the SHOP column (header → REROLL →
+    // 6-card grid → preview). Heika 2026-04-25: this reads as "spend
+    // gold to refresh the offer" before the offer itself, like a
+    // toolbar above the table. The custom button keeps the cyan-
+    // left-accent silhouette from the design brief.
     const rerollX = SHOP_AREA_X + SHOP_W / 2;
-    const shopRows = Math.ceil(ECONOMY.shopSlotCount / SHOP_COLS);
-    const rerollY = SHOP_GRID_TOP + shopRows * (SHOP_CARD_H + SHOP_CARD_GAP) + 30;
-    this.drawRerollButton(rerollX, rerollY, () => {
+    this.drawRerollButton(rerollX, REROLL_CENTER_Y, () => {
       const s = getRunState(this);
       const rerolled = attemptReroll(s, generateShopOffer(s.currentRound));
       if (rerolled) {
@@ -262,7 +280,7 @@ export class Build extends Scene {
   // ==========================================================================
 
   /** Build the stats column: gold, SOUL STRIKE + DEFENSE blocks, preview. */
-  private drawStatsBlocks(textStyles: typeof gameOptions.textStyles): void {
+  private drawStatsBlocks(_textStyles: typeof gameOptions.textStyles): void {
     // Children align with the header's ident text — both sit at the
     // content-column left edge (STATS_X). The column frame adds its own
     // 8-px outer cushion; header padding (8 px) offsets the frame edge
@@ -423,13 +441,39 @@ export class Build extends Scene {
       .setOrigin(0, 0)
       .setLetterSpacing(1);
 
-    // --- Hover preview --------------------------------------------------
-    // Pushed down (was y=470) so the SKILLS / BUFFS rows above can grow to
-    // 9 entries without colliding with this hover-description text.
-    this.previewText = this.add
-      .text(contentLeft, 526, '', { ...textStyles.small, wordWrap: { width: contentWidth } })
+    // --- SYNERGIES block (lifted up from y=458 → 418 per Heika
+    //     2026-04-25 to give the hover-preview block more breathing
+    //     room below the READY button). The SKILLS/BUFFS rows above
+    //     practically only fill 2-4 lines for INDRA-only / 5-round
+    //     scope, so the previous 108-px gap was visually wasteful.
+    //     Divider line between SKILLS/BUFFS and SYNERGIES removed
+    //     per Heika — the bullet + heading already mark the split.
+    this.drawBlockBullet(bulletX, 426);
+    this.add
+      .text(headingX, 424, t('SYNERGIES'), {
+        fontFamily: '"Bebas Neue", system-ui, sans-serif',
+        fontSize: '13px',
+        color: '#aeeaff',
+        resolution: TEXT_DPR,
+      })
       .setOrigin(0, 0)
-      .setColor('#3ab0ff');
+      .setLetterSpacing(4);
+    this.statsSynergyRows = this.add
+      .text(contentLeft, 444, '', {
+        fontFamily: '"Rajdhani", system-ui, sans-serif',
+        fontSize: '11px',
+        color: '#cfd8e4',
+        resolution: TEXT_DPR,
+        lineSpacing: 3,
+        wordWrap: { width: contentWidth },
+      })
+      .setOrigin(0, 0)
+      .setLetterSpacing(1);
+
+    // Hover preview moved out of the OUTPUT (stats) column per Heika
+    // 2026-04-25 — it now lives under the SHOP card grid (created in
+    // drawShopArea), so OUTPUT shows ONLY the run state and not
+    // ephemeral hover-tooltip text.
   }
 
   /** Diamond-shaped orange bullet for section headings. */
@@ -465,8 +509,6 @@ export class Build extends Scene {
    * single workshop chassis instead of three unrelated regions.
    */
   private drawColumnFrames(): void {
-    const shopRows = Math.ceil(ECONOMY.shopSlotCount / SHOP_COLS);
-    const shopContentBottom = SHOP_GRID_TOP + shopRows * (SHOP_CARD_H + SHOP_CARD_GAP) + 30 + 22; // REROLL bottom
     const frameTop = 44;
     const cornerCut = 14;
 
@@ -475,14 +517,28 @@ export class Build extends Scene {
     // four columns read as independent panels (like the reference mockup)
     // rather than one giant fused header stripe.
     const colHeight = BP_TOP + BLUEPRINT_BOX_H - frameTop;
-    // Storage column (matches the blueprint's height so the leftmost
-    // pair reads as aligned towers).
     this.drawColumnFrame(STORAGE_COL_X, frameTop, STORAGE_COL_W, colHeight, cornerCut);
     this.drawColumnFrame(BLUEPRINT_X, frameTop, BLUEPRINT_BOX_W, colHeight, cornerCut);
-    this.drawColumnFrame(SHOP_AREA_X, frameTop, SHOP_W, shopContentBottom - frameTop + 8, cornerCut);
-    // Stats column — extended to match Storage / Blueprint column bottoms
-    // so the four columns share a single baseline (was clipped just under
-    // the READY button at y=659; now y=678 like its neighbors).
+    // SHOP frame is SHORTER than the others — it stops just under the
+    // 6-card grid so the INTEL monitor below can read as its own
+    // independent panel (Heika 2026-04-25). Card-grid bottom +
+    // SHOP_INNER_PAD inside the frame (matches the top margin), then
+    // SHOP_VGAP of black between the frame's bottom and the INTEL
+    // monitor's top.
+    // SHOP_GRID_TOP = top of row 0 (not center). Last row's bottom is
+    // SHOP_GRID_TOP + (rows-1)*(CARD_H + GAP) + CARD_H. Then add the
+    // matching SHOP_INNER_PAD so top + bottom inner margins are equal.
+    const shopFrameBottom = SHOP_GRID_TOP
+      + (Math.ceil(ECONOMY.shopSlotCount / SHOP_COLS) - 1) * (SHOP_CARD_H + SHOP_CARD_GAP)
+      + SHOP_CARD_H + SHOP_INNER_PAD;
+    const shopFrameH = shopFrameBottom - frameTop;
+    this.drawColumnFrame(SHOP_AREA_X, frameTop, SHOP_W, shopFrameH, cornerCut);
+    // INTEL monitor — separate chamfered frame below the SHOP frame.
+    // Its bottom lines up with the other three columns, so the
+    // workshop chassis still reads as a single rectangle of activity.
+    const monitorTop = shopFrameBottom + SHOP_VGAP;
+    const monitorBottom = frameTop + colHeight;
+    this.drawColumnFrame(SHOP_AREA_X, monitorTop, SHOP_W, monitorBottom - monitorTop, cornerCut);
     this.drawColumnFrame(STATS_X, frameTop, STATS_W, colHeight, cornerCut);
   }
 
@@ -798,6 +854,36 @@ export class Build extends Scene {
     const gridLeft = SHOP_AREA_X;
     const gridTop = SHOP_GRID_TOP;
 
+    // INTEL monitor — its outer chamfered chassis is drawn by
+    // drawColumnFrames, and its panel-head strip is mounted by the
+    // DOM overlay (buildOverlay.ts) using the same OUTPUT-style
+    // .panel-head vocabulary (orange tag + white val + green LED).
+    // Here we only place the readout body text inside the monitor.
+    const { textStyles } = gameOptions;
+    const shopRowsCount = Math.ceil(ECONOMY.shopSlotCount / SHOP_COLS);
+    // gridTop = top of row 0. Last card's bottom = gridTop + (rows-1)*pitch + CARD_H.
+    const shopGridBottom = gridTop + (shopRowsCount - 1) * (SHOP_CARD_H + SHOP_CARD_GAP) + SHOP_CARD_H;
+    const monX = gridLeft;
+    // Mirror drawColumnFrames: cards → SHOP_INNER_PAD inside the frame,
+    // then SHOP_VGAP of black, then the monitor.
+    const monY = shopGridBottom + SHOP_INNER_PAD + SHOP_VGAP;
+    const monW = SHOP_W;
+    // DOM panel-head height = 30 px (see buildOverlay.ts .panel-head).
+    const monHeadH = 30;
+
+    // Preview text — readout body. Cyan tinted for the "data terminal"
+    // feel. Padding keeps text off the chamfered chassis.
+    const previewPadX = 12;
+    const previewPadY = 10;
+    this.previewText = this.add
+      .text(monX + previewPadX, monY + monHeadH + previewPadY, '', {
+        ...textStyles.small,
+        wordWrap: { width: monW - previewPadX * 2 },
+      })
+      .setOrigin(0, 0)
+      .setColor('#aeeaff')
+      .setDepth(4);
+
     this.shopContainers = [];
     for (let i = 0; i < ECONOMY.shopSlotCount; i += 1) {
       const col = i % SHOP_COLS;
@@ -1103,7 +1189,10 @@ export class Build extends Scene {
    * to mirror SANCTUM's "price — buy" foot row).
    */
   private buildPriceText(price: number, canAfford: boolean): GameObjects.Container {
-    const wrap = this.add.container(-SHOP_CARD_W / 2 + 12, SHOP_CARD_H / 2 - 12);
+    // Center-aligned price block at the card foot — Heika 2026-04-25:
+    // foot-left placement read as off-balance vs. centered name above
+    // it. We measure (number + 'G') total width and offset the
+    // container so its content centers on x = 0 (= card center).
     const priceNumber = this.add
       .text(0, 0, String(price), {
         fontFamily: '"Bebas Neue", system-ui, sans-serif',
@@ -1113,8 +1202,9 @@ export class Build extends Scene {
       })
       .setOrigin(0, 0.5)
       .setLetterSpacing(1);
+    const gOffset = priceNumber.width + 2;
     const g = this.add
-      .text(priceNumber.width + 2, 1, 'G', {
+      .text(gOffset, 1, 'G', {
         fontFamily: '"Bebas Neue", system-ui, sans-serif',
         fontSize: '11px',
         color: canAfford ? '#b89c3a' : '#6a2020',
@@ -1122,6 +1212,8 @@ export class Build extends Scene {
       })
       .setOrigin(0, 0.5)
       .setLetterSpacing(2);
+    const totalW = gOffset + g.width;
+    const wrap = this.add.container(-totalW / 2, SHOP_CARD_H / 2 - 12);
     wrap.add([priceNumber, g]);
     return wrap;
   }
@@ -1462,6 +1554,24 @@ export class Build extends Scene {
             .join('\n')
         : emptyDash
     );
+
+    // SYNERGIES rows \u2014 both placement (slot-based) + category (count-
+    // based) bundled. Active first, then any "near miss" placement
+    // synergies (1 part short of triggering) so the player can see
+    // which buy would tip the loadout into a synergy without having
+    // to memorise every rule.
+    const synLines: string[] = [];
+    for (const ps of stats.placementSynergies.active) {
+      synLines.push(`\u2713 ${t(ps.name)}`);
+    }
+    const catStatuses = getSynergyStatuses(state.equipped);
+    for (const cs of catStatuses) {
+      if (cs.active) synLines.push(`\u2713 ${t(cs.name)}`);
+    }
+    this.statsSynergyRows.setText(
+      synLines.length > 0 ? synLines.join('\n') : emptyDash,
+    );
+    this.statsSynergyRows.setColor(synLines.length > 0 ? '#ffd94a' : '#5a6878');
 
     // Hover preview
     if (this.hoverShopIndex !== null) {

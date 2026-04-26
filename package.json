@@ -11,8 +11,7 @@
     "package-itch": "bash scripts/package-itch.sh",
     "release": "bash scripts/release.sh",
     "remove-bg": "bash scripts/remove-bg.sh",
-    "clean-bg": ".venv/bin/python3 scripts/clean-dark-bg.py public/assets/images/*.png",
-    "deploy": "bun run build && node node_modules/wrangler/bin/wrangler.js pages deploy dist --commit-dirty=true"
+    "deploy": "bun run build && node node_modules/wrangler/bin/wrangler.js deploy"
   },
   "dependencies": {
     "phaser": "4.0.0"

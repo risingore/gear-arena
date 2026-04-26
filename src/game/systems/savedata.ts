@@ -32,6 +32,19 @@ export interface SaveData {
   battlesCompleted: number;
   /** Buff items purchased at SANCTUM, waiting to be auto-applied at next Build → Battle. */
   ownedBuffItems: string[];
+  /**
+   * Whether the player has completed an Easy mode run at least once.
+   * Title screen gates the HARD button on this — a fresh save can only
+   * pick EASY first, mirroring the in-fiction "you've only just fallen"
+   * arc.
+   */
+  easyCleared: boolean;
+  /**
+   * Whether the player has completed a Hard mode run at least once.
+   * Title screen gates the STORY button on this — only players who have
+   * seen both endings should be able to read the joined epilogue.
+   */
+  hardCleared: boolean;
 }
 
 const emptySave = (): SaveData => {
@@ -48,6 +61,8 @@ const emptySave = (): SaveData => {
     scrap: 0,
     battlesCompleted: 0,
     ownedBuffItems: [],
+    easyCleared: false,
+    hardCleared: false,
   };
 };
 
@@ -72,6 +87,8 @@ export const loadSaveData = (): SaveData => {
           scrap: 0,
           battlesCompleted: 0,
           ownedBuffItems: [],
+          easyCleared: false,
+          hardCleared: false,
         };
         // Compute unlocks from existing clears
         recomputeUnlocks(migrated);
@@ -93,6 +110,8 @@ export const loadSaveData = (): SaveData => {
       scrap: typeof parsed.scrap === 'number' ? parsed.scrap : 0,
       battlesCompleted: typeof parsed.battlesCompleted === 'number' ? parsed.battlesCompleted : 0,
       ownedBuffItems: Array.isArray(parsed.ownedBuffItems) ? parsed.ownedBuffItems : [],
+      easyCleared: typeof parsed.easyCleared === 'boolean' ? parsed.easyCleared : false,
+      hardCleared: typeof parsed.hardCleared === 'boolean' ? parsed.hardCleared : false,
     };
   } catch {
     return emptySave();
@@ -134,6 +153,30 @@ export const recordVictory = (robotKey: RobotKey): SaveData => {
   data.perRobotClears[robotKey] = (data.perRobotClears[robotKey] ?? 0) + 1;
   if (data.bestRound < 10) data.bestRound = 10;
   recomputeUnlocks(data);
+  saveSaveData(data);
+  return data;
+};
+
+/**
+ * Mark Easy mode as cleared. Unlocks the HARD button on the Title screen.
+ * Idempotent — calling again after Hard unlock has no effect.
+ */
+export const recordEasyCleared = (): SaveData => {
+  const data = loadSaveData();
+  if (data.easyCleared) return data;
+  data.easyCleared = true;
+  saveSaveData(data);
+  return data;
+};
+
+/**
+ * Mark Hard mode as cleared. Unlocks the STORY button on the Title screen.
+ * Idempotent — calling again is a no-op.
+ */
+export const recordHardCleared = (): SaveData => {
+  const data = loadSaveData();
+  if (data.hardCleared) return data;
+  data.hardCleared = true;
   saveSaveData(data);
   return data;
 };
@@ -185,10 +228,12 @@ export const recordBattleCompleted = (): SaveData => {
 };
 
 /** Purchase: deduct scrap and append buff item to pending inventory. Returns
- *  `null` if the player cannot afford it (save data untouched). */
+ *  `null` if the player cannot afford it OR already holds an unconsumed copy
+ *  (each buff is buy-once until next battle drains it). */
 export const purchaseSanctumBuff = (itemKey: string, scrapCost: number): SaveData | null => {
   const data = loadSaveData();
   if (data.scrap < scrapCost) return null;
+  if (data.ownedBuffItems.includes(itemKey)) return null;
   data.scrap -= scrapCost;
   data.ownedBuffItems.push(itemKey);
   saveSaveData(data);

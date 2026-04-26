@@ -19,6 +19,16 @@ const REGISTRY_KEY = 'runState';
 
 export type BattleOutcome = 'pending' | 'win' | 'lose' | 'victory';
 
+/**
+ * Difficulty mode the run was started in.
+ * - `easy`: shorter precursor arc — Result plays a minimal cliffhanger
+ *   epilogue and returns straight to Title (no credits, no HYAKKI YAKOU,
+ *   no SOUL BREAKER teaser).
+ * - `hard`: canonical Episode 0 — full credits roll, HYAKKI YAKOU
+ *   reveal, SOUL BREAKER continuation cue.
+ */
+export type EndingMode = 'easy' | 'hard';
+
 /** A part installed in a slot, with its current star level. */
 export interface EquippedEntry {
   readonly key: PartKey;
@@ -57,6 +67,16 @@ export interface RunState {
   equippedBuffs: ItemKey[];
   /** Accumulated statistics for the current run. */
   runStats: RunStats;
+  /** Difficulty mode for this run (drives Result scene's ending flavor). */
+  endingMode: EndingMode;
+  /**
+   * When true, the Result scene treats the run as a debug preview and
+   * skips every persistent save mutation (no clears recorded, no scrap
+   * earned, no easyCleared flag, no collection unlocks). Used by the
+   * Settings → Debug → "Ending (Easy/Hard)" buttons so previewing the
+   * ending sequence doesn't contaminate the player's real save data.
+   */
+  previewOnly: boolean;
 }
 
 export const createInitialRunState = (): RunState => ({
@@ -75,7 +95,9 @@ export const createInitialRunState = (): RunState => ({
   acquiredSkills: [],
   pendingSkillChoices: [],
   equippedBuffs: [],
-  runStats: createEmptyRunStats()
+  runStats: createEmptyRunStats(),
+  endingMode: 'hard',
+  previewOnly: false
 });
 
 export const getRunState = (scene: Scene): RunState => {

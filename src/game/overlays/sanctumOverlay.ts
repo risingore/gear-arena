@@ -22,7 +22,13 @@ export interface SanctumBuffCard {
   readonly name: string;
   readonly description: string;
   readonly scrapPrice: number;
-  readonly categoryHex: string;
+}
+
+export interface SanctumBuffSection {
+  readonly kindKey: string;
+  readonly kindLabel: string;
+  readonly kindHex: string;
+  readonly cards: readonly SanctumBuffCard[];
 }
 
 export interface SanctumOverlayOptions {
@@ -30,12 +36,14 @@ export interface SanctumOverlayOptions {
   readonly subtitle: string;
   readonly scrapLabel: string;
   readonly scrapAmount: number;
-  readonly consecrateLabel: string;
   readonly notEnoughLabel: string;
+  readonly ownedLabel: string;
   readonly readiedHeading: string;
   readonly readiedEmpty: string;
   readonly readied: readonly string[];
-  readonly cards: readonly SanctumBuffCard[];
+  /** Keys already purchased and waiting to be consumed; locked from re-buy. */
+  readonly ownedKeys: readonly string[];
+  readonly sections: readonly SanctumBuffSection[];
   readonly backLabel: string;
   onPurchase(key: string): void;
   onBack(): void;
@@ -43,7 +51,7 @@ export interface SanctumOverlayOptions {
 
 export interface SanctumOverlayHandle {
   /** Update scrap counter + readied list after a successful purchase. */
-  update(scrapAmount: number, readied: readonly string[]): void;
+  update(scrapAmount: number, readied: readonly string[], ownedKeys: readonly string[]): void;
   unmount(): void;
 }
 
@@ -80,62 +88,79 @@ const CSS = `
 .${ROOT_CLASS} .scrap-line .label{color:#8da0ba;font-size:13px;letter-spacing:.22em;margin-right:10px}
 .${ROOT_CLASS} .scrap-line .amount{color:#ffd94a;text-shadow:0 0 10px rgba(255,217,74,.35)}
 .${ROOT_CLASS} .panel{
-  position:absolute;left:50%;top:116px;transform:translateX(-50%);
-  width:820px;max-height:460px;padding:24px 30px 28px;
-  overflow-y:auto;
+  position:absolute;left:50%;top:108px;transform:translateX(-50%);
+  width:820px;height:432px;padding:14px 20px;
+  box-sizing:border-box;overflow:hidden;
   background:rgba(10,10,16,.55);
   border:1px solid rgba(174,234,255,.18);
-  scrollbar-width:thin;scrollbar-color:rgba(174,234,255,.35) rgba(10,10,16,.4);
   clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px));
 }
-.${ROOT_CLASS} .panel::-webkit-scrollbar{width:8px}
-.${ROOT_CLASS} .panel::-webkit-scrollbar-track{background:rgba(10,10,16,.4)}
-.${ROOT_CLASS} .panel::-webkit-scrollbar-thumb{background:rgba(174,234,255,.35);border-radius:3px}
-.${ROOT_CLASS} .panel::-webkit-scrollbar-thumb:hover{background:rgba(174,234,255,.55)}
+.${ROOT_CLASS} .section{margin-bottom:8px}
+.${ROOT_CLASS} .section:last-child{margin-bottom:0}
+.${ROOT_CLASS} .section-head{
+  display:flex;align-items:center;gap:10px;margin:0 4px 4px;
+}
+.${ROOT_CLASS} .section-head .swatch{
+  width:12px;height:12px;
+  clip-path:polygon(0 0,calc(100% - 4px) 0,100% 4px,100% 100%,4px 100%,0 calc(100% - 4px));
+}
+.${ROOT_CLASS} .section-head .kind-name{
+  font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:.22em;
+}
+.${ROOT_CLASS} .section-head .rule{
+  flex:1;height:1px;background:rgba(174,234,255,.18);
+}
 .${ROOT_CLASS} .grid{
-  display:grid;grid-template-columns:repeat(3,1fr);gap:16px;
+  display:grid;grid-template-columns:repeat(3,160px);
+  justify-content:center;gap:10px;
 }
 .${ROOT_CLASS} .card{
-  position:relative;padding:14px 16px 18px;min-height:180px;
-  background:linear-gradient(180deg,rgba(22,30,44,.85),rgba(16,20,32,.75));
-  border:1px solid rgba(174,234,255,.3);
+  position:relative;width:160px;height:108px;padding:10px 10px;
+  box-sizing:border-box;
+  background:rgba(22,30,44,.85);
+  border:1px solid rgba(68,102,170,.5);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;gap:3px;
   clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px));
-  display:flex;flex-direction:column;gap:8px;
+  cursor:pointer;transition:transform .12s ease,border-color .12s ease,filter .12s ease;
+}
+.${ROOT_CLASS} .card:hover{
+  transform:translateY(-1px);
+  border-color:#ff7a00;
+  filter:drop-shadow(0 0 10px rgba(255,122,0,.3));
 }
 .${ROOT_CLASS} .card .bar{
   position:absolute;left:0;top:0;bottom:0;width:3px;
 }
 .${ROOT_CLASS} .card .name{
-  font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:.06em;color:#fff;
+  font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:.06em;color:#fff;
   line-height:1.1;
 }
 .${ROOT_CLASS} .card .desc{
-  font-size:13px;line-height:1.45;color:#cfd8e4;flex:1;
-}
-.${ROOT_CLASS} .card .foot{
-  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  font-size:10px;line-height:1.25;color:#cfd8e4;opacity:.85;
 }
 .${ROOT_CLASS} .card .price{
-  font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:.08em;color:#ffd94a;
+  font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:.08em;color:#ffd94a;
 }
-.${ROOT_CLASS} .card .price .unit{font-size:12px;color:#b89c3a;margin-left:3px;letter-spacing:.18em}
-.${ROOT_CLASS} .card .buy{
-  width:100px;height:34px;padding:0 10px;
-  display:inline-flex;align-items:center;justify-content:center;
-  font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:.18em;color:#fff;
-  background:linear-gradient(90deg,rgba(255,122,0,.22),rgba(255,122,0,.04));
-  border:1px solid #ff7a00;border-left:3px solid #ff7a00;
-  filter:drop-shadow(0 0 8px rgba(255,122,0,.35));
-  clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px));
-  cursor:pointer;transition:all .15s ease;
+.${ROOT_CLASS} .card .price .unit{font-size:9px;color:#b89c3a;margin-left:3px;letter-spacing:.18em}
+.${ROOT_CLASS} .card.locked{
+  background:rgba(12,14,22,.6);opacity:.55;cursor:not-allowed;
+  border-color:rgba(255,68,68,.55);
 }
-.${ROOT_CLASS} .card .buy:hover{background:linear-gradient(90deg,#ff7a00,rgba(255,122,0,.55));color:#0a0a10}
-.${ROOT_CLASS} .card.locked .buy{
-  background:rgba(58,58,85,.25);border-color:rgba(255,68,68,.55);border-left-color:rgba(255,68,68,.55);
-  color:#ff9a9a;filter:none;cursor:not-allowed;pointer-events:none;
+.${ROOT_CLASS} .card.locked:hover{transform:none;filter:none;border-color:rgba(255,68,68,.55)}
+.${ROOT_CLASS} .card.owned{
+  background:rgba(12,14,22,.6);opacity:.7;cursor:not-allowed;
+  border-color:rgba(174,234,255,.55);
 }
+.${ROOT_CLASS} .card.owned:hover{transform:none;filter:none;border-color:rgba(174,234,255,.55)}
+.${ROOT_CLASS} .card .status{
+  font-family:'Bebas Neue',sans-serif;font-size:10px;letter-spacing:.22em;
+  text-transform:uppercase;
+}
+.${ROOT_CLASS} .card.owned .status{color:#aeeaff}
+.${ROOT_CLASS} .card.locked .status{color:#ff9a9a}
 .${ROOT_CLASS} .readied{
-  position:absolute;left:50%;top:600px;transform:translateX(-50%);
+  position:absolute;left:50%;top:556px;transform:translateX(-50%);
   width:820px;
   display:flex;align-items:baseline;gap:16px;
   font-size:12px;letter-spacing:.2em;color:#8da0ba;
@@ -156,17 +181,26 @@ const CSS = `
 .${ROOT_CLASS} .back:hover{background:rgba(85,85,119,.6)}
 `;
 
-function renderCard(card: SanctumBuffCard, scrap: number, consecrateLabel: string, notEnoughLabel: string): string {
+function renderCard(
+  card: SanctumBuffCard,
+  kindHex: string,
+  scrap: number,
+  ownedKeys: ReadonlySet<string>,
+  ownedLabel: string,
+  notEnoughLabel: string,
+): string {
+  const isOwned = ownedKeys.has(card.key);
   const canAfford = scrap >= card.scrapPrice;
+  const stateClass = isOwned ? ' owned' : (canAfford ? '' : ' locked');
+  const purchasable = !isOwned && canAfford;
+  const status = isOwned ? ownedLabel : (canAfford ? '' : notEnoughLabel);
   return `
-    <div class="card${canAfford ? '' : ' locked'}" data-key="${esc(card.key)}">
-      <div class="bar" style="background:${esc(card.categoryHex)}"></div>
+    <div class="card${stateClass}"${purchasable ? ` data-role="buy" data-key="${esc(card.key)}"` : ''}>
+      <div class="bar" style="background:${esc(kindHex)}"></div>
       <div class="name">${esc(card.name)}</div>
       <div class="desc">${esc(card.description)}</div>
-      <div class="foot">
-        <div class="price">${card.scrapPrice}<span class="unit">SCR</span></div>
-        <button class="buy" data-role="buy" data-key="${esc(card.key)}">${esc(canAfford ? consecrateLabel : notEnoughLabel)}</button>
-      </div>
+      <div class="price">${card.scrapPrice}<span class="unit">SCR</span></div>
+      ${status ? `<div class="status">${esc(status)}</div>` : ''}
     </div>
   `;
 }
@@ -180,17 +214,29 @@ export function mountSanctumOverlay(opts: SanctumOverlayOptions): SanctumOverlay
   root.className = ROOT_CLASS;
 
   let scrap = opts.scrapAmount;
+  let ownedSet = new Set<string>(opts.ownedKeys);
 
   const renderReadied = (items: readonly string[]): string =>
     items.length === 0
       ? `<span class="items empty">${esc(opts.readiedEmpty)}</span>`
       : `<span class="items">${items.map(esc).join('  ·  ')}</span>`;
 
-  const renderGrid = (): string => `
-    <div class="grid">
-      ${opts.cards.map((c) => renderCard(c, scrap, opts.consecrateLabel, opts.notEnoughLabel)).join('')}
+  const renderSection = (sec: SanctumBuffSection): string => `
+    <div class="section">
+      <div class="section-head">
+        <span class="swatch" style="background:${esc(sec.kindHex)}"></span>
+        <span class="kind-name" style="color:${esc(sec.kindHex)}">${esc(sec.kindLabel)}</span>
+        <span class="rule"></span>
+      </div>
+      <div class="grid">
+        ${sec.cards
+          .map((c) => renderCard(c, sec.kindHex, scrap, ownedSet, opts.ownedLabel, opts.notEnoughLabel))
+          .join('')}
+      </div>
     </div>
   `;
+
+  const renderGrid = (): string => opts.sections.map(renderSection).join('');
 
   root.innerHTML = `
     <div class="stage ss-stage">
@@ -233,8 +279,9 @@ export function mountSanctumOverlay(opts: SanctumOverlayOptions): SanctumOverlay
   requestAnimationFrame(() => root.classList.add('visible'));
 
   return {
-    update(newScrap, newReadied): void {
+    update(newScrap, newReadied, newOwnedKeys): void {
       scrap = newScrap;
+      ownedSet = new Set<string>(newOwnedKeys);
       const scrapEl = root.querySelector('[data-role="scrap"]') as HTMLElement | null;
       if (scrapEl) scrapEl.textContent = String(newScrap);
       const readiedEl = root.querySelector('[data-role="readied"]') as HTMLElement | null;

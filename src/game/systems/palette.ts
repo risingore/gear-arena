@@ -8,6 +8,8 @@
 
 import type { PartCategory, RobotArchetype } from '@/data';
 
+export type SanctumKind = 'attack_speed' | 'damage_reduction' | 'enemy_vulnerability';
+
 export const PALETTE = {
   bg: 0x0a0a10,
   blueprintBg: 0x142a5e,
@@ -61,3 +63,23 @@ export const CATEGORY_LABEL: Record<PartCategory, string> = {
   booster: 'BST',
   soul:    'SOL'
 };
+
+/** SANCTUM buff item visual grouping by `effect.kind`. */
+export const SANCTUM_KIND_COLORS: Record<SanctumKind, number> = {
+  attack_speed:        0xff5a5a,
+  damage_reduction:    0x5aaaff,
+  enemy_vulnerability: 0xffaa3a
+};
+
+export const SANCTUM_KIND_LABEL: Record<SanctumKind, string> = {
+  attack_speed:        'OFFENSE',
+  damage_reduction:    'DEFENSE',
+  enemy_vulnerability: 'RECON'
+};
+
+/** Display order: offense → defense → recon. */
+export const SANCTUM_KIND_ORDER: readonly SanctumKind[] = [
+  'attack_speed',
+  'damage_reduction',
+  'enemy_vulnerability'
+];

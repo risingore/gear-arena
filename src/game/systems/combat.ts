@@ -396,6 +396,14 @@ export const tickCombatant = (
     }
   }
 
+  // Time-based fill uses raw dtSec (not effectiveDt) so the gauge feels
+  // like a steady tempo meter — independent of freeze / Overdrive / temp
+  // speed mods. The cap prevents unbounded float drift while the player
+  // sits on a full gauge waiting to fire (autoFireUltimate=false).
+  if (attacker.ultimate && !attacker.ultimateUsed && attacker.ultimateGauge < attacker.ultimate.gaugeFillRatio) {
+    attacker.ultimateGauge += BALANCE.ultimateGaugeFillPerSec * dtSec * attacker.ultimateChargeRate;
+  }
+
   // Check ultimate gauge — enemies auto-fire; player requires manual trigger via Battle scene.
   if (attacker.autoFireUltimate && attacker.ultimate && !attacker.ultimateUsed && attacker.ultimateGauge >= attacker.ultimate.gaugeFillRatio) {
     ultimateFired = attacker.ultimate.name;

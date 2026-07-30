@@ -1,0 +1,127 @@
+# --- Secrets ---
+# SOUL STRIKE uses no environment variables. No .env template is shipped.
+.env
+.env.*
+*.pem
+*.key
+*.p12
+secrets/
+
+# --- Wavedash CLI local credentials (defensive — usually in ~/.wavedash/) ---
+.wavedash/
+
+# --- AI-generated raw assets (pre-processing source files, do not publish) ---
+# Raw AI exports live here before they are processed by Piskel / audio
+# trimming. Only the post-processed versions under public/assets/ should ship.
+assets-raw/
+
+# Sprite preprocessing intermediates — pre-rembg sources, side-by-side
+# comparison renders, and unprocessed raw portraits. Kept on disk for
+# future reuse; not shipped (Phaser only loads the post-processed PNGs
+# under public/assets/sprites/ and public/assets/images/enemy/).
+public/assets/images/alpha/
+public/assets/images/rembg-compare/
+public/assets/images/indra.jpg
+
+# Windows download alternate-data-stream metadata. Snuck in via WSL
+# imports; useless to the build and to git.
+*:Zone.Identifier
+
+# --- Internal working docs (Japanese-authored, not for public consumption) ---
+# docs/ contains designer + engineer working documents authored in
+# Japanese. The public-facing material (README.md at the repo root) is
+# separate. Only devlog.md (English jam log) and screenshots/ (used by
+# README + itch page) are published; everything else under docs/ stays
+# private. The pre-commit hook enforces the same whitelist.
+docs/*
+!docs/devlog.md
+!docs/screenshots
+!docs/screenshots/**
+# Media exports: repo stores the 5 stills; GIF / webm live on itch.io only.
+docs/screenshots/*.gif
+docs/screenshots/*.webm
+docs/screenshots/*.mp4
+
+# --- Internal tests (kept local by design) ---
+# The unit tests stay local only. They are not shipped in the public repo.
+tests/
+
+# --- Python venv (rembg background removal tool) ---
+.venv/
+
+# --- Internal tools (not for public) ---
+# All Python utility tools (audio-analyze, youtube-dl, pdf-rotate, etc.)
+# are local workflow only and stay out of the public repo.
+tools/
+
+# Sprite-preprocessing Python scripts under scripts/ are also local
+# workflow only. The .ts automation scripts (debug-resize,
+# browser-test, shots, etc.) stay tracked because they are part of the
+# public dev experience; the .py sprite tools are not.
+scripts/*.py
+scripts/__pycache__/
+
+# --- Node / Bun ---
+node_modules/
+.cache/
+
+# --- Vite / build output ---
+dist/
+dist-itch/
+.vite/
+*.tsbuildinfo
+
+# --- Cloudflare Wrangler ---
+.wrangler/
+.dev.vars
+
+# --- Jam distribution bundles ---
+*-itch.zip
+
+# --- Editors / OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+nul
+
+# --- Temp files ---
+tmp/
+*.bak
+*.backup
+*.swp
+*.tmp
+*~
+*.log
+
+# >>> managed: public-release isolation (local-only paths; block is overwritten by tooling) >>>
+.claude/
+CLAUDE.md*
+.cursorrules
+tasks/
+.gitleaks.toml
+.gitleaks.local.toml
+.*-version
+scripts/git-hooks/
+scripts/install-hooks.sh
+scripts/install-gitleaks.sh
+scripts/install-shellcheck.sh
+scripts/ci-local.sh
+scripts/gen-cursorrules.sh
+scripts/test-precommit.sh
+scripts/test-precommit-paths.sh
+scripts/test-block-secrets.py
+scripts/test-public-isolation.sh
+docs/adr/0001-*.md
+docs/adr/0002-*.md
+docs/adr/0003-*.md
+docs/guides/cursor-claude-code-setup.md
+docs/guides/nuxt-version-bumps.md
+docs/reference/commit-message-format.md
+docs/reference/kgi.md
+docs/reference/*-commands.md
+docs/reference/project-review-checklist.md
+# <<< managed: public-release isolation <<<
+
+# --- Cloudflare Wrangler config (copy wrangler.toml.example → wrangler.toml) ---
+wrangler.toml

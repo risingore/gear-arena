@@ -1,0 +1,27 @@
+{
+  "name": "machines",
+  "description": "SOUL STRIKE — Gamedev.js Jam 2026 entry (theme: Machines). Ultimate-only cyborg combat with pachislot mechanics, built with Phaser 4.",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "package-itch": "bash scripts/package-itch.sh",
+    "release": "bash scripts/release.sh",
+    "remove-bg": "bash scripts/remove-bg.sh",
+    "deploy": "bun run build && node node_modules/wrangler/bin/wrangler.js deploy"
+  },
+  "dependencies": {
+    "phaser": "4.0.0"
+  },
+  "devDependencies": {
+    "playwright": "1.59.1",
+    "puppeteer": "24.41.0",
+    "terser": "5.39.0",
+    "typescript": "5.7.2",
+    "vite": "6.3.1",
+    "wrangler": "4.70.0"
+  }
+}

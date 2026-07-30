@@ -1,0 +1,2 @@
+# Place custom Phaser.GameObjects.Sprite subclasses here.
+# Example: Player.ts, Enemy.ts, Pickup.ts

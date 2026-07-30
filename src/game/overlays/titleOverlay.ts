@@ -1,0 +1,553 @@
+/**
+ * Title screen HTML overlay.
+ *
+ * Ported verbatim from the Claude Design handoff (Title A v2.html) so we
+ * get browser-native text rendering + SVG vector graphics at full DPI,
+ * which the Phaser Canvas renderer cannot match. The overlay floats on
+ * top of the Phaser canvas while the Title scene is active, and is
+ * unmounted when the scene shuts down so the gameplay canvas takes over.
+ *
+ * Design constraint: keep the Claude Design structure and visual tokens
+ * untouched. Only save-data HUD numbers, localized strings, and button
+ * click handlers are wired to the game runtime.
+ */
+
+import {
+  ensureStyle,
+  escapeHtml,
+  clearPriorRoots,
+  fitStageToCanvas,
+  wrapUnmount,
+} from './overlayBase';
+
+export interface TitleOverlaySaveData {
+  readonly bestRound: number;
+  readonly victories: number;
+  readonly scrap: number;
+  readonly playerTitle?: string;
+}
+
+export interface TitleOverlayOptions {
+  /** Start a fresh run in Easy mode. Always available. */
+  onPlayEasy(): void;
+  /**
+   * Start a fresh run in Hard mode. Only fires when `hardLocked` is false;
+   * locked clicks are absorbed silently (and the button reads a small
+   * "Clear Easy to unlock" hint underneath).
+   */
+  onPlayHard(): void;
+  onCollection(): void;
+  onSettings(): void;
+  onCredits?(): void;
+  /** Unlocked after the first completed battle. Button sits next to PLAY. */
+  onSanctum?(): void;
+  saveData?: TitleOverlaySaveData;
+  atmanQuoteLine1?: string;
+  atmanQuoteLine2?: string;
+  atmanAttribution?: string;
+  /** Defaults to "EASY". Always-available primary button. */
+  easyLabel?: string;
+  /** Defaults to "HARD". Locked until the player has cleared Easy at least once. */
+  hardLabel?: string;
+  /** True until the player has completed an Easy mode run. */
+  hardLocked?: boolean;
+  /** Optional override for the locked-state hint line. */
+  lockedHint?: string;
+  collectionLabel?: string;
+  settingsLabel?: string;
+  creditsLabel?: string;
+  sanctumLabel?: string;
+  storyLabel?: string;
+  /**
+   * Open the joined Easy + Hard epilogue archive. Wired only when the
+   * player has cleared HARD at least once; absence of the handler hides
+   * the STORY button entirely (no greyed-out preview), mirroring the
+   * way SANCTUM appears only after the first battle.
+   */
+  onStory?(): void;
+}
+
+const STYLE_ELEMENT_ID = 'title-overlay-style';
+const ROOT_CLASS = 'soul-strike-title-overlay';
+
+const CSS = `
+.${ROOT_CLASS} *{box-sizing:border-box}
+.${ROOT_CLASS}{
+  position:fixed;inset:0;z-index:100;
+  color:#e8ecf2;
+  font-family:'Rajdhani',system-ui,sans-serif;
+  overflow:hidden;
+  opacity:0;transition:opacity 220ms ease;
+  pointer-events:none;
+  -webkit-user-select:none;user-select:none;
+  background:transparent;
+}
+.${ROOT_CLASS}.visible{opacity:1;pointer-events:auto}
+.${ROOT_CLASS} .stage{
+  width:1280px;height:720px;position:absolute;overflow:hidden;
+  background:radial-gradient(60% 45% at 50% 42%,#142040 0%,#0a0a10 55%,#05060a 100%);
+  transform-origin:center center;
+  left:50%;top:50%;transform:translate(-50%,-50%);
+  pointer-events:none;
+}
+.${ROOT_CLASS} .stage .menu,
+.${ROOT_CLASS} .stage .menu-backing,
+.${ROOT_CLASS} .stage .primary,
+.${ROOT_CLASS} .stage .secondary{pointer-events:auto}
+
+.${ROOT_CLASS} .grid{position:absolute;inset:0;
+  background-image:linear-gradient(rgba(174,234,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(174,234,255,.05) 1px,transparent 1px);
+  background-size:40px 40px;
+  -webkit-mask-image:radial-gradient(70% 60% at 50% 50%,#000 30%,transparent 95%);
+          mask-image:radial-gradient(70% 60% at 50% 50%,#000 30%,transparent 95%)}
+.${ROOT_CLASS} .vignette{position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(60% 55% at 50% 50%,transparent 0%,rgba(0,0,0,.55) 100%)}
+
+.${ROOT_CLASS} .bracket{position:absolute;width:22px;height:22px;border:1.5px solid #aeeaff;opacity:.5}
+.${ROOT_CLASS} .bracket.tl{top:14px;left:14px;border-right:none;border-bottom:none}
+.${ROOT_CLASS} .bracket.tr{top:14px;right:14px;border-left:none;border-bottom:none}
+.${ROOT_CLASS} .bracket.bl{bottom:14px;left:14px;border-right:none;border-top:none}
+.${ROOT_CLASS} .bracket.br{bottom:14px;right:14px;border-left:none;border-top:none}
+
+.${ROOT_CLASS} .tag{position:absolute;font-size:11px;letter-spacing:.28em;color:#aeeaff;opacity:.75;text-transform:uppercase;font-variant-numeric:tabular-nums}
+.${ROOT_CLASS} .tag b{color:#ff7a00}
+.${ROOT_CLASS} .tag .bar{display:inline-block;width:36px;height:2px;background:#ff7a00;vertical-align:middle;margin:0 6px}
+
+.${ROOT_CLASS} .mandala-wrap{position:absolute;left:50%;top:320px;transform:translate(-50%,-50%);width:560px;height:560px;pointer-events:none}
+.${ROOT_CLASS} .ring-outer,.${ROOT_CLASS} .ring-inner{position:absolute;inset:0}
+.${ROOT_CLASS} .ring-outer{animation: spinCW 28s linear infinite}
+.${ROOT_CLASS} .ring-inner{animation: spinCCW 42s linear infinite}
+@keyframes spinCW{to{transform:rotate(360deg)}}
+@keyframes spinCCW{to{transform:rotate(-360deg)}}
+
+.${ROOT_CLASS} .center-pulse{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:340px;height:340px;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,122,0,.35) 0%,rgba(255,122,0,.12) 45%,transparent 70%);
+  animation: breathe 1.6s ease-in-out infinite;
+  filter:blur(4px);
+}
+@keyframes breathe{
+  0%,100%{opacity:.43;transform:translate(-50%,-50%) scale(.95)}
+  50%    {opacity:1;  transform:translate(-50%,-50%) scale(1.05)}
+}
+
+.${ROOT_CLASS} .zodiac{position:absolute;inset:0;pointer-events:none}
+.${ROOT_CLASS} .zodiac .z{
+  position:absolute;left:50%;top:50%;
+  font-family:'Rajdhani',sans-serif;font-weight:400;font-size:11px;
+  letter-spacing:.32em;text-transform:uppercase;
+  color:#aeeaff;opacity:.25;white-space:nowrap;
+  transform:translate(-50%,-50%);
+}
+
+.${ROOT_CLASS} .center{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;z-index:3}
+.${ROOT_CLASS} .center .soul{
+  font-family:'Bebas Neue',sans-serif;font-size:112px;line-height:.88;
+  color:#fff;letter-spacing:.01em;
+  text-shadow:0 0 32px rgba(174,234,255,.15);margin:0;
+}
+.${ROOT_CLASS} .center .strike{
+  font-family:'Bebas Neue',sans-serif;font-size:112px;line-height:.88;
+  color:#ff7a00;letter-spacing:.01em;
+  text-shadow:0 0 36px rgba(255,122,0,.55), 0 2px 0 #000;margin:0;
+}
+
+.${ROOT_CLASS} .soul-dial{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:260px;height:260px;z-index:2;pointer-events:none}
+
+.${ROOT_CLASS} .menu{
+  position:absolute;left:50%;bottom:80px;transform:translateX(-50%);
+  display:flex;flex-direction:column;gap:12px;align-items:center;z-index:4;
+}
+.${ROOT_CLASS} .menu-backing{
+  position:absolute;left:50%;bottom:70px;transform:translateX(-50%);
+  width:600px;height:134px;
+  background:rgba(10,10,16,.7);
+  border:1px solid rgba(174,234,255,.12);
+  filter:drop-shadow(0 0 18px rgba(10,10,16,.55));
+  z-index:3;
+  clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px));
+}
+/* When the HARD lock-hint row is present, the menu's vertical content
+   grows by ~30px (hint line + extra gap). The backing height needs to
+   grow to match so the buttons don't poke out the top of the frame. */
+.${ROOT_CLASS} .menu-backing.has-hint{
+  height:170px;
+  bottom:60px;
+}
+.${ROOT_CLASS} .primary-row{display:flex;gap:10px}
+.${ROOT_CLASS} .menu .primary{
+  width:160px;height:56px;padding:0 18px;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  background:linear-gradient(90deg,rgba(255,122,0,.22),rgba(255,122,0,.04));
+  border:1px solid #ff7a00;border-left:3px solid #ff7a00;
+  filter:drop-shadow(0 0 10px rgba(255,122,0,.45));
+  clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px));
+  cursor:pointer;transition:all .15s ease;
+}
+.${ROOT_CLASS} .menu .primary:hover{background:linear-gradient(90deg,#ff7a00,rgba(255,122,0,.55));filter:drop-shadow(0 0 14px rgba(255,122,0,.7))}
+.${ROOT_CLASS} .menu .primary:hover .lbl{color:#0a0a10;text-shadow:none}
+.${ROOT_CLASS} .menu .primary .lbl{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:.12em;color:#fff;text-shadow:0 0 10px rgba(255,122,0,.55);transition:all .15s}
+.${ROOT_CLASS} .menu .primary.hard{
+  background:linear-gradient(90deg,rgba(255,68,68,.22),rgba(255,68,68,.04));
+  border:1px solid #ff4444;border-left:3px solid #ff4444;
+  filter:drop-shadow(0 0 10px rgba(255,68,68,.45));
+}
+.${ROOT_CLASS} .menu .primary.hard:hover{background:linear-gradient(90deg,#ff4444,rgba(255,68,68,.55));filter:drop-shadow(0 0 14px rgba(255,68,68,.7))}
+.${ROOT_CLASS} .menu .primary.hard .lbl{text-shadow:0 0 10px rgba(255,68,68,.55)}
+.${ROOT_CLASS} .menu .primary.locked{
+  background:linear-gradient(90deg,rgba(120,120,140,.18),rgba(60,60,80,.04));
+  border-color:#5a6075;border-left-color:#5a6075;
+  filter:drop-shadow(0 0 4px rgba(60,60,80,.3));
+  cursor:not-allowed;opacity:.55;
+}
+.${ROOT_CLASS} .menu .primary.locked:hover{
+  background:linear-gradient(90deg,rgba(120,120,140,.18),rgba(60,60,80,.04));
+  filter:drop-shadow(0 0 4px rgba(60,60,80,.3));
+}
+.${ROOT_CLASS} .menu .primary.locked:hover .lbl{color:#888da0;text-shadow:none}
+.${ROOT_CLASS} .menu .primary.locked .lbl{color:#888da0;text-shadow:none}
+.${ROOT_CLASS} .menu .primary .lock-icon{font-size:14px;line-height:1;color:#888da0}
+.${ROOT_CLASS} .menu .primary.sanctum{
+  background:linear-gradient(90deg,rgba(196,155,255,.22),rgba(196,155,255,.04));
+  border:1px solid #c49bff;border-left:3px solid #c49bff;
+  filter:drop-shadow(0 0 10px rgba(196,155,255,.45));
+}
+.${ROOT_CLASS} .menu .primary.sanctum:hover{background:linear-gradient(90deg,#c49bff,rgba(196,155,255,.55));filter:drop-shadow(0 0 14px rgba(196,155,255,.7))}
+.${ROOT_CLASS} .menu .primary.sanctum .lbl{text-shadow:0 0 10px rgba(196,155,255,.55)}
+.${ROOT_CLASS} .menu .lock-hint{
+  font-family:'Rajdhani',sans-serif;font-size:10px;letter-spacing:.18em;
+  color:rgba(255,217,74,.55);text-align:center;text-transform:uppercase;
+  font-style:italic;margin:2px 0 -2px;
+}
+
+.${ROOT_CLASS} .secondary-row{display:flex;gap:10px}
+.${ROOT_CLASS} .secondary{
+  width:180px;height:44px;padding:0 14px;
+  display:flex;align-items:center;justify-content:center;gap:12px;
+  background:linear-gradient(90deg,rgba(174,234,255,.18),rgba(174,234,255,.03));
+  border:1px solid rgba(174,234,255,.35);border-left:3px solid rgba(174,234,255,.6);
+  filter:drop-shadow(0 0 8px rgba(174,234,255,.2));
+  clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px));
+  cursor:pointer;transition:all .15s ease;
+}
+.${ROOT_CLASS} .secondary:hover{background:linear-gradient(90deg,#3a7fbf,#1f4d80);border-color:#5aaaff;filter:drop-shadow(0 0 12px rgba(90,170,255,.55))}
+.${ROOT_CLASS} .secondary:hover .lbl{color:#eaf6ff;text-shadow:0 0 10px rgba(174,234,255,.5)}
+.${ROOT_CLASS} .secondary .lbl{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:.1em;color:#cfd8e4;transition:color .15s}
+
+.${ROOT_CLASS} .secondary.sanctum{
+  background:linear-gradient(90deg,rgba(196,155,255,.22),rgba(196,155,255,.04));
+  border:1px solid #c49bff;border-left:3px solid #c49bff;
+  filter:drop-shadow(0 0 8px rgba(196,155,255,.28));
+}
+.${ROOT_CLASS} .secondary.sanctum:hover{background:linear-gradient(90deg,#c49bff,rgba(196,155,255,.55));border-color:#c49bff;filter:drop-shadow(0 0 12px rgba(196,155,255,.6))}
+.${ROOT_CLASS} .secondary.sanctum:hover .lbl{color:#0a0a10;text-shadow:none}
+.${ROOT_CLASS} .secondary.sanctum .lbl{color:#fff;text-shadow:0 0 10px rgba(196,155,255,.55)}
+
+.${ROOT_CLASS} .secondary.story{
+  background:linear-gradient(90deg,rgba(255,217,74,.20),rgba(255,217,74,.04));
+  border:1px solid #ffd94a;border-left:3px solid #ffd94a;
+  filter:drop-shadow(0 0 8px rgba(255,217,74,.28));
+}
+.${ROOT_CLASS} .secondary.story:hover{background:linear-gradient(90deg,#ffd94a,rgba(255,217,74,.55));border-color:#ffd94a;filter:drop-shadow(0 0 12px rgba(255,217,74,.6))}
+.${ROOT_CLASS} .secondary.story:hover .lbl{color:#0a0a10;text-shadow:none}
+.${ROOT_CLASS} .secondary.story .lbl{color:#fff;text-shadow:0 0 10px rgba(255,217,74,.55)}
+
+.${ROOT_CLASS} .pilot-title{
+  position:absolute;left:50%;top:116px;transform:translateX(-50%);z-index:4;
+  font-size:12px;letter-spacing:.32em;color:#ffd94a;opacity:.7;
+  text-align:center;font-weight:500;
+}
+
+.${ROOT_CLASS} .atman-quote{
+  position:absolute;left:0;right:0;bottom:72px;z-index:4;
+  text-align:center;pointer-events:none;
+}
+.${ROOT_CLASS} .atman-quote .q{
+  font-family:'Rajdhani',sans-serif;font-style:italic;font-weight:400;font-size:15px;
+  color:rgba(174,234,255,.45);line-height:1.35;
+  max-width:620px;margin:0 auto;
+  letter-spacing:.02em;
+}
+.${ROOT_CLASS} .atman-quote .attr{
+  margin-top:4px;font-family:'Rajdhani',sans-serif;font-style:italic;font-weight:400;font-size:12px;
+  color:rgba(174,234,255,.30);
+  max-width:620px;margin-left:auto;margin-right:auto;
+  padding-right:min(150px, 20%);
+  text-align:right;letter-spacing:.04em;
+}
+.${ROOT_CLASS} .atman-echo{
+  position:absolute;left:0;right:0;bottom:50px;z-index:4;
+  font-family:'Rajdhani',sans-serif;font-style:italic;font-weight:400;font-size:11px;
+  color:rgba(255,217,74,.34);letter-spacing:.16em;
+  max-width:620px;margin:0 auto;
+  text-align:center;pointer-events:none;
+}
+.${ROOT_CLASS}.visible .stage .atman-echo{animation:fadeIn 1.4s ease both 1.2s}
+
+.${ROOT_CLASS} .hud{
+  position:absolute;left:50%;transform:translateX(-50%);bottom:34px;z-index:4;
+  display:flex;gap:28px;align-items:baseline;
+  font-size:11px;letter-spacing:.22em;color:#8da0ba;text-transform:uppercase;font-variant-numeric:tabular-nums;
+}
+.${ROOT_CLASS} .hud b{color:#fff;font-size:14px;margin-left:6px;font-weight:600}
+.${ROOT_CLASS} .hud .gold b{color:#ffd94a}
+.${ROOT_CLASS} .hud .sep{opacity:.3;color:#aeeaff}
+
+.${ROOT_CLASS} .footer{position:absolute;left:40px;bottom:34px;font-size:10px;letter-spacing:.22em;color:#6a7687;z-index:4}
+.${ROOT_CLASS} .footer .kbd{padding:2px 7px;background:#0e1020;border:1px solid rgba(174,234,255,.3);color:#fff;margin:0 2px}
+.${ROOT_CLASS} .credits-link{
+  position:absolute;right:40px;bottom:34px;font-size:10px;letter-spacing:.22em;
+  color:#6a7687;z-index:5;pointer-events:auto;cursor:pointer;
+  background:none;border:none;padding:4px 8px;
+  font-family:inherit;text-transform:uppercase;
+  transition:color .15s ease;
+}
+.${ROOT_CLASS} .credits-link:hover{color:#aeeaff}
+
+.${ROOT_CLASS} .stage > *{animation-fill-mode:both}
+.${ROOT_CLASS}.visible .stage .center{animation:titleIn .7s cubic-bezier(.2,.9,.25,1.15) both}
+.${ROOT_CLASS}.visible .stage .menu{animation:fadeUp .5s ease both .5s}
+.${ROOT_CLASS}.visible .stage .menu-backing{animation:fadeUp .5s ease both .45s}
+.${ROOT_CLASS}.visible .stage .atman-quote{animation:fadeIn 1.2s ease both .8s}
+.${ROOT_CLASS}.visible .stage .hud{animation:fadeUp .5s ease both .9s}
+.${ROOT_CLASS}.visible .stage .pilot-title{animation:fadeIn .8s ease both .6s}
+@keyframes titleIn{from{opacity:0;transform:translate(-50%,-40%) scale(1.08)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+@keyframes fadeUp{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+`;
+
+function buildStageHtml(opts: TitleOverlayOptions): string {
+  const easyLabel = opts.easyLabel ?? 'EASY';
+  const hardLabel = opts.hardLabel ?? 'HARD';
+  const hardLocked = !!opts.hardLocked;
+  const lockedHint = opts.lockedHint ?? 'Clear Easy to unlock Hard';
+  const collection = opts.collectionLabel ?? 'COLLECTION';
+  const settings = opts.settingsLabel ?? 'SETTINGS';
+  const story = opts.storyLabel ?? 'STORY';
+  // ATMAN quote / echo decoration removed from Title — the option fields
+  // (atmanQuoteLine1, atmanQuoteLine2, atmanAttribution) on the public
+  // interface stay so callers don't break. They're simply ignored now.
+
+  const hud = opts.saveData && (opts.saveData.bestRound > 0 || opts.saveData.victories > 0)
+    ? `
+    <div class="hud">
+      <span>BEST ROUND <b>${String(opts.saveData.bestRound).padStart(2, '0')}</b></span>
+      <span class="sep">◆</span>
+      <span>VICTORIES <b>${opts.saveData.victories}</b></span>
+      <span class="sep">◆</span>
+      <span class="gold">SCRAP <b>${opts.saveData.scrap.toLocaleString()}</b></span>
+    </div>`
+    : '';
+
+  return `
+  <div class="stage" data-screen-label="01 Title">
+    <div class="grid"></div>
+    <div class="vignette"></div>
+
+    <div class="bracket tl"></div><div class="bracket tr"></div>
+    <div class="bracket bl"></div><div class="bracket br"></div>
+    <div class="tag" style="top:18px;left:22px"><b>MUDRA</b>-<b>001</b> / NEURAL UPLINK <span class="bar"></span> ACTIVE</div>
+    <div class="tag" style="top:18px;right:22px">GAMEDEV.JS JAM <b>2026</b> · THEME <span class="bar"></span> <b>MACHINES</b></div>
+
+    <div class="mandala-wrap">
+      <div class="center-pulse"></div>
+
+      <div class="ring-outer">
+        <svg width="560" height="560" viewBox="0 0 560 560" style="position:absolute;inset:0">
+          <defs>
+            <radialGradient id="tolCoreGlow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#ff7a00" stop-opacity="0.4"/>
+              <stop offset="50%" stop-color="#ff7a00" stop-opacity="0.1"/>
+              <stop offset="100%" stop-color="#ff7a00" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <circle cx="280" cy="280" r="180" fill="url(#tolCoreGlow)"/>
+          <circle cx="280" cy="280" r="260" fill="none" stroke="#aeeaff" stroke-width="1" stroke-opacity=".38"/>
+          <circle cx="280" cy="280" r="210" fill="none" stroke="#aeeaff" stroke-width="1" stroke-opacity=".22" stroke-dasharray="4 8"/>
+          <line x1="20" y1="280" x2="540" y2="280" stroke="#aeeaff" stroke-opacity="0.18" stroke-dasharray="2 8"/>
+          <line x1="280" y1="20" x2="280" y2="540" stroke="#aeeaff" stroke-opacity="0.18" stroke-dasharray="2 8"/>
+          <g class="notches"></g>
+        </svg>
+        <div class="zodiac"></div>
+      </div>
+
+      <div class="ring-inner">
+        <svg width="560" height="560" viewBox="0 0 560 560" style="position:absolute;inset:0">
+          <circle cx="280" cy="280" r="170" fill="none" stroke="#aeeaff" stroke-width="1.5" stroke-opacity=".55"/>
+          <circle cx="280" cy="280" r="120" fill="none" stroke="#aeeaff" stroke-width="1" stroke-opacity=".3" stroke-dasharray="2 6"/>
+        </svg>
+      </div>
+
+      <svg class="soul-dial" width="260" height="260" viewBox="0 0 260 260">
+        <circle cx="130" cy="130" r="108" fill="none" stroke="#0e1020" stroke-width="12"/>
+        <circle class="soul-dial-arc" cx="130" cy="130" r="108" fill="none" stroke="#ff7a00" stroke-width="12"
+          stroke-dasharray="0 678.584"
+          transform="rotate(-90 130 130)"
+          style="filter:drop-shadow(0 0 8px #ff7a00)"/>
+        <g class="dialTicks"></g>
+      </svg>
+
+      <div class="center">
+        <div class="soul">SOUL</div>
+        <div class="strike">STRIKE</div>
+      </div>
+    </div>
+
+    <div class="menu-backing${hardLocked ? ' has-hint' : ''}"></div>
+    <div class="menu">
+      <div class="primary-row">
+        <div class="primary hard${hardLocked ? ' locked' : ''}" data-role="play-hard" ${hardLocked ? 'aria-disabled="true"' : ''}>
+          ${hardLocked ? '<span class="lock-icon">🔒</span>' : ''}<span class="lbl">${escapeHtml(hardLabel)}</span>
+        </div>
+        <div class="primary easy" data-role="play-easy"><span class="lbl">${escapeHtml(easyLabel)}</span></div>
+        ${opts.onSanctum ? `<div class="primary sanctum" data-role="sanctum"><span class="lbl">${escapeHtml(opts.sanctumLabel ?? 'SANCTUM')}</span></div>` : ''}
+      </div>
+      ${hardLocked ? `<div class="lock-hint">${escapeHtml(lockedHint)}</div>` : ''}
+      <div class="secondary-row">
+        <div class="secondary" data-role="collection"><span class="lbl">${escapeHtml(collection)}</span></div>
+        <div class="secondary" data-role="settings"><span class="lbl">${escapeHtml(settings)}</span></div>
+        ${opts.onStory ? `<div class="secondary story" data-role="story"><span class="lbl">${escapeHtml(story)}</span></div>` : ''}
+      </div>
+    </div>
+
+    <!-- ATMAN quote and echo lines removed by design decision — kept the
+         saveData HUD (gameplay info) but stripped the philosophical
+         decoration so the menu can sit lower / breathe more. -->
+
+
+    ${hud}
+
+    <div class="footer">PRESS <span class="kbd">SPACE</span> / NAV <span class="kbd">MOUSE</span></div>
+    <button class="credits-link" data-role="credits">${escapeHtml(opts.creditsLabel ?? 'CREDITS')}</button>
+  </div>`;
+}
+
+function drawNotches(root: HTMLElement): void {
+  const NS = 'http://www.w3.org/2000/svg';
+  const g = root.querySelector('.notches');
+  if (!g) return;
+  const N = 48;
+  const cx = 280, cy = 280, r = 260;
+  for (let i = 0; i < N; i += 1) {
+    const major = i % 6 === 0;
+    const accent = i === 0 || i === 24;
+    const ang = (i / N) * 360 - 90;
+    const rad = (ang * Math.PI) / 180;
+    const len = major ? 18 : 10;
+    const w = major ? 2 : 1;
+    const x1 = cx + Math.cos(rad) * r;
+    const y1 = cy + Math.sin(rad) * r;
+    const x2 = cx + Math.cos(rad) * (r - len);
+    const y2 = cy + Math.sin(rad) * (r - len);
+    const line = document.createElementNS(NS, 'line');
+    line.setAttribute('x1', String(x1));
+    line.setAttribute('y1', String(y1));
+    line.setAttribute('x2', String(x2));
+    line.setAttribute('y2', String(y2));
+    line.setAttribute('stroke', accent ? '#ff7a00' : '#aeeaff');
+    line.setAttribute('stroke-width', String(w));
+    line.setAttribute('stroke-opacity', String(accent ? 0.9 : major ? 0.55 : 0.28));
+    g.appendChild(line);
+  }
+}
+
+function drawZodiac(root: HTMLElement): void {
+  const z = root.querySelector('.zodiac');
+  if (!z) return;
+  const cats = ['MODULE', 'IMPLANT', 'CHARGER', 'BOOSTER', 'SOUL'];
+  const R = 238;
+  const cx = 280, cy = 280;
+  cats.forEach((c, i) => {
+    const ang = (i / cats.length) * 360 - 54;
+    const rad = (ang * Math.PI) / 180;
+    const x = cx + Math.cos(rad) * R;
+    const y = cy + Math.sin(rad) * R;
+    const el = document.createElement('div');
+    el.className = 'z';
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    el.style.transform = `translate(-50%,-50%) rotate(${ang + 90}deg)`;
+    el.textContent = c;
+    z.appendChild(el);
+  });
+}
+
+function drawDialTicks(root: HTMLElement): void {
+  const NS = 'http://www.w3.org/2000/svg';
+  const g = root.querySelector('.dialTicks');
+  if (!g) return;
+  for (let i = 0; i < 20; i += 1) {
+    const line = document.createElementNS(NS, 'line');
+    line.setAttribute('x1', '130');
+    line.setAttribute('y1', '14');
+    line.setAttribute('x2', '130');
+    line.setAttribute('y2', '22');
+    line.setAttribute('stroke', '#aeeaff');
+    line.setAttribute('stroke-opacity', i % 5 === 0 ? '0.8' : '0.3');
+    line.setAttribute('stroke-width', i % 5 === 0 ? '1.5' : '1');
+    line.setAttribute('transform', `rotate(${i * 18} 130 130)`);
+    g.appendChild(line);
+  }
+}
+
+export function mountTitleOverlay(opts: TitleOverlayOptions): () => void {
+  ensureStyle(STYLE_ELEMENT_ID, CSS);
+  clearPriorRoots(ROOT_CLASS);
+
+  const root = document.createElement('div');
+  root.className = ROOT_CLASS;
+  root.innerHTML = buildStageHtml(opts);
+  document.body.appendChild(root);
+
+  drawNotches(root);
+  drawZodiac(root);
+  drawDialTicks(root);
+
+  const stage = root.querySelector('.stage') as HTMLElement;
+  const disposeFit = fitStageToCanvas(stage);
+
+  // Button wiring
+  const onClick = (
+    role: 'play-easy' | 'play-hard' | 'collection' | 'settings' | 'credits' | 'sanctum' | 'story',
+    handler: () => void,
+  ): void => {
+    const el = root.querySelector(`[data-role="${role}"]`) as HTMLElement | null;
+    if (!el) return;
+    el.addEventListener('click', () => handler());
+  };
+  onClick('play-easy', opts.onPlayEasy);
+  // Locked HARD swallows the click silently — the lock-hint underneath
+  // tells the player why nothing happened.
+  if (!opts.hardLocked) onClick('play-hard', opts.onPlayHard);
+  onClick('collection', opts.onCollection);
+  onClick('settings', opts.onSettings);
+  if (opts.onCredits) onClick('credits', opts.onCredits);
+  if (opts.onSanctum) onClick('sanctum', opts.onSanctum);
+  if (opts.onStory) onClick('story', opts.onStory);
+
+  // Fade in on next frame
+  requestAnimationFrame(() => root.classList.add('visible'));
+
+  // Drive the orange soul-dial arc as a 12-hour clock: the arc grows
+  // from 12 o'clock (top, via the existing -90deg rotation) clockwise
+  // so that at 3:00 it covers a quarter, at 6:00 half, and so on.
+  const arc = root.querySelector('.soul-dial-arc') as SVGElement | null;
+  const RADIUS = 108;
+  const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+  const updateClock = (): void => {
+    if (!arc) return;
+    const now = new Date();
+    const sec = (now.getHours() % 12) * 3600 + now.getMinutes() * 60 + now.getSeconds();
+    const frac = sec / (12 * 3600);
+    const dash = frac * CIRCUMFERENCE;
+    arc.setAttribute('stroke-dasharray', `${dash.toFixed(2)} ${(CIRCUMFERENCE - dash).toFixed(2)}`);
+  };
+  updateClock();
+  const clockTimer = window.setInterval(updateClock, 1000);
+
+  return wrapUnmount(root, () => {
+    disposeFit();
+    window.clearInterval(clockTimer);
+  });
+}

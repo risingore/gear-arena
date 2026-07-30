@@ -110,6 +110,7 @@ scripts/git-hooks/
 scripts/install-hooks.sh
 scripts/install-gitleaks.sh
 scripts/install-shellcheck.sh
+scripts/install-osv-scanner.sh
 scripts/ci-local.sh
 scripts/gen-cursorrules.sh
 scripts/test-precommit.sh
@@ -117,12 +118,14 @@ scripts/test-precommit-paths.sh
 scripts/test-block-secrets.py
 scripts/test-public-isolation.sh
 scripts/test-hook-robustness.sh
+scripts/test-auto-approve.sh
 docs/adr/0001-*.md
 docs/adr/0002-*.md
 docs/adr/0003-*.md
 docs/guides/cursor-claude-code-setup.md
 docs/guides/new-project-from-template.md
 docs/guides/nuxt-version-bumps.md
+docs/reference/auto-approve-hook.md
 docs/reference/commit-message-format.md
 docs/reference/kgi.md
 docs/reference/*-commands.md

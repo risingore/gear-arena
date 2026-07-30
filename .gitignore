@@ -94,6 +94,10 @@ tmp/
 *~
 *.log
 
+
+# --- Cloudflare Wrangler config (copy wrangler.toml.example → wrangler.toml) ---
+wrangler.toml
+
 # >>> managed: public-release isolation (local-only paths; block is overwritten by tooling) >>>
 .claude/
 CLAUDE.md*
@@ -112,16 +116,15 @@ scripts/test-precommit.sh
 scripts/test-precommit-paths.sh
 scripts/test-block-secrets.py
 scripts/test-public-isolation.sh
+scripts/test-hook-robustness.sh
 docs/adr/0001-*.md
 docs/adr/0002-*.md
 docs/adr/0003-*.md
 docs/guides/cursor-claude-code-setup.md
+docs/guides/new-project-from-template.md
 docs/guides/nuxt-version-bumps.md
 docs/reference/commit-message-format.md
 docs/reference/kgi.md
 docs/reference/*-commands.md
 docs/reference/project-review-checklist.md
 # <<< managed: public-release isolation <<<
-
-# --- Cloudflare Wrangler config (copy wrangler.toml.example → wrangler.toml) ---
-wrangler.toml

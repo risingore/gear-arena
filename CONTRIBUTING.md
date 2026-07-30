@@ -12,7 +12,7 @@
 
 - 大規模な機能追加 (事前に issue で議論してください)
 - スタイル変更のみの PR
-- 自動生成 PR (Dependabot を除く)
+- 自動生成 PR (Dependabot / Renovate を除く)
 
 ## 開発フロー
 

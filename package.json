@@ -14,7 +14,7 @@
     "deploy": "bun run build && node node_modules/wrangler/bin/wrangler.js deploy"
   },
   "dependencies": {
-    "phaser": "4.0.0"
+    "phaser": "4.2.1"
   },
   "devDependencies": {
     "playwright": "1.62.0",

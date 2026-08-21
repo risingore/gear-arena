@@ -49,8 +49,10 @@ export default defineConfig({
     target: 'es2020',
     rollupOptions: {
       output: {
-        manualChunks: {
-          phaser: ['phaser']
+        // Vite 8 bundles with Rolldown, where the Rollup-era object form of
+        // `manualChunks` is gone — chunk groups are declared via `advancedChunks`.
+        advancedChunks: {
+          groups: [{ name: 'phaser', test: /[\\/]node_modules[\\/]phaser[\\/]/ }]
         }
       }
     },

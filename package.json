@@ -21,7 +21,7 @@
     "puppeteer": "25.4.0",
     "terser": "5.49.0",
     "typescript": "7.0.2",
-    "vite": "8.2.1",
+    "vite": "8.2.2",
     "wrangler": "4.123.0"
   },
   "overrides": {

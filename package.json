@@ -19,7 +19,7 @@
   "devDependencies": {
     "playwright": "1.62.1",
     "puppeteer": "25.4.0",
-    "terser": "5.49.0",
+    "terser": "5.51.2",
     "typescript": "7.0.2",
     "vite": "8.2.1",
     "wrangler": "4.123.0"

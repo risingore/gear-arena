@@ -17,7 +17,7 @@
     "phaser": "4.2.1"
   },
   "devDependencies": {
-    "playwright": "1.62.1",
+    "playwright": "1.63.0",
     "puppeteer": "25.4.0",
     "terser": "5.49.0",
     "typescript": "7.0.2",
